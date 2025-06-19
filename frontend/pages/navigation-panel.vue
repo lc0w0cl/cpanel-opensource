@@ -602,14 +602,30 @@ onUnmounted(() => {
 
 /* 网格容器样式 */
 .nav-grid-container {
-  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  /* 移除原有的 transition，由具体属性控制 */
+  transition:
+    padding 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+    border-radius 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+    background 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+    backdrop-filter 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+    border-color 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* 默认状态 */
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: 2px solid transparent;
+  box-shadow: none;
 }
 
 /* 排序模式下的玻璃边框效果 */
 .nav-grid-container.sorting-mode {
   padding: 1.5rem;
   border-radius: 1.5rem;
-  position: relative;
 
   /* 玻璃边框效果 */
   background: linear-gradient(135deg,
@@ -627,29 +643,6 @@ onUnmounted(() => {
     0 4px 16px rgba(0, 0, 0, 0.1),
     inset 0 1px 0 rgba(255, 255, 255, 0.2),
     inset 0 -1px 0 rgba(0, 0, 0, 0.05);
-
-  /* 动画效果 */
-  animation: sortingModeActivate 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-/* 排序模式激活动画 */
-@keyframes sortingModeActivate {
-  from {
-    opacity: 0;
-    transform: scale(0.98);
-    border-color: transparent;
-    box-shadow: none;
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-    border-color: rgba(59, 130, 246, 0.3);
-    box-shadow:
-      0 8px 32px rgba(59, 130, 246, 0.15),
-      0 4px 16px rgba(0, 0, 0, 0.1),
-      inset 0 1px 0 rgba(255, 255, 255, 0.2),
-      inset 0 -1px 0 rgba(0, 0, 0, 0.05);
-  }
 }
 
 .nav-grid {
