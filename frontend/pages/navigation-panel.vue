@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { VueDraggable } from 'vue-draggable-plus'
+import NavigationItemDialog from '~/components/NavigationItemDialog.vue'
 
 definePageMeta({
   layout: 'dashboard'
@@ -42,11 +43,19 @@ const notification = ref({
   type: 'success' as 'success' | 'error' | 'info'
 })
 
-// 排序状态管理
-const sortingStates = ref<Record<string, boolean>>({})
+// 新增/编辑弹窗状态
+const itemDialog = ref({
+  visible: false,
+  mode: 'add' as 'add' | 'edit',
+  categoryId: '',
+  item: null as any
+})
 
-// 为每个分组创建可拖拽的数据列表
-const draggableItems = ref<Record<string, NavigationItem[]>>({})
+// 排序模式状态
+const sortMode = ref({
+  active: false,
+  categoryId: ''
+})
 
 // 分组信息数据（后续从网络获取）
 const categories = ref([
@@ -79,39 +88,22 @@ const getItemsByCategory = (categoryId: string) => {
   return navigationItems.value.filter(item => item.categoryId === categoryId)
 }
 
-// 初始化拖拽数据
-const initializeDraggableData = () => {
+// 为每个分组创建独立的响应式数组
+const categoryItems = ref<Record<string, NavigationItem[]>>({})
+
+// 初始化分组数据
+const initializeCategoryItems = () => {
   categories.value.forEach(category => {
-    draggableItems.value[category.id] = getItemsByCategory(category.id)
+    categoryItems.value[category.id] = navigationItems.value.filter(item => item.categoryId === category.id)
   })
 }
 
-// 切换排序模式
-const toggleSortMode = (categoryId: string) => {
-  sortingStates.value[categoryId] = !sortingStates.value[categoryId]
-
-  if (sortingStates.value[categoryId]) {
-    // 进入排序模式，初始化拖拽数据
-    draggableItems.value[categoryId] = [...getItemsByCategory(categoryId)]
-  } else {
-    // 退出排序模式，更新原始数据
-    const updatedItems = draggableItems.value[categoryId]
-    if (updatedItems) {
-      // 移除原有的该分组项目
-      navigationItems.value = navigationItems.value.filter(item => item.categoryId !== categoryId)
-      // 添加新排序的项目
-      navigationItems.value.push(...updatedItems)
-    }
-    console.log(`退出 ${categoryId} 的排序模式`)
-    // TODO: 调用API保存排序结果
+// 获取当前分组的可拖拽项目列表
+const getDraggableItems = (categoryId: string) => {
+  if (!categoryItems.value[categoryId]) {
+    categoryItems.value[categoryId] = navigationItems.value.filter(item => item.categoryId === categoryId)
   }
-}
-
-// 处理拖拽排序
-const handleDragEnd = (categoryId: string) => {
-  console.log(`${categoryId} 分组排序已更新`)
-  // 这里可以添加保存排序的逻辑
-  // TODO: 调用API保存排序结果
+  return categoryItems.value[categoryId]
 }
 
 // 根据分组ID获取分组名称
@@ -173,8 +165,8 @@ const initializeData = async () => {
     fetchCategories(),
     fetchNavigationItems()
   ])
-  // 初始化拖拽数据
-  initializeDraggableData()
+  // 初始化分组数据
+  initializeCategoryItems()
 }
 
 // 处理右键点击
@@ -243,9 +235,7 @@ const hideContextMenu = () => {
 const editItem = () => {
   const item = contextMenu.value.targetItem
   if (item) {
-    // 这里可以打开编辑对话框
-    console.log('编辑项目:', item)
-    alert(`编辑 ${item.name} 功能待实现`)
+    showEditItemDialog(item)
   }
   hideContextMenu()
 }
@@ -305,6 +295,75 @@ const deleteItem = () => {
   showDeleteConfirm()
 }
 
+// 显示新增导航项弹窗
+const showAddItemDialog = (categoryId: string) => {
+  itemDialog.value = {
+    visible: true,
+    mode: 'add',
+    categoryId: categoryId,
+    item: null
+  }
+}
+
+// 显示编辑导航项弹窗
+const showEditItemDialog = (item: any) => {
+  itemDialog.value = {
+    visible: true,
+    mode: 'edit',
+    categoryId: item.categoryId,
+    item: item
+  }
+}
+
+// 处理弹窗确认
+const handleDialogConfirm = (data: any) => {
+  if (itemDialog.value.mode === 'add') {
+    // 新增逻辑
+    console.log('新增导航项:', data)
+    showNotification(`已成功新增 "${data.name}"`, 'success')
+  } else {
+    // 编辑逻辑
+    console.log('编辑导航项:', data)
+    showNotification(`已成功编辑 "${data.name}"`, 'success')
+  }
+}
+
+// 开启排序模式
+const enableSortMode = (categoryId: string) => {
+  sortMode.value = {
+    active: true,
+    categoryId: categoryId
+  }
+  showNotification('已开启排序模式，可以拖拽调整顺序', 'info')
+}
+
+// 关闭排序模式
+const disableSortMode = () => {
+  sortMode.value = {
+    active: false,
+    categoryId: ''
+  }
+  showNotification('已退出排序模式', 'success')
+}
+
+// 处理拖拽排序
+const handleDragEnd = (categoryId: string) => {
+  console.log('排序完成，分组:', categoryId)
+  console.log('当前顺序:', categoryItems.value[categoryId])
+
+  // 同步更新主数据数组
+  const otherItems = navigationItems.value.filter(item => item.categoryId !== categoryId)
+  navigationItems.value = [...otherItems, ...categoryItems.value[categoryId]]
+
+  showNotification('排序已更新', 'success')
+  // 这里可以添加保存排序到后端的逻辑
+}
+
+// 检查是否为当前排序的分组
+const isSortingCategory = (categoryId: string) => {
+  return sortMode.value.active && sortMode.value.categoryId === categoryId
+}
+
 // 获取分类键名（保留以兼容旧代码）
 const getCategoryKey = (category: string) => {
   return category
@@ -314,6 +373,13 @@ const getCategoryKey = (category: string) => {
 const handleClickOutside = (event: MouseEvent) => {
   if (contextMenu.value.visible) {
     hideContextMenu()
+  }
+  // 如果点击的不是排序相关的元素，退出排序模式
+  if (sortMode.value.active) {
+    const target = event.target as HTMLElement
+    if (!target.closest('.nav-section') && !target.closest('.sort-btn')) {
+      disableSortMode()
+    }
   }
 }
 
@@ -340,27 +406,35 @@ onUnmounted(() => {
         >
           <div class="section-header">
             <h3 class="section-title">{{ category.name }}</h3>
-            <button
-              class="sort-button"
-              :class="{ 'sort-active': sortingStates[category.id] }"
-              @click="toggleSortMode(category.id)"
-              :title="sortingStates[category.id] ? '退出排序模式' : '开启排序模式'"
-            >
-              <svg class="sort-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                <path d="M3 6h18M7 12h10m-7 6h4"></path>
-              </svg>
-            </button>
+            <div class="section-actions">
+              <button
+                class="sort-btn"
+                :class="{ active: isSortingCategory(category.id) }"
+                @click="isSortingCategory(category.id) ? disableSortMode() : enableSortMode(category.id)"
+                :title="isSortingCategory(category.id) ? '退出排序' : '排序'"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <path d="M3 6h18M7 12h10m-7 6h4"></path>
+                </svg>
+              </button>
+              <button
+                class="add-item-btn"
+                @click="showAddItemDialog(category.id)"
+                title="新增导航项"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <line x1="12" y1="5" x2="12" y2="19"></line>
+                  <line x1="5" y1="12" x2="19" y2="12"></line>
+                </svg>
+              </button>
+            </div>
           </div>
-
-          <!-- 排序模式下的玻璃边框容器 -->
           <div
-            :class="[
-              'nav-grid-container',
-              { 'sorting-mode': sortingStates[category.id] }
-            ]"
+            class="nav-grid-container"
+            :class="{ 'sorting-mode': isSortingCategory(category.id) }"
           >
-            <!-- 非排序模式：普通网格 -->
-            <div v-if="!sortingStates[category.id]" class="nav-grid">
+            <!-- 非排序模式：普通显示 -->
+            <div v-if="!isSortingCategory(category.id)" class="nav-grid">
               <a
                 v-for="item in getItemsByCategory(category.id)"
                 :key="item.id"
@@ -376,21 +450,23 @@ onUnmounted(() => {
               </a>
             </div>
 
-            <!-- 排序模式：可拖拽网格 -->
+            <!-- 排序模式：可拖拽 -->
             <VueDraggable
               v-else
-              v-model="draggableItems[category.id]"
+              v-model="categoryItems[category.id]"
               class="nav-grid draggable-grid"
               :animation="200"
               ghost-class="ghost-item"
               chosen-class="chosen-item"
               drag-class="drag-item"
+              handle=".drag-handle"
               @end="handleDragEnd(category.id)"
             >
               <div
-                v-for="item in draggableItems[category.id] || []"
+                v-for="item in categoryItems[category.id]"
                 :key="item.id"
                 class="nav-item draggable-item"
+                :data-category="category.id"
               >
                 <div class="nav-icon">
                   <img :src="item.logo" :alt="item.name" class="icon-logo">
@@ -490,6 +566,15 @@ onUnmounted(() => {
           <span class="notification-message">{{ notification.message }}</span>
         </div>
       </div>
+
+      <!-- 新增/编辑弹窗 -->
+      <NavigationItemDialog
+        v-model:visible="itemDialog.visible"
+        :mode="itemDialog.mode"
+        :category-id="itemDialog.categoryId"
+        :item="itemDialog.item"
+        @confirm="handleDialogConfirm"
+      />
     </section>
   </NuxtLayout>
 </template>
@@ -517,7 +602,6 @@ onUnmounted(() => {
   margin-bottom: 3rem;
 }
 
-/* 分组标题区域 */
 .section-header {
   display: flex;
   align-items: center;
@@ -527,125 +611,128 @@ onUnmounted(() => {
   padding-right: 0.5rem;
 }
 
+.section-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
 .section-title {
   font-size: 1.4rem;
   font-weight: 600;
+  margin: 0;
   color: rgba(255, 255, 255, 0.9);
   text-align: left;
-  margin: 0;
 }
 
-/* 排序按钮样式 */
-.sort-button {
+.add-item-btn {
+  width: 2rem;
+  height: 2rem;
+  border: none;
+  border-radius: 0.5rem;
+  background: linear-gradient(135deg,
+    rgba(59, 130, 246, 0.2) 0%,
+    rgba(59, 130, 246, 0.1) 100%
+  );
+  color: rgba(59, 130, 246, 0.8);
+  cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 2.5rem;
-  height: 2.5rem;
-  border: none;
-  border-radius: 0.75rem;
-  cursor: pointer;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-
-  /* 默认状态 */
-  background: linear-gradient(135deg,
-    rgba(255, 255, 255, 0.1) 0%,
-    rgba(255, 255, 255, 0.05) 100%
-  );
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(59, 130, 246, 0.3);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
 }
 
-.sort-button:hover {
-  background: linear-gradient(135deg,
-    rgba(255, 255, 255, 0.15) 0%,
-    rgba(255, 255, 255, 0.08) 100%
-  );
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  transform: translateY(-1px) scale(1.05);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-}
-
-.sort-button.sort-active {
+.add-item-btn:hover {
   background: linear-gradient(135deg,
     rgba(59, 130, 246, 0.3) 0%,
-    rgba(59, 130, 246, 0.2) 100%
+    rgba(59, 130, 246, 0.15) 100%
   );
-  border: 1px solid rgba(59, 130, 246, 0.4);
-  box-shadow: 0 0 20px rgba(59, 130, 246, 0.3);
-}
-
-.sort-button.sort-active:hover {
-  background: linear-gradient(135deg,
-    rgba(59, 130, 246, 0.4) 0%,
-    rgba(59, 130, 246, 0.25) 100%
-  );
-  border: 1px solid rgba(59, 130, 246, 0.5);
-}
-
-.sort-icon {
-  width: 1.2rem;
-  height: 1.2rem;
-  stroke-width: 2;
-  color: rgba(255, 255, 255, 0.8);
-  transition: all 0.3s ease;
-}
-
-.sort-button:hover .sort-icon {
-  color: rgba(255, 255, 255, 0.95);
-}
-
-.sort-button.sort-active .sort-icon {
   color: rgba(59, 130, 246, 1);
+  transform: translateY(-1px) scale(1.05);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
 }
 
-/* 网格容器样式 */
+.add-item-btn svg {
+  width: 1rem;
+  height: 1rem;
+  stroke-width: 2.5;
+}
+
+.sort-btn {
+  width: 2rem;
+  height: 2rem;
+  border: none;
+  border-radius: 0.5rem;
+  background: linear-gradient(135deg,
+    rgba(168, 85, 247, 0.2) 0%,
+    rgba(168, 85, 247, 0.1) 100%
+  );
+  color: rgba(168, 85, 247, 0.8);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 1px solid rgba(168, 85, 247, 0.3);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.sort-btn:hover {
+  background: linear-gradient(135deg,
+    rgba(168, 85, 247, 0.3) 0%,
+    rgba(168, 85, 247, 0.15) 100%
+  );
+  color: rgba(168, 85, 247, 1);
+  transform: translateY(-1px) scale(1.05);
+  box-shadow: 0 4px 12px rgba(168, 85, 247, 0.3);
+}
+
+.sort-btn.active {
+  background: linear-gradient(135deg,
+    rgba(168, 85, 247, 0.4) 0%,
+    rgba(168, 85, 247, 0.2) 100%
+  );
+  color: rgba(168, 85, 247, 1);
+  box-shadow: 0 0 0 2px rgba(168, 85, 247, 0.4);
+}
+
+.sort-btn svg {
+  width: 1rem;
+  height: 1rem;
+  stroke-width: 2.5;
+}
+
 .nav-grid-container {
   position: relative;
-  /* 移除原有的 transition，由具体属性控制 */
-  transition:
-    padding 0.4s cubic-bezier(0.4, 0, 0.2, 1),
-    border-radius 0.4s cubic-bezier(0.4, 0, 0.2, 1),
-    background 0.4s cubic-bezier(0.4, 0, 0.2, 1),
-    backdrop-filter 0.4s cubic-bezier(0.4, 0, 0.2, 1),
-    border-color 0.4s cubic-bezier(0.4, 0, 0.2, 1),
-    box-shadow 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-
-  /* 默认状态 */
-  padding: 0;
-  border-radius: 0;
-  background: transparent;
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-  border: 2px solid transparent;
-  box-shadow: none;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* 排序模式下的玻璃边框效果 */
 .nav-grid-container.sorting-mode {
-  padding: 1.5rem;
-  border-radius: 1.5rem;
-
-  /* 玻璃边框效果 */
+  padding: 1rem;
+  border-radius: 1rem;
   background: linear-gradient(135deg,
-    rgba(255, 255, 255, 0.08) 0%,
-    rgba(255, 255, 255, 0.04) 50%,
-    rgba(255, 255, 255, 0.02) 100%
+    rgba(168, 85, 247, 0.1) 0%,
+    rgba(168, 85, 247, 0.05) 100%
   );
-  backdrop-filter: blur(20px) saturate(150%);
-  -webkit-backdrop-filter: blur(20px) saturate(150%);
-  border: 2px solid rgba(59, 130, 246, 0.3);
-
-  /* 阴影效果 */
+  border: 2px solid rgba(168, 85, 247, 0.3);
+  backdrop-filter: blur(15px);
+  -webkit-backdrop-filter: blur(15px);
   box-shadow:
-    0 8px 32px rgba(59, 130, 246, 0.15),
-    0 4px 16px rgba(0, 0, 0, 0.1),
-    inset 0 1px 0 rgba(255, 255, 255, 0.2),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.05);
+    0 8px 32px rgba(168, 85, 247, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
 .nav-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 1.5rem;
+}
+
+.draggable-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
   gap: 1.5rem;
@@ -732,86 +819,77 @@ onUnmounted(() => {
 
 /* 拖拽相关样式 */
 .draggable-item {
-  cursor: move;
   position: relative;
+  cursor: grab;
 }
 
-.draggable-item:hover {
-  cursor: move;
+.draggable-item:active {
+  cursor: grabbing;
 }
 
-.drag-handle {
+.draggable-item .drag-handle {
   position: absolute;
-  top: 50%;
+  top: 0.5rem;
   right: 0.5rem;
-  transform: translateY(-50%);
-  width: 1.2rem;
-  height: 1.2rem;
-  opacity: 0;
-  transition: all 0.3s ease;
-  pointer-events: none;
+  width: 1.5rem;
+  height: 1.5rem;
+  background: linear-gradient(135deg,
+    rgba(168, 85, 247, 0.3) 0%,
+    rgba(168, 85, 247, 0.15) 100%
+  );
+  border-radius: 0.375rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 1;
+  transition: all 0.2s ease;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(168, 85, 247, 0.4);
+  cursor: grab;
+  z-index: 10;
 }
 
-.draggable-item:hover .drag-handle {
-  opacity: 0.6;
+.draggable-item .drag-handle:hover {
+  background: linear-gradient(135deg,
+    rgba(168, 85, 247, 0.4) 0%,
+    rgba(168, 85, 247, 0.2) 100%
+  );
+  transform: scale(1.1);
+}
+
+.draggable-item .drag-handle:active {
+  cursor: grabbing;
 }
 
 .drag-handle svg {
-  width: 100%;
-  height: 100%;
+  width: 0.875rem;
+  height: 0.875rem;
+  color: rgba(168, 85, 247, 0.8);
   stroke-width: 2;
-  color: rgba(255, 255, 255, 0.7);
 }
 
 /* 拖拽状态样式 */
 .ghost-item {
   opacity: 0.5;
-  background: linear-gradient(135deg,
-    rgba(59, 130, 246, 0.2) 0%,
-    rgba(59, 130, 246, 0.1) 100%
-  );
-  border: 2px dashed rgba(59, 130, 246, 0.5) !important;
   transform: scale(0.95);
+  background: linear-gradient(135deg,
+    rgba(168, 85, 247, 0.2) 0%,
+    rgba(168, 85, 247, 0.1) 100%
+  );
+  border: 2px dashed rgba(168, 85, 247, 0.5);
 }
 
 .chosen-item {
   transform: scale(1.02);
+  box-shadow: 0 8px 25px rgba(168, 85, 247, 0.3);
   z-index: 1000;
-  box-shadow: 0 8px 25px rgba(59, 130, 246, 0.3) !important;
-  border: 2px solid rgba(59, 130, 246, 0.5) !important;
 }
 
 .drag-item {
   transform: rotate(5deg) scale(1.05);
+  box-shadow: 0 12px 30px rgba(168, 85, 247, 0.4);
   z-index: 1001;
-  opacity: 0.9;
-  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.3) !important;
-}
-
-/* 拖拽网格样式 */
-.draggable-grid {
-  min-height: 100px;
-}
-
-/* 排序模式下的导航项目样式调整 */
-.sorting-mode .nav-item {
-  border: 2px solid rgba(255, 255, 255, 0.1);
-  background: linear-gradient(135deg,
-    rgba(255, 255, 255, 0.05) 0%,
-    rgba(255, 255, 255, 0.02) 100%
-  );
-}
-
-.sorting-mode .nav-item:hover {
-  border: 2px solid rgba(59, 130, 246, 0.4);
-  background: linear-gradient(135deg,
-    rgba(59, 130, 246, 0.1) 0%,
-    rgba(59, 130, 246, 0.05) 100%
-  );
-  box-shadow:
-    0 8px 25px rgba(59, 130, 246, 0.2),
-    0 4px 10px rgba(0, 0, 0, 0.1),
-    inset 0 1px 0 rgba(255, 255, 255, 0.2);
 }
 
 /* 统一透明玻璃效果 - 移除了各网站特色颜色样式 */
