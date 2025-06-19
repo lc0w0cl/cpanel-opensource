@@ -335,7 +335,7 @@ const enableSortMode = (categoryId: string) => {
     active: true,
     categoryId: categoryId
   }
-  showNotification('已开启排序模式，可以拖拽调整顺序', 'info')
+  // showNotification('已开启排序模式，可以拖拽调整顺序', 'info')
 }
 
 // 关闭排序模式
@@ -344,7 +344,7 @@ const disableSortMode = () => {
     active: false,
     categoryId: ''
   }
-  showNotification('已退出排序模式', 'success')
+  // showNotification('已退出排序模式', 'success')
 }
 
 // 处理拖拽排序

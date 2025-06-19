@@ -123,6 +123,10 @@
 .nav-grid-container {
   position: relative;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 2px solid transparent;
+  border-radius: 1rem;
+  padding: 0;
+  background: transparent;
 }
 
 .nav-grid-container.sorting-mode {
