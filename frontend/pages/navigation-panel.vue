@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
+import { VueDraggable } from 'vue-draggable-plus'
 
 definePageMeta({
   layout: 'dashboard'
@@ -41,6 +42,12 @@ const notification = ref({
   type: 'success' as 'success' | 'error' | 'info'
 })
 
+// 排序状态管理
+const sortingStates = ref<Record<string, boolean>>({})
+
+// 为每个分组创建可拖拽的数据列表
+const draggableItems = ref<Record<string, NavigationItem[]>>({})
+
 // 分组信息数据（后续从网络获取）
 const categories = ref([
   { id: 'searchEngines', name: '搜索引擎', order: 1 },
@@ -70,6 +77,41 @@ const navigationItems = ref([
 // 根据分组ID获取导航项目
 const getItemsByCategory = (categoryId: string) => {
   return navigationItems.value.filter(item => item.categoryId === categoryId)
+}
+
+// 初始化拖拽数据
+const initializeDraggableData = () => {
+  categories.value.forEach(category => {
+    draggableItems.value[category.id] = getItemsByCategory(category.id)
+  })
+}
+
+// 切换排序模式
+const toggleSortMode = (categoryId: string) => {
+  sortingStates.value[categoryId] = !sortingStates.value[categoryId]
+
+  if (sortingStates.value[categoryId]) {
+    // 进入排序模式，初始化拖拽数据
+    draggableItems.value[categoryId] = [...getItemsByCategory(categoryId)]
+  } else {
+    // 退出排序模式，更新原始数据
+    const updatedItems = draggableItems.value[categoryId]
+    if (updatedItems) {
+      // 移除原有的该分组项目
+      navigationItems.value = navigationItems.value.filter(item => item.categoryId !== categoryId)
+      // 添加新排序的项目
+      navigationItems.value.push(...updatedItems)
+    }
+    console.log(`退出 ${categoryId} 的排序模式`)
+    // TODO: 调用API保存排序结果
+  }
+}
+
+// 处理拖拽排序
+const handleDragEnd = (categoryId: string) => {
+  console.log(`${categoryId} 分组排序已更新`)
+  // 这里可以添加保存排序的逻辑
+  // TODO: 调用API保存排序结果
 }
 
 // 根据分组ID获取分组名称
@@ -131,6 +173,8 @@ const initializeData = async () => {
     fetchCategories(),
     fetchNavigationItems()
   ])
+  // 初始化拖拽数据
+  initializeDraggableData()
 }
 
 // 处理右键点击
@@ -294,21 +338,76 @@ onUnmounted(() => {
           :key="category.id"
           class="nav-section"
         >
-          <h3 class="section-title">{{ category.name }}</h3>
-          <div class="nav-grid">
-            <a
-              v-for="item in getItemsByCategory(category.id)"
-              :key="item.id"
-              :href="item.url"
-              target="_blank"
-              class="nav-item"
-              @contextmenu="handleRightClick($event, item, category.id)"
+          <div class="section-header">
+            <h3 class="section-title">{{ category.name }}</h3>
+            <button
+              class="sort-button"
+              :class="{ 'sort-active': sortingStates[category.id] }"
+              @click="toggleSortMode(category.id)"
+              :title="sortingStates[category.id] ? '退出排序模式' : '开启排序模式'"
             >
-              <div class="nav-icon">
-                <img :src="item.logo" :alt="item.name" class="icon-logo">
+              <svg class="sort-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path d="M3 6h18M7 12h10m-7 6h4"></path>
+              </svg>
+            </button>
+          </div>
+
+          <!-- 排序模式下的玻璃边框容器 -->
+          <div
+            :class="[
+              'nav-grid-container',
+              { 'sorting-mode': sortingStates[category.id] }
+            ]"
+          >
+            <!-- 非排序模式：普通网格 -->
+            <div v-if="!sortingStates[category.id]" class="nav-grid">
+              <a
+                v-for="item in getItemsByCategory(category.id)"
+                :key="item.id"
+                :href="item.url"
+                target="_blank"
+                class="nav-item"
+                @contextmenu="handleRightClick($event, item, category.id)"
+              >
+                <div class="nav-icon">
+                  <img :src="item.logo" :alt="item.name" class="icon-logo">
+                </div>
+                <span class="nav-label">{{ item.name }}</span>
+              </a>
+            </div>
+
+            <!-- 排序模式：可拖拽网格 -->
+            <VueDraggable
+              v-else
+              v-model="draggableItems[category.id]"
+              class="nav-grid draggable-grid"
+              :animation="200"
+              ghost-class="ghost-item"
+              chosen-class="chosen-item"
+              drag-class="drag-item"
+              @end="handleDragEnd(category.id)"
+            >
+              <div
+                v-for="item in draggableItems[category.id] || []"
+                :key="item.id"
+                class="nav-item draggable-item"
+              >
+                <div class="nav-icon">
+                  <img :src="item.logo" :alt="item.name" class="icon-logo">
+                </div>
+                <span class="nav-label">{{ item.name }}</span>
+                <div class="drag-handle">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <circle cx="9" cy="12" r="1"></circle>
+                    <circle cx="9" cy="5" r="1"></circle>
+                    <circle cx="9" cy="19" r="1"></circle>
+                    <circle cx="15" cy="12" r="1"></circle>
+                    <circle cx="15" cy="5" r="1"></circle>
+                    <circle cx="15" cy="19" r="1"></circle>
+                  </svg>
+                </div>
               </div>
-              <span class="nav-label">{{ item.name }}</span>
-            </a>
+            </VueDraggable>
           </div>
         </div>
       </div>
@@ -418,13 +517,139 @@ onUnmounted(() => {
   margin-bottom: 3rem;
 }
 
+/* 分组标题区域 */
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.5rem;
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
+}
+
 .section-title {
   font-size: 1.4rem;
   font-weight: 600;
-  margin-bottom: 1.5rem;
   color: rgba(255, 255, 255, 0.9);
   text-align: left;
-  padding-left: 0.5rem;
+  margin: 0;
+}
+
+/* 排序按钮样式 */
+.sort-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border: none;
+  border-radius: 0.75rem;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* 默认状态 */
+  background: linear-gradient(135deg,
+    rgba(255, 255, 255, 0.1) 0%,
+    rgba(255, 255, 255, 0.05) 100%
+  );
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.sort-button:hover {
+  background: linear-gradient(135deg,
+    rgba(255, 255, 255, 0.15) 0%,
+    rgba(255, 255, 255, 0.08) 100%
+  );
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  transform: translateY(-1px) scale(1.05);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.sort-button.sort-active {
+  background: linear-gradient(135deg,
+    rgba(59, 130, 246, 0.3) 0%,
+    rgba(59, 130, 246, 0.2) 100%
+  );
+  border: 1px solid rgba(59, 130, 246, 0.4);
+  box-shadow: 0 0 20px rgba(59, 130, 246, 0.3);
+}
+
+.sort-button.sort-active:hover {
+  background: linear-gradient(135deg,
+    rgba(59, 130, 246, 0.4) 0%,
+    rgba(59, 130, 246, 0.25) 100%
+  );
+  border: 1px solid rgba(59, 130, 246, 0.5);
+}
+
+.sort-icon {
+  width: 1.2rem;
+  height: 1.2rem;
+  stroke-width: 2;
+  color: rgba(255, 255, 255, 0.8);
+  transition: all 0.3s ease;
+}
+
+.sort-button:hover .sort-icon {
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.sort-button.sort-active .sort-icon {
+  color: rgba(59, 130, 246, 1);
+}
+
+/* 网格容器样式 */
+.nav-grid-container {
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* 排序模式下的玻璃边框效果 */
+.nav-grid-container.sorting-mode {
+  padding: 1.5rem;
+  border-radius: 1.5rem;
+  position: relative;
+
+  /* 玻璃边框效果 */
+  background: linear-gradient(135deg,
+    rgba(255, 255, 255, 0.08) 0%,
+    rgba(255, 255, 255, 0.04) 50%,
+    rgba(255, 255, 255, 0.02) 100%
+  );
+  backdrop-filter: blur(20px) saturate(150%);
+  -webkit-backdrop-filter: blur(20px) saturate(150%);
+  border: 2px solid rgba(59, 130, 246, 0.3);
+
+  /* 阴影效果 */
+  box-shadow:
+    0 8px 32px rgba(59, 130, 246, 0.15),
+    0 4px 16px rgba(0, 0, 0, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.05);
+
+  /* 动画效果 */
+  animation: sortingModeActivate 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* 排序模式激活动画 */
+@keyframes sortingModeActivate {
+  from {
+    opacity: 0;
+    transform: scale(0.98);
+    border-color: transparent;
+    box-shadow: none;
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+    border-color: rgba(59, 130, 246, 0.3);
+    box-shadow:
+      0 8px 32px rgba(59, 130, 246, 0.15),
+      0 4px 16px rgba(0, 0, 0, 0.1),
+      inset 0 1px 0 rgba(255, 255, 255, 0.2),
+      inset 0 -1px 0 rgba(0, 0, 0, 0.05);
+  }
 }
 
 .nav-grid {
@@ -510,6 +735,90 @@ onUnmounted(() => {
 
 .nav-item:hover .nav-label {
   transform: translateX(2px);
+}
+
+/* 拖拽相关样式 */
+.draggable-item {
+  cursor: move;
+  position: relative;
+}
+
+.draggable-item:hover {
+  cursor: move;
+}
+
+.drag-handle {
+  position: absolute;
+  top: 50%;
+  right: 0.5rem;
+  transform: translateY(-50%);
+  width: 1.2rem;
+  height: 1.2rem;
+  opacity: 0;
+  transition: all 0.3s ease;
+  pointer-events: none;
+}
+
+.draggable-item:hover .drag-handle {
+  opacity: 0.6;
+}
+
+.drag-handle svg {
+  width: 100%;
+  height: 100%;
+  stroke-width: 2;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+/* 拖拽状态样式 */
+.ghost-item {
+  opacity: 0.5;
+  background: linear-gradient(135deg,
+    rgba(59, 130, 246, 0.2) 0%,
+    rgba(59, 130, 246, 0.1) 100%
+  );
+  border: 2px dashed rgba(59, 130, 246, 0.5) !important;
+  transform: scale(0.95);
+}
+
+.chosen-item {
+  transform: scale(1.02);
+  z-index: 1000;
+  box-shadow: 0 8px 25px rgba(59, 130, 246, 0.3) !important;
+  border: 2px solid rgba(59, 130, 246, 0.5) !important;
+}
+
+.drag-item {
+  transform: rotate(5deg) scale(1.05);
+  z-index: 1001;
+  opacity: 0.9;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* 拖拽网格样式 */
+.draggable-grid {
+  min-height: 100px;
+}
+
+/* 排序模式下的导航项目样式调整 */
+.sorting-mode .nav-item {
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  background: linear-gradient(135deg,
+    rgba(255, 255, 255, 0.05) 0%,
+    rgba(255, 255, 255, 0.02) 100%
+  );
+}
+
+.sorting-mode .nav-item:hover {
+  border: 2px solid rgba(59, 130, 246, 0.4);
+  background: linear-gradient(135deg,
+    rgba(59, 130, 246, 0.1) 0%,
+    rgba(59, 130, 246, 0.05) 100%
+  );
+  box-shadow:
+    0 8px 25px rgba(59, 130, 246, 0.2),
+    0 4px 10px rgba(0, 0, 0, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
 }
 
 /* 统一透明玻璃效果 - 移除了各网站特色颜色样式 */
