@@ -11,7 +11,7 @@
     <groupId>com.clover</groupId>
     <artifactId>cpanel</artifactId>
     <version>0.0.1-SNAPSHOT</version>
-    <name>backend</name>
+    <name>cpanel</name>
     <description>backend</description>
     <url/>
     <licenses>
