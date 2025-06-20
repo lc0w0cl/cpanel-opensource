@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { VueDraggable } from 'vue-draggable-plus'
 import NavigationItemDialog from '~/components/NavigationItemDialog.vue'
 import './navigation-panel.css'
@@ -59,6 +59,10 @@ const sortMode = ref({
   active: false,
   categoryId: ''
 })
+
+// 搜索功能状态
+const searchQuery = ref('')
+const searchInputRef = ref<HTMLInputElement>()
 
 // 分组信息数据（后续从网络获取）
 const categories = ref([
@@ -141,7 +145,56 @@ const navigationItems = ref([
 
 // 根据分组ID获取导航项目
 const getItemsByCategory = (categoryId: string) => {
-  return navigationItems.value.filter(item => item.categoryId === categoryId)
+  const items = navigationItems.value.filter(item => item.categoryId === categoryId)
+
+  // 如果有搜索关键词，进行过滤
+  if (searchQuery.value.trim()) {
+    return filterItemsBySearch(items)
+  }
+
+  return items
+}
+
+// 搜索过滤函数
+const filterItemsBySearch = (items: NavigationItem[]) => {
+  const query = searchQuery.value.trim().toLowerCase()
+  if (!query) return items
+
+  return items.filter(item =>
+    item.name.toLowerCase().includes(query) ||
+    (item.description && item.description.toLowerCase().includes(query)) ||
+    item.url.toLowerCase().includes(query) ||
+    (item.internalUrl && item.internalUrl.toLowerCase().includes(query))
+  )
+}
+
+// 获取所有搜索匹配的项目（跨分组）
+const getAllSearchResults = () => {
+  if (!searchQuery.value.trim()) return []
+
+  return filterItemsBySearch(navigationItems.value)
+}
+
+// 检查是否有搜索结果
+const hasSearchResults = computed(() => {
+  if (!searchQuery.value.trim()) return true
+  return getAllSearchResults().length > 0
+})
+
+// 清除搜索
+const clearSearch = () => {
+  searchQuery.value = ''
+  // 清除搜索后重新聚焦搜索框
+  focusSearchInput()
+}
+
+// 处理键盘事件
+const handleKeydown = (event: KeyboardEvent) => {
+  // 按下 Escape 键清除搜索
+  if (event.key === 'Escape' && searchQuery.value) {
+    clearSearch()
+    event.preventDefault()
+  }
 }
 
 // 为每个分组创建独立的响应式数组
@@ -480,14 +533,29 @@ const handleClickOutside = (event: MouseEvent) => {
   }
 }
 
+// 自动聚焦搜索框
+const focusSearchInput = () => {
+  // 使用 nextTick 确保 DOM 已经渲染完成
+  nextTick(() => {
+    if (searchInputRef.value) {
+      searchInputRef.value.focus()
+    }
+  })
+}
+
 // 生命周期
 onMounted(async () => {
   document.addEventListener('click', handleClickOutside)
+  document.addEventListener('keydown', handleKeydown)
   await initializeData()
+
+  // 页面加载完成后自动聚焦搜索框
+  focusSearchInput()
 })
 
 onUnmounted(() => {
   document.removeEventListener('click', handleClickOutside)
+  document.removeEventListener('keydown', handleKeydown)
 })
 </script>
 
@@ -495,8 +563,86 @@ onUnmounted(() => {
   <NuxtLayout>
     <section class="navigation-panel">
       <div class="navigation-content">
+        <!-- 搜索过滤区域 -->
+        <div class="search-section">
+          <div class="search-container">
+            <div class="search-input-wrapper">
+              <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <circle cx="11" cy="11" r="8"></circle>
+                <path d="m21 21-4.35-4.35"></path>
+              </svg>
+              <input
+                ref="searchInputRef"
+                v-model="searchQuery"
+                type="text"
+                class="search-input"
+                placeholder="搜索导航项目..."
+                @keydown="handleKeydown"
+              />
+              <button
+                v-if="searchQuery"
+                class="clear-search-btn"
+                @click="clearSearch"
+                title="清除搜索"
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <line x1="18" y1="6" x2="6" y2="18"></line>
+                  <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 搜索结果显示 -->
+        <div v-if="searchQuery.trim() && hasSearchResults" class="search-results-section">
+          <div class="search-results-header">
+            <h3 class="search-results-title">
+              搜索结果 ({{ getAllSearchResults().length }} 项)
+            </h3>
+          </div>
+          <div class="nav-grid">
+            <a
+              v-for="item in getAllSearchResults()"
+              :key="item.id"
+              :href="item.url"
+              target="_blank"
+              class="nav-item"
+              @contextmenu="handleRightClick($event, item, item.categoryId)"
+            >
+              <div class="nav-icon">
+                <img :src="item.logo" :alt="item.name" class="icon-logo">
+              </div>
+              <div class="nav-content">
+                <span class="nav-label">{{ item.name }}</span>
+                <span v-if="item.description" class="nav-description">{{ item.description }}</span>
+                <span class="nav-category">{{ getCategoryName(item.categoryId) }}</span>
+              </div>
+            </a>
+          </div>
+        </div>
+
+        <!-- 无搜索结果提示 -->
+        <div v-else-if="searchQuery.trim() && !hasSearchResults" class="no-results-section">
+          <div class="no-results-content">
+            <svg class="no-results-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <circle cx="11" cy="11" r="8"></circle>
+              <path d="m21 21-4.35-4.35"></path>
+              <line x1="11" y1="8" x2="11" y2="12"></line>
+              <line x1="11" y1="16" x2="11.01" y2="16"></line>
+            </svg>
+            <h3 class="no-results-title">未找到匹配的导航项</h3>
+            <p class="no-results-description">
+              尝试使用不同的关键词，或者
+              <button class="clear-search-link" @click="clearSearch">清除搜索</button>
+              查看所有项目
+            </p>
+          </div>
+        </div>
+
         <!-- 动态渲染分组 -->
         <div
+          v-if="!searchQuery.trim()"
           v-for="category in categories"
           :key="category.id"
           class="nav-section"
