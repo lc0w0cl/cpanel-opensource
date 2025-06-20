@@ -21,6 +21,8 @@ interface NavigationItem {
   url: string
   logo: string
   categoryId: string
+  description?: string
+  internalUrl?: string
 }
 
 // 右键菜单状态
@@ -68,13 +70,66 @@ const categories = ref([
 // 导航数据（后续从网络获取，每个项目都包含categoryId）
 const navigationItems = ref([
   // 搜索引擎分组
-  { id: 'Bitwarden', name: 'Bitwarden', url: 'https://www.baidu.com', logo: '/logo/bitwarden-logo.svg', categoryId: 'searchEngines' },
-  { id: 'google', name: 'Cloudflare', url: 'https://www.google.com', logo: '/logo/cloudflare.svg', categoryId: 'searchEngines' },
-  { id: 'bing', name: 'DDNS', url: 'https://www.bing.com', logo: '/logo/ddns.svg', categoryId: 'searchEngines' },
-  { id: 'bing', name: 'DeepSeek', url: 'https://www.bing.com', logo: '/logo/deepseek.svg', categoryId: 'searchEngines' },
-  { id: '123', name: 'DNSPod', url: 'https://www.bing.com', logo: '/logo/DNSPod.svg', categoryId: 'searchEngines' },
-  { id: '121', name: 'Docker', url: 'https://www.bing.com', logo: '/logo/docker-official.svg', categoryId: 'searchEngines' },
-  { id: '134', name: 'Yacd', url: 'https://www.bing.com', logo: '/logo/yacd-128.png', categoryId: 'searchEngines' },
+  {
+    id: 'Bitwarden',
+    name: 'Bitwarden',
+    url: 'https://vault.bitwarden.com',
+    logo: '/logo/bitwarden-logo.svg',
+    categoryId: 'searchEngines',
+    description: '密码管理器',
+    internalUrl: 'http://192.168.1.100:8080'
+  },
+  {
+    id: 'google',
+    name: 'Cloudflare',
+    url: 'https://dash.cloudflare.com',
+    logo: '/logo/cloudflare.svg',
+    categoryId: 'searchEngines',
+    description: 'CDN和DNS服务'
+  },
+  {
+    id: 'bing',
+    name: 'DDNS',
+    url: 'https://ddns.example.com',
+    logo: '/logo/ddns.svg',
+    categoryId: 'searchEngines',
+    description: '动态DNS服务',
+    internalUrl: 'http://192.168.1.101:3000'
+  },
+  {
+    id: 'deepseek',
+    name: 'DeepSeek',
+    url: 'https://chat.deepseek.com',
+    logo: '/logo/deepseek.svg',
+    categoryId: 'searchEngines',
+    description: 'AI对话助手'
+  },
+  {
+    id: 'dnspod',
+    name: 'DNSPod',
+    url: 'https://console.dnspod.cn',
+    logo: '/logo/DNSPod.svg',
+    categoryId: 'searchEngines',
+    description: 'DNS解析服务'
+  },
+  {
+    id: 'docker',
+    name: 'Docker',
+    url: 'https://hub.docker.com',
+    logo: '/logo/docker-official.svg',
+    categoryId: 'searchEngines',
+    description: '容器镜像仓库',
+    internalUrl: 'http://192.168.1.102:9000'
+  },
+  {
+    id: 'yacd',
+    name: 'Yacd',
+    url: 'http://yacd.haishan.me',
+    logo: '/logo/yacd-128.png',
+    categoryId: 'searchEngines',
+    description: 'Clash代理面板',
+    internalUrl: 'http://192.168.1.103:9090/ui'
+  },
 
 
   // 电商购物分组
@@ -320,12 +375,53 @@ const showEditItemDialog = (item: any) => {
 const handleDialogConfirm = (data: any) => {
   if (itemDialog.value.mode === 'add') {
     // 新增逻辑
-    console.log('新增导航项:', data)
+    const newItem: NavigationItem = {
+      id: Date.now().toString(), // 临时ID，实际应该由后端生成
+      name: data.name,
+      url: data.url,
+      logo: data.logo,
+      categoryId: data.categoryId,
+      description: data.description,
+      internalUrl: data.internalUrl
+    }
+
+    // 添加到本地数据
+    navigationItems.value.push(newItem)
+
+    // 更新分组数据
+    if (!categoryItems.value[data.categoryId]) {
+      categoryItems.value[data.categoryId] = []
+    }
+    categoryItems.value[data.categoryId].push(newItem)
+
+    console.log('新增导航项:', newItem)
     showNotification(`已成功新增 "${data.name}"`, 'success')
   } else {
     // 编辑逻辑
-    console.log('编辑导航项:', data)
-    showNotification(`已成功编辑 "${data.name}"`, 'success')
+    const index = navigationItems.value.findIndex(item => item.id === itemDialog.value.item?.id)
+    if (index !== -1) {
+      // 更新主数据
+      navigationItems.value[index] = {
+        ...navigationItems.value[index],
+        name: data.name,
+        url: data.url,
+        logo: data.logo,
+        description: data.description,
+        internalUrl: data.internalUrl
+      }
+
+      // 更新分组数据
+      const categoryId = navigationItems.value[index].categoryId
+      const categoryIndex = categoryItems.value[categoryId]?.findIndex(item => item.id === itemDialog.value.item?.id)
+      if (categoryIndex !== -1) {
+        categoryItems.value[categoryId][categoryIndex] = navigationItems.value[index]
+      }
+
+      console.log('编辑导航项:', navigationItems.value[index])
+      showNotification(`已成功编辑 "${data.name}"`, 'success')
+    } else {
+      showNotification('编辑失败：未找到对应项目', 'error')
+    }
   }
 }
 
@@ -447,7 +543,10 @@ onUnmounted(() => {
                 <div class="nav-icon">
                   <img :src="item.logo" :alt="item.name" class="icon-logo">
                 </div>
-                <span class="nav-label">{{ item.name }}</span>
+                <div class="nav-content">
+                  <span class="nav-label">{{ item.name }}</span>
+                  <span v-if="item.description" class="nav-description">{{ item.description }}</span>
+                </div>
               </a>
             </div>
 
@@ -472,7 +571,10 @@ onUnmounted(() => {
                 <div class="nav-icon">
                   <img :src="item.logo" :alt="item.name" class="icon-logo">
                 </div>
-                <span class="nav-label">{{ item.name }}</span>
+                <div class="nav-content">
+                  <span class="nav-label">{{ item.name }}</span>
+                  <span v-if="item.description" class="nav-description">{{ item.description }}</span>
+                </div>
                 <div class="drag-handle">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
                     <circle cx="9" cy="12" r="1"></circle>
