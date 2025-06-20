@@ -360,8 +360,11 @@ const handleOverlayClick = (event: MouseEvent) => {
   min-width: 600px;
   max-width: 800px;
   width: 90vw;
+  max-height: 90vh;
   border-radius: 1rem;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
 
   /* 液态玻璃效果 */
   background: linear-gradient(135deg,
@@ -389,6 +392,7 @@ const handleOverlayClick = (event: MouseEvent) => {
   justify-content: space-between;
   padding: 1.5rem 1.5rem 1rem;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  flex-shrink: 0;
 }
 
 .dialog-title {
@@ -425,6 +429,9 @@ const handleOverlayClick = (event: MouseEvent) => {
 
 .dialog-content {
   padding: 1.5rem;
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .form-group {
@@ -701,6 +708,12 @@ const handleOverlayClick = (event: MouseEvent) => {
   gap: 0.75rem;
   padding: 0 1.5rem 1.5rem;
   justify-content: flex-end;
+  flex-shrink: 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  background: linear-gradient(135deg,
+    rgba(255, 255, 255, 0.08) 0%,
+    rgba(255, 255, 255, 0.04) 100%
+  );
 }
 
 .btn-cancel,
