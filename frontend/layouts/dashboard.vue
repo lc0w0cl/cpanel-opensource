@@ -2,34 +2,26 @@
   import { Motion } from "motion-v";
 </script>
 <template>
-  <div class="dashboard-layout" style="background-image: url('/background/机甲.png'); background-size: cover; background-position: center; min-height: 100vh;">
-    <div class="layout-container">
-      <Sidebar class="sidebar-component" />
+  <div class="layout-container" style="background-image: url('/background/机甲.png'); background-size: cover; background-position: center; min-height: 100vh;">
+    <Sidebar class="sidebar-component" />
 
-
-      <div class="content-container">
-        <div class="content-glass-panel">
-          <GlowBorder
-              :color="['#A07CFE', '#FE8FB5', '#FFBE7B']"
-              :border-radius="10"
-          />
-          <slot /> <!-- 渲染页面内容 -->
-        </div>
+    <div class="content-container">
+      <div class="content-glass-panel">
+        <GlowBorder
+            :color="['#A07CFE', '#FE8FB5', '#FFBE7B']"
+            :border-radius="10"
+        />
+        <slot /> <!-- 渲染页面内容 -->
       </div>
     </div>
   </div>
 </template>
 
 <style scoped>
-.dashboard-layout {
-  position: relative;
-  width: 100%;
-  min-height: 100vh;
-}
-
 .layout-container {
+  position: relative;
   display: flex;
-  width: 90%;
+  width: 100%;
   min-height: 100vh;
 }
 
