@@ -167,21 +167,6 @@
 }
 
 
-
-/* 悬停效果 */
-.content-glass-panel:hover {
-  background: linear-gradient(135deg,
-    rgba(255, 255, 255, 0.08) 0%,
-    rgba(255, 255, 255, 0.04) 50%,
-    rgba(255, 255, 255, 0.03) 100%
-  );
-  box-shadow:
-    0 6px 24px rgba(0, 0, 0, 0.08),
-    0 2px 8px rgba(0, 0, 0, 0.06),
-    inset 0 1px 0 rgba(255, 255, 255, 0.12),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.05);
-}
-
 /* 响应式布局 */
 @media (max-width: 768px) {
   .layout-container {
