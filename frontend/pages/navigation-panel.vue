@@ -10,19 +10,32 @@ definePageMeta({
 
 // 类型定义
 interface Category {
-  id: string
+  id: number
   name: string
   order: number
+  createdAt?: string
+  updatedAt?: string
 }
 
 interface NavigationItem {
-  id: string
+  id: number
   name: string
   url: string
   logo: string
-  categoryId: string
+  categoryId: number
   description?: string
   internalUrl?: string
+  sortOrder?: number
+  createdAt?: string
+  updatedAt?: string
+}
+
+// API响应类型
+interface ApiResponse<T> {
+  code: number
+  message: string
+  data: T
+  success: boolean
 }
 
 // 右键菜单状态
@@ -67,87 +80,127 @@ const searchInputRef = ref<HTMLInputElement>()
 // 内外网切换状态
 const isInternalNetwork = ref(false)
 
-// 分组信息数据（后续从网络获取）
-const categories = ref([
-  { id: 'searchEngines', name: '搜索引擎', order: 1 },
-  { id: 'ecommerce', name: '电商购物', order: 2 },
+// API配置
+const API_BASE_URL = 'http://localhost:8080/api'
 
-])
-
-// 导航数据（后续从网络获取，每个项目都包含categoryId）
-const navigationItems = ref([
-  // 搜索引擎分组
-  {
-    id: 'Bitwarden',
-    name: 'Bitwarden',
-    url: 'https://vault.bitwarden.com',
-    logo: '/logo/bitwarden-logo.svg',
-    categoryId: 'searchEngines',
-    description: '密码管理器',
-    internalUrl: 'http://192.168.1.100:8080'
-  },
-  {
-    id: 'google',
-    name: 'Cloudflare',
-    url: 'https://dash.cloudflare.com',
-    logo: '/logo/cloudflare.svg',
-    categoryId: 'searchEngines',
-    description: 'CDN和DNS服务'
-  },
-  {
-    id: 'bing',
-    name: 'DDNS',
-    url: 'https://ddns.example.com',
-    logo: '/logo/ddns.svg',
-    categoryId: 'searchEngines',
-    description: '动态DNS服务',
-    internalUrl: 'http://192.168.1.101:3000'
-  },
-  {
-    id: 'deepseek',
-    name: 'DeepSeek',
-    url: 'https://chat.deepseek.com',
-    logo: '/logo/deepseek.svg',
-    categoryId: 'searchEngines',
-    description: 'AI对话助手'
-  },
-  {
-    id: 'dnspod',
-    name: 'DNSPod',
-    url: 'https://console.dnspod.cn',
-    logo: '/logo/DNSPod.svg',
-    categoryId: 'searchEngines',
-    description: 'DNS解析服务'
-  },
-  {
-    id: 'docker',
-    name: 'Docker',
-    url: 'https://hub.docker.com',
-    logo: '/logo/docker-official.svg',
-    categoryId: 'searchEngines',
-    description: '容器镜像仓库',
-    internalUrl: 'http://192.168.1.102:9000'
-  },
-  {
-    id: 'yacd',
-    name: 'Yacd',
-    url: 'http://yacd.haishan.me',
-    logo: '/logo/yacd-128.png',
-    categoryId: 'searchEngines',
-    description: 'Clash代理面板',
-    internalUrl: 'http://192.168.1.103:9090/ui'
+// API调用函数
+const api = {
+  // 分类相关API
+  async getCategories(): Promise<Category[]> {
+    const response = await fetch(`${API_BASE_URL}/categories`)
+    const result: ApiResponse<Category[]> = await response.json()
+    if (result.success) {
+      return result.data
+    } else {
+      throw new Error(result.message)
+    }
   },
 
+  // 导航项相关API
+  async getNavigationItems(): Promise<NavigationItem[]> {
+    const response = await fetch(`${API_BASE_URL}/navigation-items`)
+    const result: ApiResponse<NavigationItem[]> = await response.json()
+    if (result.success) {
+      return result.data
+    } else {
+      throw new Error(result.message)
+    }
+  },
 
-  // 电商购物分组
-  { id: '123', name: 'DNSPod', url: 'https://www.bing.com', logo: '/logo/DNSPod.svg', categoryId: 'ecommerce' },
-  { id: '121', name: 'Docker', url: 'https://www.bing.com', logo: '/logo/docker-official.svg', categoryId: 'ecommerce' },
-  { id: '134', name: 'Yacd', url: 'https://www.bing.com', logo: '/logo/yacd-128.png', categoryId: 'ecommerce' },
+  async getNavigationItemsByCategory(categoryId: number): Promise<NavigationItem[]> {
+    const response = await fetch(`${API_BASE_URL}/navigation-items/category/${categoryId}`)
+    const result: ApiResponse<NavigationItem[]> = await response.json()
+    if (result.success) {
+      return result.data
+    } else {
+      throw new Error(result.message)
+    }
+  },
 
-])
+  async searchNavigationItems(name?: string): Promise<NavigationItem[]> {
+    const url = name
+      ? `${API_BASE_URL}/navigation-items/search?name=${encodeURIComponent(name)}`
+      : `${API_BASE_URL}/navigation-items/search`
+    const response = await fetch(url)
+    const result: ApiResponse<NavigationItem[]> = await response.json()
+    if (result.success) {
+      return result.data
+    } else {
+      throw new Error(result.message)
+    }
+  },
+
+  async createNavigationItem(item: Omit<NavigationItem, 'id' | 'createdAt' | 'updatedAt'>): Promise<NavigationItem> {
+    const response = await fetch(`${API_BASE_URL}/navigation-items`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(item)
+    })
+    const result: ApiResponse<NavigationItem> = await response.json()
+    if (result.success) {
+      return result.data
+    } else {
+      throw new Error(result.message)
+    }
+  },
+
+  async updateNavigationItem(item: NavigationItem): Promise<NavigationItem> {
+    const response = await fetch(`${API_BASE_URL}/navigation-items/${item.id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(item)
+    })
+    const result: ApiResponse<NavigationItem> = await response.json()
+    if (result.success) {
+      return result.data
+    } else {
+      throw new Error(result.message)
+    }
+  },
+
+  async deleteNavigationItem(id: number): Promise<void> {
+    const response = await fetch(`${API_BASE_URL}/navigation-items/${id}`, {
+      method: 'DELETE'
+    })
+    const result: ApiResponse<string> = await response.json()
+    if (!result.success) {
+      throw new Error(result.message)
+    }
+  },
+
+  async updateNavigationItemsSort(items: NavigationItem[]): Promise<void> {
+    const response = await fetch(`${API_BASE_URL}/navigation-items/sort`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(items)
+    })
+    const result: ApiResponse<string> = await response.json()
+    if (!result.success) {
+      throw new Error(result.message)
+    }
+  }
+}
+
+// 分组信息数据（从后端API获取）
+const categories = ref<Category[]>([])
+
+// 导航数据（从后端API获取）
+const navigationItems = ref<NavigationItem[]>([])
+
+// 加载状态
+const loading = ref({
+  categories: false,
+  navigationItems: false
+})
 
 // 根据分组ID获取导航项目
-const getItemsByCategory = (categoryId: string) => {
+const getItemsByCategory = (categoryId: number) => {
   const items = navigationItems.value.filter(item => item.categoryId === categoryId)
 
   // 如果有搜索关键词，进行过滤
@@ -218,7 +271,7 @@ const handleKeydown = (event: KeyboardEvent) => {
 }
 
 // 为每个分组创建独立的响应式数组
-const categoryItems = ref<Record<string, NavigationItem[]>>({})
+const categoryItems = ref<Record<number, NavigationItem[]>>({})
 
 // 初始化分组数据
 const initializeCategoryItems = () => {
@@ -228,7 +281,7 @@ const initializeCategoryItems = () => {
 }
 
 // 获取当前分组的可拖拽项目列表
-const getDraggableItems = (categoryId: string) => {
+const getDraggableItems = (categoryId: number) => {
   if (!categoryItems.value[categoryId]) {
     categoryItems.value[categoryId] = navigationItems.value.filter(item => item.categoryId === categoryId)
   }
@@ -236,9 +289,9 @@ const getDraggableItems = (categoryId: string) => {
 }
 
 // 根据分组ID获取分组名称
-const getCategoryName = (categoryId: string) => {
+const getCategoryName = (categoryId: number) => {
   const category = categories.value.find(cat => cat.id === categoryId)
-  return category ? category.name : categoryId
+  return category ? category.name : `分类${categoryId}`
 }
 
 // 显示通知
@@ -263,28 +316,30 @@ const hideNotification = () => {
 // 从网络获取分组数据
 const fetchCategories = async () => {
   try {
-    // TODO: 替换为实际的API调用
-    // const response = await fetch('/api/categories')
-    // const data = await response.json()
-    // categories.value = data.sort((a: Category, b: Category) => a.order - b.order)
-
-    console.log('分组数据已加载（模拟数据）')
+    loading.value.categories = true
+    const data = await api.getCategories()
+    categories.value = data.sort((a: Category, b: Category) => a.order - b.order)
+    console.log('分组数据已加载:', data)
   } catch (error) {
     console.error('获取分组数据失败:', error)
+    showNotification('获取分组数据失败: ' + error.message, 'error')
+  } finally {
+    loading.value.categories = false
   }
 }
 
 // 从网络获取导航数据
 const fetchNavigationItems = async () => {
   try {
-    // TODO: 替换为实际的API调用
-    // const response = await fetch('/api/navigation-items')
-    // const data = await response.json()
-    // navigationItems.value = data
-
-    console.log('导航数据已加载（模拟数据）')
+    loading.value.navigationItems = true
+    const data = await api.getNavigationItems()
+    navigationItems.value = data
+    console.log('导航数据已加载:', data)
   } catch (error) {
     console.error('获取导航数据失败:', error)
+    showNotification('获取导航数据失败: ' + error.message, 'error')
+  } finally {
+    loading.value.navigationItems = false
   }
 }
 
@@ -397,18 +452,16 @@ const confirmDelete = async () => {
   }
 
   try {
-    // 从本地数据中删除
-    const index = navigationItems.value.findIndex(navItem => navItem.id === item.id)
-    if (index === -1) {
-      throw new Error('未找到要删除的项目')
-    }
+    // 调用后端API删除
+    await api.deleteNavigationItem(item.id)
 
     // 从本地数据中删除（乐观更新）
-    navigationItems.value.splice(index, 1)
+    const index = navigationItems.value.findIndex(navItem => navItem.id === item.id)
+    if (index !== -1) {
+      navigationItems.value.splice(index, 1)
+    }
 
     console.log(`成功删除项目: ${item.name}`)
-
-    // 显示成功提示
     showNotification(`已成功删除 "${item.name}"`, 'success')
 
   } catch (error) {
@@ -425,11 +478,11 @@ const deleteItem = () => {
 }
 
 // 显示新增导航项弹窗
-const showAddItemDialog = (categoryId: string) => {
+const showAddItemDialog = (categoryId: number) => {
   itemDialog.value = {
     visible: true,
     mode: 'add',
-    categoryId: categoryId,
+    categoryId: categoryId.toString(),
     item: null
   }
 }
@@ -439,70 +492,83 @@ const showEditItemDialog = (item: any) => {
   itemDialog.value = {
     visible: true,
     mode: 'edit',
-    categoryId: item.categoryId,
+    categoryId: item.categoryId.toString(),
     item: item
   }
 }
 
 // 处理弹窗确认
-const handleDialogConfirm = (data: any) => {
-  if (itemDialog.value.mode === 'add') {
-    // 新增逻辑
-    const newItem: NavigationItem = {
-      id: Date.now().toString(), // 临时ID，实际应该由后端生成
-      name: data.name,
-      url: data.url,
-      logo: data.logo,
-      categoryId: data.categoryId,
-      description: data.description,
-      internalUrl: data.internalUrl
-    }
-
-    // 添加到本地数据
-    navigationItems.value.push(newItem)
-
-    // 更新分组数据
-    if (!categoryItems.value[data.categoryId]) {
-      categoryItems.value[data.categoryId] = []
-    }
-    categoryItems.value[data.categoryId].push(newItem)
-
-    console.log('新增导航项:', newItem)
-    showNotification(`已成功新增 "${data.name}"`, 'success')
-  } else {
-    // 编辑逻辑
-    const index = navigationItems.value.findIndex(item => item.id === itemDialog.value.item?.id)
-    if (index !== -1) {
-      // 更新主数据
-      navigationItems.value[index] = {
-        ...navigationItems.value[index],
+const handleDialogConfirm = async (data: any) => {
+  try {
+    if (itemDialog.value.mode === 'add') {
+      // 新增逻辑
+      const newItemData = {
         name: data.name,
         url: data.url,
         logo: data.logo,
+        categoryId: parseInt(data.categoryId),
         description: data.description,
         internalUrl: data.internalUrl
+        // sortOrder 由后端自动设置
       }
+
+      // 调用后端API创建
+      const newItem = await api.createNavigationItem(newItemData)
+
+      // 添加到本地数据
+      navigationItems.value.push(newItem)
 
       // 更新分组数据
-      const categoryId = navigationItems.value[index].categoryId
-      const categoryIndex = categoryItems.value[categoryId]?.findIndex(item => item.id === itemDialog.value.item?.id)
-      if (categoryIndex !== -1) {
-        categoryItems.value[categoryId][categoryIndex] = navigationItems.value[index]
+      if (!categoryItems.value[data.categoryId]) {
+        categoryItems.value[data.categoryId] = []
       }
+      categoryItems.value[data.categoryId].push(newItem)
 
-      console.log('编辑导航项:', navigationItems.value[index])
-      showNotification(`已成功编辑 "${data.name}"`, 'success')
+      console.log('新增导航项:', newItem)
+      showNotification(`已成功新增 "${data.name}"`, 'success')
     } else {
-      showNotification('编辑失败：未找到对应项目', 'error')
+      // 编辑逻辑
+      const index = navigationItems.value.findIndex(item => item.id === itemDialog.value.item?.id)
+      if (index !== -1) {
+        const updatedItem = {
+          ...navigationItems.value[index],
+          name: data.name,
+          url: data.url,
+          logo: data.logo,
+          description: data.description,
+          internalUrl: data.internalUrl
+        }
+
+        // 调用后端API更新
+        const result = await api.updateNavigationItem(updatedItem)
+
+        // 更新本地数据
+        navigationItems.value[index] = result
+
+        // 更新分组数据
+        const categoryId = result.categoryId
+        const categoryIndex = categoryItems.value[categoryId]?.findIndex(item => item.id === result.id)
+        if (categoryIndex !== -1) {
+          categoryItems.value[categoryId][categoryIndex] = result
+        }
+
+        console.log('编辑导航项:', result)
+        showNotification(`已成功编辑 "${data.name}"`, 'success')
+      } else {
+        showNotification('编辑失败：未找到对应项目', 'error')
+      }
     }
+  } catch (error) {
+    console.error('操作失败:', error)
+    showNotification(`操作失败: ${error.message || '未知错误'}`, 'error')
   }
 }
 
 // 开启排序模式
-const enableSortMode = (categoryId: string) => {
+const enableSortMode = (categoryId: number) => {
   sortMode.value = {
     active: true,
-    categoryId: categoryId
+    categoryId: categoryId.toString()
   }
   // showNotification('已开启排序模式，可以拖拽调整顺序', 'info')
 }
@@ -517,21 +583,42 @@ const disableSortMode = () => {
 }
 
 // 处理拖拽排序
-const handleDragEnd = (categoryId: string) => {
+const handleDragEnd = async (categoryId: number) => {
   console.log('排序完成，分组:', categoryId)
   console.log('当前顺序:', categoryItems.value[categoryId])
 
-  // 同步更新主数据数组
-  const otherItems = navigationItems.value.filter(item => item.categoryId !== categoryId)
-  navigationItems.value = [...otherItems, ...categoryItems.value[categoryId]]
+  try {
+    // 更新排序号
+    const sortedItems = categoryItems.value[categoryId].map((item, index) => ({
+      ...item,
+      sortOrder: index + 1
+    }))
 
-  showNotification('排序已更新', 'success')
-  // 这里可以添加保存排序到后端的逻辑
+    // 调用后端API保存排序
+    await api.updateNavigationItemsSort(sortedItems)
+
+    // 同步更新主数据数组
+    const otherItems = navigationItems.value.filter(item => item.categoryId !== categoryId)
+    navigationItems.value = [...otherItems, ...sortedItems]
+
+    // 更新本地分组数据
+    categoryItems.value[categoryId] = sortedItems
+
+    showNotification('排序已保存', 'success')
+    console.log('排序已保存到数据库')
+  } catch (error) {
+    console.error('保存排序失败:', error)
+    showNotification('排序保存失败: ' + error.message, 'error')
+
+    // 如果保存失败，重新加载数据以恢复原始顺序
+    await fetchNavigationItems()
+    initializeCategoryItems()
+  }
 }
 
 // 检查是否为当前排序的分组
-const isSortingCategory = (categoryId: string) => {
-  return sortMode.value.active && sortMode.value.categoryId === categoryId
+const isSortingCategory = (categoryId: number) => {
+  return sortMode.value.active && sortMode.value.categoryId === categoryId.toString()
 }
 
 // 获取分类键名（保留以兼容旧代码）
@@ -682,9 +769,17 @@ onUnmounted(() => {
           </div>
         </div>
 
+        <!-- 加载状态 -->
+        <div v-if="loading.categories || loading.navigationItems" class="loading-section">
+          <div class="loading-content">
+            <div class="loading-spinner"></div>
+            <p class="loading-text">正在加载数据...</p>
+          </div>
+        </div>
+
         <!-- 动态渲染分组 -->
         <div
-          v-if="!searchQuery.trim()"
+          v-else-if="!searchQuery.trim()"
           v-for="category in categories"
           :key="category.id"
           class="nav-section"

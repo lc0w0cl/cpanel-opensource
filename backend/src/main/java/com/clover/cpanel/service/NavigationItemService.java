@@ -72,4 +72,18 @@ public interface NavigationItemService extends IService<NavigationItem> {
      * @return 是否删除成功
      */
     boolean deleteNavigationItemsByIds(List<Integer> ids);
+
+    /**
+     * 批量更新导航项排序
+     * @param items 导航项列表（包含新的排序信息）
+     * @return 是否更新成功
+     */
+    boolean updateNavigationItemsSort(List<NavigationItem> items);
+
+    /**
+     * 获取分类中的下一个排序号
+     * @param categoryId 分类ID
+     * @return 下一个排序号
+     */
+    Integer getNextSortOrder(Integer categoryId);
 }

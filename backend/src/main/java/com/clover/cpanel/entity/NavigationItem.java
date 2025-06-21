@@ -56,6 +56,12 @@ public class NavigationItem {
     private String internalUrl;
 
     /**
+     * 排序序号
+     */
+    @TableField("sort_order")
+    private Integer sortOrder;
+
+    /**
      * 创建时间，格式：yyyy-MM-dd HH:mm:ss
      */
     @TableField(value = "created_at", fill = FieldFill.INSERT)

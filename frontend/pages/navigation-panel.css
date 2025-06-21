@@ -212,6 +212,50 @@
   color: rgba(59, 130, 246, 1);
 }
 
+/* 加载状态样式 */
+.loading-section {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 300px;
+  margin-bottom: 3rem;
+}
+
+.loading-content {
+  text-align: center;
+  padding: 2rem;
+  border-radius: 1rem;
+  background: linear-gradient(135deg,
+    rgba(255, 255, 255, 0.08) 0%,
+    rgba(255, 255, 255, 0.04) 100%
+  );
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+.loading-spinner {
+  width: 3rem;
+  height: 3rem;
+  margin: 0 auto 1rem;
+  border: 3px solid rgba(255, 255, 255, 0.2);
+  border-top: 3px solid rgba(59, 130, 246, 0.8);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+.loading-text {
+  font-size: 1rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.7);
+  margin: 0;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
 .nav-section {
   margin-bottom: 3rem;
 }

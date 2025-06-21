@@ -6,6 +6,7 @@ import com.clover.cpanel.service.NavigationItemService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Comparator;
 import java.util.List;
 
 /**
@@ -26,7 +27,7 @@ public class NavigationItemController {
     @GetMapping
     public ApiResponse<List<NavigationItem>> getAllNavigationItems() {
         try {
-            List<NavigationItem> items = navigationItemService.getAllNavigationItems();
+            List<NavigationItem> items = navigationItemService.getAllNavigationItems().stream().sorted(Comparator.comparing(NavigationItem::getSortOrder)).toList();
             return ApiResponse.success(items);
         } catch (Exception e) {
             return ApiResponse.error("获取导航项列表失败：" + e.getMessage());
@@ -207,6 +208,29 @@ public class NavigationItemController {
             }
         } catch (Exception e) {
             return ApiResponse.error("导航项批量删除失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * 批量更新导航项排序
+     * @param items 导航项列表（包含新的排序信息）
+     * @return 更新结果
+     */
+    @PutMapping("/sort")
+    public ApiResponse<String> updateNavigationItemsSort(@RequestBody List<NavigationItem> items) {
+        try {
+            if (items == null || items.isEmpty()) {
+                return ApiResponse.error("排序数据不能为空");
+            }
+
+            boolean success = navigationItemService.updateNavigationItemsSort(items);
+            if (success) {
+                return ApiResponse.success("排序更新成功");
+            } else {
+                return ApiResponse.error("排序更新失败");
+            }
+        } catch (Exception e) {
+            return ApiResponse.error("排序更新失败：" + e.getMessage());
         }
     }
 }

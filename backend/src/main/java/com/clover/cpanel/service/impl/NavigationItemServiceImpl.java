@@ -47,6 +47,10 @@ public class NavigationItemServiceImpl extends ServiceImpl<NavigationItemMapper,
 
     @Override
     public boolean createNavigationItem(NavigationItem navigationItem) {
+        // 如果没有设置排序号，自动设置为分类中的下一个排序号
+        if (navigationItem.getSortOrder() == null) {
+            navigationItem.setSortOrder(getNextSortOrder(navigationItem.getCategoryId()));
+        }
         return save(navigationItem);
     }
 
@@ -66,5 +70,30 @@ public class NavigationItemServiceImpl extends ServiceImpl<NavigationItemMapper,
             return false;
         }
         return removeByIds(ids);
+    }
+
+    @Override
+    public boolean updateNavigationItemsSort(List<NavigationItem> items) {
+        if (items == null || items.isEmpty()) {
+            return false;
+        }
+
+        try {
+            // 批量更新排序
+            for (int i = 0; i < items.size(); i++) {
+                NavigationItem item = items.get(i);
+                item.setSortOrder(i + 1); // 排序从1开始
+                updateById(item);
+            }
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    @Override
+    public Integer getNextSortOrder(Integer categoryId) {
+        Integer maxSortOrder = baseMapper.getMaxSortOrderByCategory(categoryId);
+        return maxSortOrder + 1;
     }
 }
