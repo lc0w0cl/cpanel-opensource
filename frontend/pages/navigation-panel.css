@@ -21,12 +21,16 @@
 .search-container {
   max-width: 600px;
   margin: 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
 }
 
 .search-input-wrapper {
   position: relative;
   display: flex;
   align-items: center;
+  flex: 1;
 }
 
 .search-input {
@@ -1058,5 +1062,60 @@
   .btn-confirm {
     width: 100%;
     justify-content: center;
+  }
+}
+
+/* 内外网切换按钮样式 */
+.network-switch-btn {
+  width: 3.7rem;
+  height: 3.7rem;
+  border: none;
+  border-radius: 0.75rem;
+  background: linear-gradient(135deg,
+    rgba(59, 130, 246, 0.2) 0%,
+    rgba(59, 130, 246, 0.1) 100%
+  );
+  color: rgba(59, 130, 246, 0.8);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  flex-shrink: 0;
+}
+
+.network-switch-btn:hover {
+  background: linear-gradient(135deg,
+    rgba(59, 130, 246, 0.3) 0%,
+    rgba(59, 130, 246, 0.15) 100%
+  );
+  color: rgba(59, 130, 246, 1);
+  transform: translateY(-1px) scale(1.05);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+.network-switch-btn svg {
+  width: 1.25rem;
+  height: 1.25rem;
+  stroke-width: 2;
+}
+
+/* 移动端样式调整 */
+@media (max-width: 768px) {
+  .search-container {
+    gap: 0.75rem;
+  }
+
+  .network-switch-btn {
+    width: 2.25rem;
+    height: 2.25rem;
+  }
+
+  .network-switch-btn svg {
+    width: 1.125rem;
+    height: 1.125rem;
   }
 }

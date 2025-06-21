@@ -64,6 +64,9 @@ const sortMode = ref({
 const searchQuery = ref('')
 const searchInputRef = ref<HTMLInputElement>()
 
+// 内外网切换状态
+const isInternalNetwork = ref(false)
+
 // 分组信息数据（后续从网络获取）
 const categories = ref([
   { id: 'searchEngines', name: '搜索引擎', order: 1 },
@@ -186,6 +189,23 @@ const clearSearch = () => {
   searchQuery.value = ''
   // 清除搜索后重新聚焦搜索框
   focusSearchInput()
+}
+
+// 切换内外网
+const toggleNetwork = () => {
+  isInternalNetwork.value = !isInternalNetwork.value
+  const networkType = isInternalNetwork.value ? '内网' : '外网'
+  showNotification(`切换到${networkType}环境`, 'info')
+}
+
+// 获取导航项的实际URL
+const getNavigationUrl = (item: NavigationItem) => {
+  // 如果是内网模式且有内网地址，使用内网地址
+  if (isInternalNetwork.value && item.internalUrl) {
+    return item.internalUrl
+  }
+  // 否则使用外网地址
+  return item.url
 }
 
 // 处理键盘事件
@@ -591,6 +611,28 @@ onUnmounted(() => {
                 </svg>
               </button>
             </div>
+
+            <!-- 内外网切换按钮 -->
+            <button
+              class="network-switch-btn"
+              @click="toggleNetwork"
+              :title="isInternalNetwork ? '当前：内网环境，点击切换到外网' : '当前：外网环境，点击切换到内网'"
+            >
+              <!-- 外网图标 -->
+              <svg v-if="!isInternalNetwork" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <circle cx="12" cy="12" r="10"></circle>
+                <path d="M2 12h20"></path>
+                <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+              </svg>
+              <!-- 内网图标 -->
+              <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path d="M9 12l2 2 4-4"></path>
+                <path d="M21 12c-1 0-3-1-3-3s2-3 3-3 3 1 3 3-2 3-3 3"></path>
+                <path d="M3 12c1 0 3-1 3-3s-2-3-3-3-3 1-3 3 2 3 3 3"></path>
+                <path d="M12 21c0-1-1-3-3-3s-3 2-3 3 1 3 3 3 3-2 3-3"></path>
+                <path d="M12 3c0 1-1 3-3 3s-3-2-3-3 1-3 3-3 3 2 3 3"></path>
+              </svg>
+            </button>
           </div>
         </div>
 
@@ -605,7 +647,7 @@ onUnmounted(() => {
             <a
               v-for="item in getAllSearchResults()"
               :key="item.id"
-              :href="item.url"
+              :href="getNavigationUrl(item)"
               target="_blank"
               class="nav-item"
               @contextmenu="handleRightClick($event, item, item.categoryId)"
@@ -681,7 +723,7 @@ onUnmounted(() => {
               <a
                 v-for="item in getItemsByCategory(category.id)"
                 :key="item.id"
-                :href="item.url"
+                :href="getNavigationUrl(item)"
                 target="_blank"
                 class="nav-item"
                 @contextmenu="handleRightClick($event, item, category.id)"
