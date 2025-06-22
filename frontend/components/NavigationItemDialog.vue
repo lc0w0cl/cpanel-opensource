@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, watch, computed } from 'vue'
 import { PhotoIcon, LinkIcon, GlobeAltIcon, HomeIcon, CogIcon } from '@heroicons/vue/24/outline'
+import { getImageUrl } from '~/lib/utils'
 
 // 定义组件的 props
 interface Props {
@@ -61,8 +62,13 @@ const heroIcons = [
 // 计算预览图标
 const previewIcon = computed(() => {
   if (formData.value.iconType === 'upload') {
-    // 优先显示新选择的文件预览，其次显示现有的logo
-    return previewUrl.value || formData.value.logo
+    // 优先显示新选择的文件预览，其次显示现有的logo（需要处理URL）
+    if (previewUrl.value) {
+      return previewUrl.value
+    } else if (formData.value.logo) {
+      return getImageUrl(formData.value.logo)
+    }
+    return null
   } else if (formData.value.iconType === 'online' && iconUrl.value) {
     return iconUrl.value
   } else if (formData.value.iconType === 'heroicon' && selectedHeroIcon.value) {

@@ -2,6 +2,7 @@
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { VueDraggable } from 'vue-draggable-plus'
 import NavigationItemDialog from '~/components/NavigationItemDialog.vue'
+import { getImageUrl } from '~/lib/utils'
 import './navigation-panel.css'
 
 definePageMeta({
@@ -81,7 +82,8 @@ const searchInputRef = ref<HTMLInputElement>()
 const isInternalNetwork = ref(false)
 
 // API配置
-const API_BASE_URL = 'http://localhost:8080/api'
+const config = useRuntimeConfig()
+const API_BASE_URL = `${config.public.apiBaseUrl}/api`
 
 // API调用函数
 const api = {
@@ -783,7 +785,7 @@ onUnmounted(() => {
               @contextmenu="handleRightClick($event, item, item.categoryId)"
             >
               <div class="nav-icon">
-                <img :src="item.logo" :alt="item.name" class="icon-logo">
+                <img :src="getImageUrl(item.logo)" :alt="item.name" class="icon-logo">
               </div>
               <div class="nav-content">
                 <span class="nav-label">{{ item.name }}</span>
@@ -867,7 +869,7 @@ onUnmounted(() => {
                 @contextmenu="handleRightClick($event, item, category.id)"
               >
                 <div class="nav-icon">
-                  <img :src="item.logo" :alt="item.name" class="icon-logo">
+                  <img :src="getImageUrl(item.logo)" :alt="item.name" class="icon-logo">
                 </div>
                 <div class="nav-content">
                   <span class="nav-label">{{ item.name }}</span>
@@ -895,7 +897,7 @@ onUnmounted(() => {
                 :data-category="category.id"
               >
                 <div class="nav-icon">
-                  <img :src="item.logo" :alt="item.name" class="icon-logo">
+                  <img :src="getImageUrl(item.logo)" :alt="item.name" class="icon-logo">
                 </div>
                 <div class="nav-content">
                   <span class="nav-label">{{ item.name }}</span>
