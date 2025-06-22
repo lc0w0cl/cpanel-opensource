@@ -3,10 +3,12 @@ package com.clover.cpanel.config;
 import com.clover.cpanel.interceptor.JwtAuthInterceptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.web.servlet.config.annotation.CorsRegistry;
-import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
-import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
-import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
+import org.springframework.core.io.ClassPathResource;
+import org.springframework.core.io.Resource;
+import org.springframework.web.servlet.config.annotation.*;
+import org.springframework.web.servlet.resource.PathResourceResolver;
+
+import java.io.IOException;
 
 /**
  * Web配置类
@@ -57,5 +59,29 @@ public class WebConfig implements WebMvcConfigurer {
         // 配置文件上传路径的静态资源映射
         registry.addResourceHandler("/uploads/**")
                 .addResourceLocations("file:./uploads/");
+
+        // 配置前端静态资源，支持SPA路由
+        registry.addResourceHandler("/**")
+                .addResourceLocations("classpath:/static/")
+                .resourceChain(true)
+                .addResolver(new PathResourceResolver() {
+                    @Override
+                    protected Resource getResource(String resourcePath, Resource location) throws IOException {
+                        Resource requestedResource = location.createRelative(resourcePath);
+
+                        // 如果请求的资源存在，直接返回
+                        if (requestedResource.exists() && requestedResource.isReadable()) {
+                            return requestedResource;
+                        }
+
+                        // 如果是API请求，不处理
+                        if (resourcePath.startsWith("api/")) {
+                            return null;
+                        }
+
+                        // 对于不存在的资源，返回index.html（SPA路由支持）
+                        return new ClassPathResource("/static/index.html");
+                    }
+                });
     }
 }

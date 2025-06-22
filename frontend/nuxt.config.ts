@@ -6,6 +6,22 @@ export default defineNuxtConfig({
   devtools: { enabled: true },
   modules: ['motion-v/nuxt'],
   css: ['~/assets/css/main.css'],
+
+  // 静态生成配置
+  nitro: {
+    prerender: {
+      routes: ['/login', '/navigation-panel', '/settings', '/about']
+    }
+  },
+
+  // SPA模式配置 - 解决路由问题
+  ssr: false, // 禁用服务端渲染，使用SPA模式
+
+  // 生成配置
+  generate: {
+    fallback: true // 生成404.html作为fallback页面
+  },
+
   vite: {
     plugins: [
       tailwindcss(),
