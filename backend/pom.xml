@@ -84,6 +84,13 @@
             <scope>runtime</scope>
         </dependency>
 
+        <!-- OSHI 系统信息监控依赖 -->
+        <dependency>
+            <groupId>com.github.oshi</groupId>
+            <artifactId>oshi-core</artifactId>
+            <version>6.6.5</version>
+        </dependency>
+
     </dependencies>
 
 
