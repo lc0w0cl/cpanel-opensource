@@ -16,24 +16,25 @@ const isLoading = ref(false)
 const showPassword = ref(false)
 const errorMessage = ref('')
 
-// 检查是否已登录
+// 检查是否已登录（简化版本）
 onMounted(async () => {
-  if (hasTokens()) {
-    // 如果已有token，验证其有效性
-    try {
-      const config = useRuntimeConfig()
-      const API_BASE_URL = `${config.public.apiBaseUrl}/api`
-
-      const response = await apiRequest(`${API_BASE_URL}/auth/status`)
-      const result = await response.json()
-
-      if (result.success && result.data.authenticated) {
-        // 已登录，重定向到首页
-        await navigateTo('/')
-        return
+  // 检查是否有有效的认证缓存
+  if (process.client) {
+    const cachedAuth = sessionStorage.getItem('auth_status')
+    if (cachedAuth) {
+      try {
+        const authData = JSON.parse(cachedAuth)
+        // 如果缓存显示已登录且在有效期内，直接跳转
+        if (authData.authenticated && authData.timestamp &&
+            (Date.now() - authData.timestamp < 300000)) { // 缓存5分钟
+          console.log('检测到有效登录状态，跳转到首页')
+          await navigateTo('/')
+          return
+        }
+      } catch (e) {
+        // 缓存数据无效，清除
+        sessionStorage.removeItem('auth_status')
       }
-    } catch (error) {
-      console.log('验证登录状态失败，继续显示登录页面')
     }
   }
 })
@@ -67,6 +68,14 @@ const handleLogin = async () => {
     if (result.success && result.data) {
       // 存储JWT tokens
       setTokens(result.data)
+
+      // 设置认证状态缓存
+      if (process.client) {
+        sessionStorage.setItem('auth_status', JSON.stringify({
+          authenticated: true,
+          timestamp: Date.now()
+        }))
+      }
 
       console.log('登录成功')
 

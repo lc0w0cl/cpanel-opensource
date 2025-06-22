@@ -45,25 +45,18 @@ const handleLogout = async () => {
   isLoggingOut.value = true
 
   try {
-    const config = useRuntimeConfig()
-    const API_BASE_URL = `${config.public.apiBaseUrl}/api`
-
-    // 调用登出API
-    await apiRequest(`${API_BASE_URL}/auth/logout`, {
-      method: 'POST'
-    })
+    // 使用新的认证管理函数
+    const { logout } = await import('~/composables/useAuth')
+    await logout()
 
     console.log('登出成功')
-  } catch (error) {
-    console.error('登出请求失败:', error)
-    // 即使API调用失败，也要清除本地token
-  } finally {
-    // 清除本地token和缓存
-    clearTokens()
 
     // 重定向到登录页面
     await navigateTo('/login')
 
+  } catch (error) {
+    console.error('登出失败:', error)
+  } finally {
     isLoggingOut.value = false
   }
 }
