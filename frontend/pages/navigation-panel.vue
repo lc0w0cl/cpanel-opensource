@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { VueDraggable } from 'vue-draggable-plus'
+import { Icon } from '@iconify/vue'
 import NavigationItemDialog from '~/components/NavigationItemDialog.vue'
 import { getImageUrl } from '~/lib/utils'
 import './navigation-panel.css'
@@ -84,6 +85,15 @@ const isInternalNetwork = ref(false)
 // API配置
 const config = useRuntimeConfig()
 const API_BASE_URL = `${config.public.apiBaseUrl}/api`
+
+// 判断是否为 Iconify 图标
+const isIconifyIcon = (logo: string): boolean => {
+  return logo && typeof logo === 'string' &&
+         !logo.startsWith('http') &&
+         !logo.startsWith('/uploads/') &&
+         !logo.startsWith('data:') &&
+         logo.includes(':')
+}
 
 // API调用函数
 const api = {
@@ -785,7 +795,17 @@ onUnmounted(() => {
               @contextmenu="handleRightClick($event, item, item.categoryId)"
             >
               <div class="nav-icon">
-                <img :src="getImageUrl(item.logo)" :alt="item.name" class="icon-logo">
+                <Icon
+                  v-if="isIconifyIcon(item.logo)"
+                  :icon="item.logo"
+                  class="icon-logo iconify-icon"
+                />
+                <img
+                  v-else
+                  :src="getImageUrl(item.logo)"
+                  :alt="item.name"
+                  class="icon-logo"
+                >
               </div>
               <div class="nav-content">
                 <span class="nav-label">{{ item.name }}</span>
@@ -869,7 +889,17 @@ onUnmounted(() => {
                 @contextmenu="handleRightClick($event, item, category.id)"
               >
                 <div class="nav-icon">
-                  <img :src="getImageUrl(item.logo)" :alt="item.name" class="icon-logo">
+                  <Icon
+                    v-if="isIconifyIcon(item.logo)"
+                    :icon="item.logo"
+                    class="icon-logo iconify-icon"
+                  />
+                  <img
+                    v-else
+                    :src="getImageUrl(item.logo)"
+                    :alt="item.name"
+                    class="icon-logo"
+                  >
                 </div>
                 <div class="nav-content">
                   <span class="nav-label">{{ item.name }}</span>
@@ -897,7 +927,17 @@ onUnmounted(() => {
                 :data-category="category.id"
               >
                 <div class="nav-icon">
-                  <img :src="getImageUrl(item.logo)" :alt="item.name" class="icon-logo">
+                  <Icon
+                    v-if="isIconifyIcon(item.logo)"
+                    :icon="item.logo"
+                    class="icon-logo iconify-icon"
+                  />
+                  <img
+                    v-else
+                    :src="getImageUrl(item.logo)"
+                    :alt="item.name"
+                    class="icon-logo"
+                  >
                 </div>
                 <div class="nav-content">
                   <span class="nav-label">{{ item.name }}</span>

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, watch, computed } from 'vue'
-import { PhotoIcon, LinkIcon, GlobeAltIcon, HomeIcon, CogIcon } from '@heroicons/vue/24/outline'
+import { Icon } from '@iconify/vue'
+import { PhotoIcon, LinkIcon } from '@heroicons/vue/24/outline'
 import { getImageUrl } from '~/lib/utils'
 
 // 定义组件的 props
@@ -50,15 +51,10 @@ const selectedHeroIcon = ref('')
 const selectedFile = ref<File | null>(null)
 const previewUrl = ref('')
 const serverImagePath = ref('')
+const selectedIconifyIcon = ref('')
+const customIconifyIcon = ref('')
 
-// 预定义的 Hero Icons 选项
-const heroIcons = [
-  { name: 'HomeIcon', component: HomeIcon, label: '首页' },
-  { name: 'CogIcon', component: CogIcon, label: '设置' },
-  { name: 'GlobeAltIcon', component: GlobeAltIcon, label: '网站' },
-  { name: 'LinkIcon', component: LinkIcon, label: '链接' },
-  { name: 'PhotoIcon', component: PhotoIcon, label: '图片' }
-]
+
 
 // 计算预览图标
 const previewIcon = computed(() => {
@@ -72,9 +68,8 @@ const previewIcon = computed(() => {
     return null
   } else if (formData.value.iconType === 'online' && iconUrl.value) {
     return iconUrl.value
-  } else if (formData.value.iconType === 'heroicon' && selectedHeroIcon.value) {
-    const icon = heroIcons.find(h => h.name === selectedHeroIcon.value)
-    return icon ? icon.component : null
+  } else if (formData.value.iconType === 'iconify' && selectedIconifyIcon.value) {
+    return selectedIconifyIcon.value
   }
   return null
 })
@@ -103,6 +98,11 @@ watch(() => props.visible, (newVisible) => {
         previewUrl.value = ''
         // 设置服务器图片路径
         serverImagePath.value = props.item.logo
+      } else {
+        // Iconify 图标（包含冒号的图标名称或其他格式）
+        formData.value.iconType = 'iconify'
+        selectedIconifyIcon.value = props.item.logo
+        customIconifyIcon.value = props.item.logo
       }
     } else {
       // 新增模式，重置表单
@@ -116,7 +116,8 @@ watch(() => props.visible, (newVisible) => {
         iconType: 'upload'
       }
       iconUrl.value = ''
-      selectedHeroIcon.value = ''
+      selectedIconifyIcon.value = ''
+      customIconifyIcon.value = ''
       selectedFile.value = null
       previewUrl.value = ''
       serverImagePath.value = ''
@@ -164,11 +165,20 @@ const handleIconUrlChange = () => {
   }
 }
 
-// 处理Hero图标选择
-const handleHeroIconSelect = (iconName: string) => {
-  selectedHeroIcon.value = iconName
-  if (formData.value.iconType === 'heroicon') {
+// 处理 Iconify 图标选择
+const handleIconifyIconSelect = (iconName: string) => {
+  selectedIconifyIcon.value = iconName
+  customIconifyIcon.value = iconName
+  if (formData.value.iconType === 'iconify') {
     formData.value.logo = iconName
+  }
+}
+
+// 处理自定义 Iconify 图标输入
+const handleCustomIconifyChange = () => {
+  selectedIconifyIcon.value = customIconifyIcon.value
+  if (formData.value.iconType === 'iconify') {
+    formData.value.logo = customIconifyIcon.value
   }
 }
 
@@ -219,11 +229,11 @@ const handleConfirm = () => {
     console.log('文件上传模式，FormData已准备')
     emit('confirm', { formData: formDataToSend, isUpload: true })
   } else {
-    // 传统模式（在线图标或Hero图标）
+    // 传统模式（在线图标或 Iconify 图标）
     if (formData.value.iconType === 'online') {
       formData.value.logo = iconUrl.value
-    } else if (formData.value.iconType === 'heroicon') {
-      formData.value.logo = selectedHeroIcon.value
+    } else if (formData.value.iconType === 'iconify') {
+      formData.value.logo = selectedIconifyIcon.value
     }
 
     if (!formData.value.logo) {
@@ -272,14 +282,14 @@ const handleOverlayClick = (event: MouseEvent) => {
           <div class="preview-card">
             <div class="preview-icon">
               <img
-                v-if="previewIcon && typeof previewIcon === 'string'"
+                v-if="previewIcon && typeof previewIcon === 'string' && (previewIcon.startsWith('http') || previewIcon.startsWith('/uploads/') || previewIcon.startsWith('data:'))"
                 :src="previewIcon"
                 :alt="formData.name"
                 class="preview-icon-img"
               />
-              <component
-                v-else-if="previewIcon && typeof previewIcon !== 'string'"
-                :is="previewIcon"
+              <Icon
+                v-else-if="previewIcon && typeof previewIcon === 'string'"
+                :icon="previewIcon"
                 class="preview-icon-svg"
               />
               <div v-else class="preview-icon-placeholder">
@@ -337,11 +347,11 @@ const handleOverlayClick = (event: MouseEvent) => {
             </button>
             <button
               type="button"
-              :class="['tab-button', { active: formData.iconType === 'heroicon' }]"
-              @click="formData.iconType = 'heroicon'"
+              :class="['tab-button', { active: formData.iconType === 'iconify' }]"
+              @click="formData.iconType = 'iconify'"
             >
-              <CogIcon class="tab-icon" />
-              内置图标
+              <Icon icon="mdi:star" class="tab-icon" />
+              Iconify图标
             </button>
           </div>
 
@@ -386,18 +396,25 @@ const handleOverlayClick = (event: MouseEvent) => {
             />
           </div>
 
-          <!-- 内置图标选择 -->
-          <div v-if="formData.iconType === 'heroicon'" class="hero-icons-grid">
-            <button
-              v-for="icon in heroIcons"
-              :key="icon.name"
-              type="button"
-              :class="['hero-icon-button', { selected: selectedHeroIcon === icon.name }]"
-              @click="handleHeroIconSelect(icon.name)"
-            >
-              <component :is="icon.component" class="hero-icon" />
-              <span class="hero-icon-label">{{ icon.label }}</span>
-            </button>
+          <!-- Iconify 图标选择 -->
+          <div v-if="formData.iconType === 'iconify'" class="iconify-section">
+            <!-- 自定义图标输入 -->
+            <div class="custom-icon-input">
+              <input
+                v-model="customIconifyIcon"
+                type="text"
+                class="form-input"
+                placeholder="输入 Iconify 图标名称，如：mdi:home"
+                @input="handleCustomIconifyChange"
+              />
+              <div class="icon-preview">
+                <Icon
+                  v-if="customIconifyIcon"
+                  :icon="customIconifyIcon"
+                  class="preview-iconify-icon"
+                />
+              </div>
+            </div>
           </div>
         </div>
 
@@ -823,6 +840,89 @@ const handleOverlayClick = (event: MouseEvent) => {
 }
 
 .hero-icon-label {
+  font-size: 0.75rem;
+  text-align: center;
+}
+
+/* Iconify 图标样式 */
+.iconify-section {
+  margin-top: 0.5rem;
+}
+
+.custom-icon-input {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.icon-preview {
+  width: 3rem;
+  height: 3rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 0.5rem;
+  background: linear-gradient(135deg,
+    rgba(255, 255, 255, 0.05) 0%,
+    rgba(255, 255, 255, 0.02) 100%
+  );
+  flex-shrink: 0;
+}
+
+.preview-iconify-icon {
+  width: 1.5rem;
+  height: 1.5rem;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.iconify-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+  gap: 0.75rem;
+}
+
+.iconify-button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 0.5rem;
+  background: linear-gradient(135deg,
+    rgba(255, 255, 255, 0.05) 0%,
+    rgba(255, 255, 255, 0.02) 100%
+  );
+  color: rgba(255, 255, 255, 0.7);
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.iconify-button:hover {
+  background: linear-gradient(135deg,
+    rgba(255, 255, 255, 0.1) 0%,
+    rgba(255, 255, 255, 0.05) 100%
+  );
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.iconify-button.selected {
+  background: linear-gradient(135deg,
+    rgba(59, 130, 246, 0.3) 0%,
+    rgba(59, 130, 246, 0.2) 100%
+  );
+  border-color: rgba(59, 130, 246, 0.5);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.iconify-icon {
+  width: 1.5rem;
+  height: 1.5rem;
+}
+
+.iconify-label {
   font-size: 0.75rem;
   text-align: center;
 }
