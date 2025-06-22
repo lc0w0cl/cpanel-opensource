@@ -38,6 +38,11 @@ public class FileUploadServiceImpl implements FileUploadService {
 
     @Override
     public String uploadFile(MultipartFile file) {
+        return uploadFile(file, null);
+    }
+
+    @Override
+    public String uploadFile(MultipartFile file, String navigationName) {
         try {
             // 验证文件
             if (!isValidFileType(file)) {
@@ -53,8 +58,8 @@ public class FileUploadServiceImpl implements FileUploadService {
                 uploadDir.mkdirs();
             }
 
-            // 生成唯一文件名
-            String uniqueFileName = generateUniqueFileName(file.getOriginalFilename());
+            // 生成唯一文件名（包含导航项名称）
+            String uniqueFileName = generateUniqueFileName(file.getOriginalFilename(), navigationName);
 
             // 保存文件
             Path filePath = Paths.get(uploadPath, uniqueFileName);
@@ -100,21 +105,33 @@ public class FileUploadServiceImpl implements FileUploadService {
 
     @Override
     public String generateUniqueFileName(String originalFilename) {
+        return generateUniqueFileName(originalFilename, null);
+    }
+
+    @Override
+    public String generateUniqueFileName(String originalFilename, String navigationName) {
         if (originalFilename == null) {
             originalFilename = "unknown";
         }
 
         // 获取文件扩展名
         String extension = getFileExtension(originalFilename);
-        
+
         // 生成时间戳
         String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
-        
+
         // 生成UUID
         String uuid = UUID.randomUUID().toString().replace("-", "").substring(0, 8);
-        
-        // 组合文件名：时间戳_UUID.扩展名
-        return timestamp + "_" + uuid + (extension.isEmpty() ? "" : "." + extension);
+
+        // 处理导航项名称
+        String safeName = "";
+        if (navigationName != null && !navigationName.trim().isEmpty()) {
+            // 清理导航项名称，只保留安全字符
+            safeName = sanitizeFileName(navigationName.trim()) + "_";
+        }
+
+        // 组合文件名：导航项名称_时间戳_UUID.扩展名
+        return safeName + timestamp + "_" + uuid + (extension.isEmpty() ? "" : "." + extension);
     }
 
     @Override
@@ -155,5 +172,39 @@ public class FileUploadServiceImpl implements FileUploadService {
             return "";
         }
         return filename.substring(lastDotIndex + 1);
+    }
+
+    /**
+     * 清理文件名，移除不安全字符
+     * @param name 原始名称
+     * @return 清理后的安全名称
+     */
+    private String sanitizeFileName(String name) {
+        if (name == null || name.isEmpty()) {
+            return "";
+        }
+
+        // 移除或替换不安全的字符
+        String safeName = name
+                // 替换空格为下划线
+                .replaceAll("\\s+", "_")
+                // 移除特殊字符，只保留字母、数字、中文、下划线、连字符
+                .replaceAll("[^\\w\\u4e00-\\u9fa5_-]", "")
+                // 移除连续的下划线
+                .replaceAll("_{2,}", "_")
+                // 移除开头和结尾的下划线
+                .replaceAll("^_+|_+$", "");
+
+        // 限制长度，避免文件名过长
+        if (safeName.length() > 20) {
+            safeName = safeName.substring(0, 20);
+        }
+
+        // 如果清理后为空，返回默认名称
+        if (safeName.isEmpty()) {
+            safeName = "nav";
+        }
+
+        return safeName;
     }
 }

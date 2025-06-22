@@ -137,8 +137,8 @@ public class NavigationItemController {
                 return ApiResponse.error("分类ID不能为空");
             }
 
-            // 上传图标文件
-            String logoUrl = fileUploadService.uploadFile(logoFile);
+            // 上传图标文件（包含导航项名称）
+            String logoUrl = fileUploadService.uploadFile(logoFile, request.getName());
             log.info("图标文件上传成功: {}", logoUrl);
 
             // 创建导航项实体
@@ -235,8 +235,8 @@ public class NavigationItemController {
             // 处理图标文件上传（如果提供了新文件）
             String logoUrl = existingItem.getLogo(); // 默认使用现有图标
             if (logoFile != null && !logoFile.isEmpty()) {
-                // 上传新图标文件
-                logoUrl = fileUploadService.uploadFile(logoFile);
+                // 上传新图标文件（包含导航项名称）
+                logoUrl = fileUploadService.uploadFile(logoFile, request.getName());
                 log.info("新图标文件上传成功: {}", logoUrl);
 
                 // 删除旧图标文件（如果是本地文件）

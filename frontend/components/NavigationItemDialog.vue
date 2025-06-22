@@ -567,6 +567,7 @@ const handleOverlayClick = (event: MouseEvent) => {
 .preview-card {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 1rem;
   padding: 1rem;
   border-radius: 0.75rem;
@@ -619,6 +620,7 @@ const handleOverlayClick = (event: MouseEvent) => {
 
 .preview-content {
   flex: 1;
+  text-align: center;
 }
 
 .preview-title {
