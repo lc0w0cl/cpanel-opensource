@@ -6,9 +6,12 @@ import NavigationItemDialog from '~/components/NavigationItemDialog.vue'
 import { getImageUrl } from '~/lib/utils'
 import './navigation-panel.css'
 
+// 应用认证中间件
 definePageMeta({
+  middleware: 'auth',
   layout: 'dashboard'
 })
+
 
 // 类型定义
 interface Category {
@@ -99,7 +102,7 @@ const isIconifyIcon = (logo: string): boolean => {
 const api = {
   // 分类相关API
   async getCategories(): Promise<Category[]> {
-    const response = await fetch(`${API_BASE_URL}/categories`)
+    const response = await apiRequest(`${API_BASE_URL}/categories`)
     const result: ApiResponse<Category[]> = await response.json()
     if (result.success) {
       return result.data
@@ -110,7 +113,7 @@ const api = {
 
   // 导航项相关API
   async getNavigationItems(): Promise<NavigationItem[]> {
-    const response = await fetch(`${API_BASE_URL}/navigation-items`)
+    const response = await apiRequest(`${API_BASE_URL}/navigation-items`)
     const result: ApiResponse<NavigationItem[]> = await response.json()
     if (result.success) {
       return result.data
@@ -120,7 +123,7 @@ const api = {
   },
 
   async getNavigationItemsByCategory(categoryId: number): Promise<NavigationItem[]> {
-    const response = await fetch(`${API_BASE_URL}/navigation-items/category/${categoryId}`)
+    const response = await apiRequest(`${API_BASE_URL}/navigation-items/category/${categoryId}`)
     const result: ApiResponse<NavigationItem[]> = await response.json()
     if (result.success) {
       return result.data
@@ -133,7 +136,7 @@ const api = {
     const url = name
       ? `${API_BASE_URL}/navigation-items/search?name=${encodeURIComponent(name)}`
       : `${API_BASE_URL}/navigation-items/search`
-    const response = await fetch(url)
+    const response = await apiRequest(url)
     const result: ApiResponse<NavigationItem[]> = await response.json()
     if (result.success) {
       return result.data
@@ -143,7 +146,7 @@ const api = {
   },
 
   async createNavigationItem(item: Omit<NavigationItem, 'id' | 'createdAt' | 'updatedAt'>): Promise<NavigationItem> {
-    const response = await fetch(`${API_BASE_URL}/navigation-items`, {
+    const response = await apiRequest(`${API_BASE_URL}/navigation-items`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -159,7 +162,7 @@ const api = {
   },
 
   async createNavigationItemWithUpload(formData: FormData): Promise<NavigationItem> {
-    const response = await fetch(`${API_BASE_URL}/navigation-items`, {
+    const response = await apiRequest(`${API_BASE_URL}/navigation-items`, {
       method: 'POST',
       body: formData
     })
@@ -172,7 +175,7 @@ const api = {
   },
 
   async updateNavigationItem(item: NavigationItem): Promise<NavigationItem> {
-    const response = await fetch(`${API_BASE_URL}/navigation-items/${item.id}`, {
+    const response = await apiRequest(`${API_BASE_URL}/navigation-items/${item.id}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -188,7 +191,7 @@ const api = {
   },
 
   async updateNavigationItemWithUpload(id: number, formData: FormData): Promise<NavigationItem> {
-    const response = await fetch(`${API_BASE_URL}/navigation-items/${id}/upload`, {
+    const response = await apiRequest(`${API_BASE_URL}/navigation-items/${id}/upload`, {
       method: 'PUT',
       body: formData
     })
@@ -201,7 +204,7 @@ const api = {
   },
 
   async deleteNavigationItem(id: number): Promise<void> {
-    const response = await fetch(`${API_BASE_URL}/navigation-items/${id}`, {
+    const response = await apiRequest(`${API_BASE_URL}/navigation-items/${id}`, {
       method: 'DELETE'
     })
     const result: ApiResponse<string> = await response.json()
@@ -211,7 +214,7 @@ const api = {
   },
 
   async updateNavigationItemsSort(items: NavigationItem[]): Promise<void> {
-    const response = await fetch(`${API_BASE_URL}/navigation-items/sort`, {
+    const response = await apiRequest(`${API_BASE_URL}/navigation-items/sort`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',

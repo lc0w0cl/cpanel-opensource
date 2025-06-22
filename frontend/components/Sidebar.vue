@@ -17,12 +17,56 @@
         <InformationCircleIcon class="icon" />
         <span class="button-text">关于</span>
       </NuxtLink>
+
+      <!-- 登出按钮 -->
+      <button
+        @click="handleLogout"
+        class="nav-button logout-button"
+        :disabled="isLoggingOut"
+      >
+        <ArrowRightOnRectangleIcon v-if="!isLoggingOut" class="icon" />
+        <div v-else class="loading-spinner"></div>
+        <span class="button-text">{{ isLoggingOut ? '登出中...' : '登出' }}</span>
+      </button>
     </div>
   </div>
 </template>
 
 <script setup>
-import { HomeIcon, Squares2X2Icon, InformationCircleIcon } from '@heroicons/vue/24/outline'
+import { ref } from 'vue'
+import { HomeIcon, Squares2X2Icon, InformationCircleIcon, ArrowRightOnRectangleIcon } from '@heroicons/vue/24/outline'
+
+const isLoggingOut = ref(false)
+
+// 登出处理函数
+const handleLogout = async () => {
+  if (isLoggingOut.value) return
+
+  isLoggingOut.value = true
+
+  try {
+    const config = useRuntimeConfig()
+    const API_BASE_URL = `${config.public.apiBaseUrl}/api`
+
+    // 调用登出API
+    await apiRequest(`${API_BASE_URL}/auth/logout`, {
+      method: 'POST'
+    })
+
+    console.log('登出成功')
+  } catch (error) {
+    console.error('登出请求失败:', error)
+    // 即使API调用失败，也要清除本地token
+  } finally {
+    // 清除本地token和缓存
+    clearTokens()
+
+    // 重定向到登录页面
+    await navigateTo('/login')
+
+    isLoggingOut.value = false
+  }
+}
 </script>
 
 <style scoped>
@@ -141,6 +185,41 @@ import { HomeIcon, Squares2X2Icon, InformationCircleIcon } from '@heroicons/vue/
   letter-spacing: 0.025em;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
   transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* 登出按钮特殊样式 */
+.logout-button {
+  border: none;
+  cursor: pointer;
+}
+
+.logout-button:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.logout-button:hover {
+  color: #ef4444;
+}
+
+.logout-button:hover .icon {
+  color: #ef4444;
+  filter: drop-shadow(0 2px 4px rgba(239, 68, 68, 0.3));
+}
+
+/* 加载动画 */
+.loading-spinner {
+  width: 1.6rem;
+  height: 1.6rem;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top: 2px solid #ffffff;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 
 @media (max-width: 768px) {

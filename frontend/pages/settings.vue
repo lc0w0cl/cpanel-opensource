@@ -3,7 +3,9 @@ import { ref, onMounted } from 'vue'
 import { VueDraggable } from 'vue-draggable-plus'
 import { Icon } from '@iconify/vue'
 
+// 应用认证中间件
 definePageMeta({
+  middleware: 'auth',
   layout: 'dashboard'
 })
 
@@ -44,7 +46,7 @@ const API_BASE_URL = `${config.public.apiBaseUrl}/api`
 const fetchCategories = async () => {
   loading.value = true
   try {
-    const response = await fetch(`${API_BASE_URL}/categories`)
+    const response = await apiRequest(`${API_BASE_URL}/categories`)
     const result: ApiResponse<Category[]> = await response.json()
 
     if (result.success) {
@@ -69,7 +71,7 @@ const saveCategoriesSort = async () => {
       order: index + 1
     }))
 
-    const response = await fetch(`${API_BASE_URL}/categories/sort`, {
+    const response = await apiRequest(`${API_BASE_URL}/categories/sort`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -116,12 +118,11 @@ const changePassword = async () => {
 
   passwordLoading.value = true
   try {
-    const response = await fetch(`${API_BASE_URL}/auth/change-password`, {
+    const response = await apiRequest(`${API_BASE_URL}/auth/change-password`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      credentials: 'include', // 包含会话信息
       body: JSON.stringify({
         currentPassword: passwordForm.value.currentPassword,
         newPassword: passwordForm.value.newPassword

@@ -13,7 +13,6 @@ import java.util.List;
  */
 @RestController
 @RequestMapping("/api/categories")
-@CrossOrigin(origins = "*")
 public class PanelCategoryController {
 
     @Autowired

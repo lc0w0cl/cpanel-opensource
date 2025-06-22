@@ -7,30 +7,77 @@ definePageMeta({
   layout: 'blank'
 })
 
+// 导入JWT工具函数
+import { hasTokens, setTokens, apiRequest } from '~/composables/useJwt'
+
 // 响应式数据
 const password = ref('')
 const isLoading = ref(false)
 const showPassword = ref(false)
+const errorMessage = ref('')
+
+// 检查是否已登录
+onMounted(async () => {
+  if (hasTokens()) {
+    // 如果已有token，验证其有效性
+    try {
+      const config = useRuntimeConfig()
+      const API_BASE_URL = `${config.public.apiBaseUrl}/api`
+
+      const response = await apiRequest(`${API_BASE_URL}/auth/status`)
+      const result = await response.json()
+
+      if (result.success && result.data.authenticated) {
+        // 已登录，重定向到首页
+        await navigateTo('/')
+        return
+      }
+    } catch (error) {
+      console.log('验证登录状态失败，继续显示登录页面')
+    }
+  }
+})
 
 // 登录处理函数
 const handleLogin = async () => {
   if (!password.value.trim()) {
+    errorMessage.value = '请输入密码'
     return
   }
 
   isLoading.value = true
+  errorMessage.value = ''
 
   try {
-    // 这里将来会添加实际的登录逻辑
-    console.log('登录密码:', password.value)
+    const config = useRuntimeConfig()
+    const API_BASE_URL = `${config.public.apiBaseUrl}/api`
 
-    // 模拟登录延迟
-    await new Promise(resolve => setTimeout(resolve, 1000))
+    const response = await fetch(`${API_BASE_URL}/auth/login`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        password: password.value.trim()
+      })
+    })
 
-    // 登录成功后跳转到首页
-    await navigateTo('/')
+    const result = await response.json()
+
+    if (result.success && result.data) {
+      // 存储JWT tokens
+      setTokens(result.data)
+
+      console.log('登录成功')
+
+      // 登录成功后跳转到首页
+      await navigateTo('/')
+    } else {
+      errorMessage.value = result.message || '登录失败'
+    }
   } catch (error) {
     console.error('登录失败:', error)
+    errorMessage.value = '网络错误，请稍后重试'
   } finally {
     isLoading.value = false
   }
@@ -65,6 +112,12 @@ const handleKeydown = (event: KeyboardEvent) => {
 
         <!-- 表单区域 -->
         <form @submit.prevent="handleLogin" class="login-form">
+          <!-- 错误消息 -->
+          <div v-if="errorMessage" class="error-message">
+            <Icon icon="mdi:alert-circle" class="error-icon" />
+            <span>{{ errorMessage }}</span>
+          </div>
+
           <div class="password-input-wrapper">
             <div class="input-icon">
               <Icon icon="mdi:lock" class="icon" />
@@ -222,6 +275,30 @@ const handleKeydown = (event: KeyboardEvent) => {
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
+}
+
+.error-message {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  background: linear-gradient(135deg,
+    rgba(239, 68, 68, 0.15) 0%,
+    rgba(239, 68, 68, 0.1) 100%
+  );
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 0.9rem;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.error-icon {
+  width: 1.125rem;
+  height: 1.125rem;
+  color: rgba(239, 68, 68, 0.8);
+  flex-shrink: 0;
 }
 
 .password-input-wrapper {

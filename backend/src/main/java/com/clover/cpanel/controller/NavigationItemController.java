@@ -19,7 +19,6 @@ import java.util.List;
 @Slf4j
 @RestController
 @RequestMapping("/api/navigation-items")
-@CrossOrigin(origins = "*")
 public class NavigationItemController {
 
     @Autowired

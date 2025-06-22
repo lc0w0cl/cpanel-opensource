@@ -36,3 +36,16 @@ file:
     # 最大文件大小（字节）
     max-size: 10485760
 
+# JWT配置
+jwt:
+  # JWT密钥（生产环境请使用更复杂的密钥）
+  secret: cpanel-jwt-secret-key-for-authentication-system-2024-very-long-secret
+  # 访问token过期时间（毫秒）- 24小时
+  expiration: 86400000
+  # 刷新token过期时间（毫秒）- 7天
+  refresh-expiration: 604800000
+  # 发行者
+  issuer: cpanel
+  # 受众
+  audience: cpanel-users
+
