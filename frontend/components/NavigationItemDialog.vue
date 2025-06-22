@@ -576,6 +576,8 @@ const handleOverlayClick = (event: MouseEvent) => {
     rgba(255, 255, 255, 0.04) 100%
   );
   border: 1px solid rgba(255, 255, 255, 0.1);
+  max-width: 300px;
+  margin: 0 auto;
 }
 
 .preview-icon {
@@ -620,7 +622,8 @@ const handleOverlayClick = (event: MouseEvent) => {
 
 .preview-content {
   flex: 1;
-  text-align: center;
+  min-width: 0;
+  text-align: left;
 }
 
 .preview-title {
@@ -895,7 +898,14 @@ const handleOverlayClick = (event: MouseEvent) => {
   .preview-card {
     flex-direction: column;
     text-align: center;
+    max-width: none;
   }
+
+  .preview-content {
+    text-align: center;
+    width: 100%;
+  }
+
 
   .dialog-actions {
     flex-direction: column-reverse;
