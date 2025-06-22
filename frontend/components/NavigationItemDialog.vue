@@ -46,6 +46,8 @@ const formData = ref({
 const fileInput = ref<HTMLInputElement>()
 const iconUrl = ref('')
 const selectedHeroIcon = ref('')
+const selectedFile = ref<File | null>(null)
+const previewUrl = ref('')
 
 // 预定义的 Hero Icons 选项
 const heroIcons = [
@@ -58,8 +60,9 @@ const heroIcons = [
 
 // 计算预览图标
 const previewIcon = computed(() => {
-  if (formData.value.iconType === 'upload' && formData.value.logo) {
-    return formData.value.logo
+  if (formData.value.iconType === 'upload') {
+    // 优先显示新选择的文件预览，其次显示现有的logo
+    return previewUrl.value || formData.value.logo
   } else if (formData.value.iconType === 'online' && iconUrl.value) {
     return iconUrl.value
   } else if (formData.value.iconType === 'heroicon' && selectedHeroIcon.value) {
@@ -87,6 +90,10 @@ watch(() => props.visible, (newVisible) => {
       if (props.item.logo.startsWith('http')) {
         formData.value.iconType = 'online'
         iconUrl.value = props.item.logo
+      } else if (props.item.logo.startsWith('/uploads/')) {
+        formData.value.iconType = 'upload'
+        // 对于编辑模式，显示现有的图片
+        previewUrl.value = ''
       }
     } else {
       // 新增模式，重置表单
@@ -101,6 +108,8 @@ watch(() => props.visible, (newVisible) => {
       }
       iconUrl.value = ''
       selectedHeroIcon.value = ''
+      selectedFile.value = null
+      previewUrl.value = ''
     }
   }
 })
@@ -110,9 +119,26 @@ const handleFileUpload = (event: Event) => {
   const target = event.target as HTMLInputElement
   const file = target.files?.[0]
   if (file) {
+    // 验证文件类型
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/bmp', 'image/webp', 'image/svg+xml']
+    if (!allowedTypes.includes(file.type)) {
+      alert('请选择有效的图片文件（jpg, jpeg, png, gif, bmp, webp, svg）')
+      return
+    }
+
+    // 验证文件大小（10MB）
+    const maxSize = 10 * 1024 * 1024
+    if (file.size > maxSize) {
+      alert('文件大小不能超过10MB')
+      return
+    }
+
+    selectedFile.value = file
+
+    // 创建预览URL
     const reader = new FileReader()
     reader.onload = (e) => {
-      formData.value.logo = e.target?.result as string
+      previewUrl.value = e.target?.result as string
     }
     reader.readAsDataURL(file)
   }
@@ -140,15 +166,62 @@ const closeDialog = () => {
 
 // 确认操作
 const handleConfirm = () => {
-  // 根据图标类型设置最终的logo值
-  if (formData.value.iconType === 'online') {
-    formData.value.logo = iconUrl.value
-  } else if (formData.value.iconType === 'heroicon') {
-    formData.value.logo = selectedHeroIcon.value
+  // 基本验证
+  if (!formData.value.name.trim()) {
+    alert('请输入导航项名称')
+    return
+  }
+  if (!formData.value.url.trim()) {
+    alert('请输入导航项URL')
+    return
+  }
+  if (!formData.value.categoryId) {
+    alert('请选择分类')
+    return
   }
 
-  console.log('表单数据:', formData.value)
-  emit('confirm', formData.value)
+  // 根据图标类型处理数据
+  if (formData.value.iconType === 'upload') {
+    // 文件上传模式
+    if (props.mode === 'add' && !selectedFile.value) {
+      alert('请选择图标文件')
+      return
+    }
+
+    // 准备FormData
+    const formDataToSend = new FormData()
+    if (selectedFile.value) {
+      formDataToSend.append('logoFile', selectedFile.value)
+    }
+    formDataToSend.append('name', formData.value.name)
+    formDataToSend.append('url', formData.value.url)
+    formDataToSend.append('categoryId', formData.value.categoryId)
+    if (formData.value.description) {
+      formDataToSend.append('description', formData.value.description)
+    }
+    if (formData.value.internalUrl) {
+      formDataToSend.append('internalUrl', formData.value.internalUrl)
+    }
+
+    console.log('文件上传模式，FormData已准备')
+    emit('confirm', { formData: formDataToSend, isUpload: true })
+  } else {
+    // 传统模式（在线图标或Hero图标）
+    if (formData.value.iconType === 'online') {
+      formData.value.logo = iconUrl.value
+    } else if (formData.value.iconType === 'heroicon') {
+      formData.value.logo = selectedHeroIcon.value
+    }
+
+    if (!formData.value.logo) {
+      alert('请设置图标')
+      return
+    }
+
+    console.log('传统模式，表单数据:', formData.value)
+    emit('confirm', { formData: formData.value, isUpload: false })
+  }
+
   closeDialog()
 }
 

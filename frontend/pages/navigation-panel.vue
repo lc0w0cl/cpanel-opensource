@@ -146,6 +146,19 @@ const api = {
     }
   },
 
+  async createNavigationItemWithUpload(formData: FormData): Promise<NavigationItem> {
+    const response = await fetch(`${API_BASE_URL}/navigation-items`, {
+      method: 'POST',
+      body: formData
+    })
+    const result: ApiResponse<NavigationItem> = await response.json()
+    if (result.success) {
+      return result.data
+    } else {
+      throw new Error(result.message)
+    }
+  },
+
   async updateNavigationItem(item: NavigationItem): Promise<NavigationItem> {
     const response = await fetch(`${API_BASE_URL}/navigation-items/${item.id}`, {
       method: 'PUT',
@@ -153,6 +166,19 @@ const api = {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(item)
+    })
+    const result: ApiResponse<NavigationItem> = await response.json()
+    if (result.success) {
+      return result.data
+    } else {
+      throw new Error(result.message)
+    }
+  },
+
+  async updateNavigationItemWithUpload(id: number, formData: FormData): Promise<NavigationItem> {
+    const response = await fetch(`${API_BASE_URL}/navigation-items/${id}/upload`, {
+      method: 'PUT',
+      body: formData
     })
     const result: ApiResponse<NavigationItem> = await response.json()
     if (result.success) {
@@ -498,49 +524,63 @@ const showEditItemDialog = (item: any) => {
 }
 
 // 处理弹窗确认
-const handleDialogConfirm = async (data: any) => {
+const handleDialogConfirm = async (data: { formData: any, isUpload: boolean }) => {
   try {
     if (itemDialog.value.mode === 'add') {
       // 新增逻辑
-      const newItemData = {
-        name: data.name,
-        url: data.url,
-        logo: data.logo,
-        categoryId: parseInt(data.categoryId),
-        description: data.description,
-        internalUrl: data.internalUrl
-        // sortOrder 由后端自动设置
-      }
+      let newItem: NavigationItem
 
-      // 调用后端API创建
-      const newItem = await api.createNavigationItem(newItemData)
+      if (data.isUpload) {
+        // 使用文件上传API
+        newItem = await api.createNavigationItemWithUpload(data.formData)
+      } else {
+        // 使用传统API，data.formData是普通对象
+        const formData = data.formData
+        const newItemData = {
+          name: formData.name,
+          url: formData.url,
+          logo: formData.logo,
+          categoryId: parseInt(formData.categoryId),
+          description: formData.description,
+          internalUrl: formData.internalUrl
+        }
+        newItem = await api.createNavigationItem(newItemData)
+      }
 
       // 添加到本地数据
       navigationItems.value.push(newItem)
 
       // 更新分组数据
-      if (!categoryItems.value[data.categoryId]) {
-        categoryItems.value[data.categoryId] = []
+      const categoryId = newItem.categoryId
+      if (!categoryItems.value[categoryId]) {
+        categoryItems.value[categoryId] = []
       }
-      categoryItems.value[data.categoryId].push(newItem)
+      categoryItems.value[categoryId].push(newItem)
 
       console.log('新增导航项:', newItem)
-      showNotification(`已成功新增 "${data.name}"`, 'success')
+      showNotification(`已成功新增 "${newItem.name}"`, 'success')
     } else {
       // 编辑逻辑
       const index = navigationItems.value.findIndex(item => item.id === itemDialog.value.item?.id)
       if (index !== -1) {
-        const updatedItem = {
-          ...navigationItems.value[index],
-          name: data.name,
-          url: data.url,
-          logo: data.logo,
-          description: data.description,
-          internalUrl: data.internalUrl
-        }
+        let result: NavigationItem
 
-        // 调用后端API更新
-        const result = await api.updateNavigationItem(updatedItem)
+        if (data.isUpload) {
+          // 使用文件上传API更新
+          result = await api.updateNavigationItemWithUpload(itemDialog.value.item.id, data.formData)
+        } else {
+          // 使用传统API更新，data.formData是普通对象
+          const formData = data.formData
+          const updatedItem = {
+            ...navigationItems.value[index],
+            name: formData.name,
+            url: formData.url,
+            logo: formData.logo,
+            description: formData.description,
+            internalUrl: formData.internalUrl
+          }
+          result = await api.updateNavigationItem(updatedItem)
+        }
 
         // 更新本地数据
         navigationItems.value[index] = result
@@ -553,11 +593,14 @@ const handleDialogConfirm = async (data: any) => {
         }
 
         console.log('编辑导航项:', result)
-        showNotification(`已成功编辑 "${data.name}"`, 'success')
+        showNotification(`已成功编辑 "${result.name}"`, 'success')
       } else {
         showNotification('编辑失败：未找到对应项目', 'error')
       }
     }
+
+    // 关闭弹窗
+    itemDialog.value.visible = false
   } catch (error) {
     console.error('操作失败:', error)
     showNotification(`操作失败: ${error.message || '未知错误'}`, 'error')

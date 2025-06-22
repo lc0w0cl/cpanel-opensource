@@ -1,0 +1,159 @@
+package com.clover.cpanel.service.impl;
+
+import com.clover.cpanel.service.FileUploadService;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.Arrays;
+import java.util.List;
+import java.util.UUID;
+
+/**
+ * 文件上传服务实现类
+ */
+@Slf4j
+@Service
+public class FileUploadServiceImpl implements FileUploadService {
+
+    @Value("${file.upload.path:./uploads/}")
+    private String uploadPath;
+
+    @Value("${file.upload.url-prefix:/uploads/}")
+    private String urlPrefix;
+
+    @Value("${file.upload.allowed-types:jpg,jpeg,png,gif,bmp,webp,svg}")
+    private String allowedTypes;
+
+    @Value("${file.upload.max-size:10485760}")
+    private long maxSize;
+
+    @Override
+    public String uploadFile(MultipartFile file) {
+        try {
+            // 验证文件
+            if (!isValidFileType(file)) {
+                throw new RuntimeException("不支持的文件类型");
+            }
+            if (!isValidFileSize(file)) {
+                throw new RuntimeException("文件大小超出限制");
+            }
+
+            // 确保上传目录存在
+            File uploadDir = new File(uploadPath);
+            if (!uploadDir.exists()) {
+                uploadDir.mkdirs();
+            }
+
+            // 生成唯一文件名
+            String uniqueFileName = generateUniqueFileName(file.getOriginalFilename());
+
+            // 保存文件
+            Path filePath = Paths.get(uploadPath, uniqueFileName);
+            Files.copy(file.getInputStream(), filePath);
+
+            // 返回访问URL
+            String fileUrl = urlPrefix + uniqueFileName;
+            log.info("文件上传成功: {}", fileUrl);
+            return fileUrl;
+
+        } catch (IOException e) {
+            log.error("文件上传失败: {}", e.getMessage(), e);
+            throw new RuntimeException("文件上传失败: " + e.getMessage());
+        }
+    }
+
+    @Override
+    public boolean isValidFileType(MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            return false;
+        }
+
+        String originalFilename = file.getOriginalFilename();
+        if (originalFilename == null) {
+            return false;
+        }
+
+        // 获取文件扩展名
+        String extension = getFileExtension(originalFilename).toLowerCase();
+        
+        // 检查是否在允许的类型列表中
+        List<String> allowedTypeList = Arrays.asList(allowedTypes.toLowerCase().split(","));
+        return allowedTypeList.contains(extension);
+    }
+
+    @Override
+    public boolean isValidFileSize(MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            return false;
+        }
+        return file.getSize() <= maxSize;
+    }
+
+    @Override
+    public String generateUniqueFileName(String originalFilename) {
+        if (originalFilename == null) {
+            originalFilename = "unknown";
+        }
+
+        // 获取文件扩展名
+        String extension = getFileExtension(originalFilename);
+        
+        // 生成时间戳
+        String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
+        
+        // 生成UUID
+        String uuid = UUID.randomUUID().toString().replace("-", "").substring(0, 8);
+        
+        // 组合文件名：时间戳_UUID.扩展名
+        return timestamp + "_" + uuid + (extension.isEmpty() ? "" : "." + extension);
+    }
+
+    @Override
+    public boolean deleteFile(String fileUrl) {
+        try {
+            if (fileUrl == null || !fileUrl.startsWith(urlPrefix)) {
+                return false;
+            }
+
+            // 提取文件名
+            String fileName = fileUrl.substring(urlPrefix.length());
+            Path filePath = Paths.get(uploadPath, fileName);
+            
+            // 删除文件
+            boolean deleted = Files.deleteIfExists(filePath);
+            if (deleted) {
+                log.info("文件删除成功: {}", fileUrl);
+            }
+            return deleted;
+
+        } catch (IOException e) {
+            log.error("文件删除失败: {}", e.getMessage(), e);
+            return false;
+        }
+    }
+
+    /**
+     * 获取文件扩展名
+     * @param filename 文件名
+     * @return 扩展名（不包含点）
+     */
+    private String getFileExtension(String filename) {
+        if (filename == null || filename.isEmpty()) {
+            return "";
+        }
+        int lastDotIndex = filename.lastIndexOf('.');
+        if (lastDotIndex == -1 || lastDotIndex == filename.length() - 1) {
+            return "";
+        }
+        return filename.substring(lastDotIndex + 1);
+    }
+}
