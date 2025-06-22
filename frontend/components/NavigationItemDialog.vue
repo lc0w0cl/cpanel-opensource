@@ -182,6 +182,11 @@ const handleCustomIconifyChange = () => {
   }
 }
 
+// 打开 Iconify 图标库
+const openIconLibrary = () => {
+  window.open('https://icon-sets.iconify.design/', '_blank')
+}
+
 // 关闭弹窗
 const closeDialog = () => {
   emit('update:visible', false)
@@ -407,13 +412,21 @@ const handleOverlayClick = (event: MouseEvent) => {
                 placeholder="输入 Iconify 图标名称，如：mdi:home"
                 @input="handleCustomIconifyChange"
               />
-              <div class="icon-preview">
-                <Icon
-                  v-if="customIconifyIcon"
-                  :icon="customIconifyIcon"
-                  class="preview-iconify-icon"
-                />
-              </div>
+              <button
+                type="button"
+                class="icon-library-btn"
+                @click="openIconLibrary"
+                title="打开 Iconify 图标库"
+              >
+                <LinkIcon class="library-icon" />
+                图标库
+              </button>
+            </div>
+
+            <!-- 使用说明 -->
+            <div class="usage-tip">
+              <p>💡 点击"图标库"按钮访问 Iconify 官网，搜索并复制图标名称到上方输入框</p>
+              <p>📝 支持格式：<code>mdi:home</code>、<code>fa:star</code>、<code>feather:heart</code> 等</p>
             </div>
           </div>
         </div>
@@ -852,80 +865,84 @@ const handleOverlayClick = (event: MouseEvent) => {
 .custom-icon-input {
   display: flex;
   gap: 1rem;
-  align-items: center;
+  align-items: stretch;
   margin-bottom: 1rem;
 }
 
-.icon-preview {
-  width: 3rem;
-  height: 3rem;
+
+
+.icon-library-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  gap: 0.5rem;
+  min-width: 120px;
+  padding: 0.75rem 1rem;
+  border: 1px solid rgba(59, 130, 246, 0.3);
   border-radius: 0.5rem;
   background: linear-gradient(135deg,
-    rgba(255, 255, 255, 0.05) 0%,
-    rgba(255, 255, 255, 0.02) 100%
+    rgba(59, 130, 246, 0.15) 0%,
+    rgba(59, 130, 246, 0.08) 100%
   );
+  color: rgba(59, 130, 246, 0.9);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-decoration: none;
+  white-space: nowrap;
   flex-shrink: 0;
 }
 
-.preview-iconify-icon {
-  width: 1.5rem;
-  height: 1.5rem;
-  color: rgba(255, 255, 255, 0.8);
-}
-
-.iconify-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
-  gap: 0.75rem;
-}
-
-.iconify-button {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 1rem;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 0.5rem;
+.icon-library-btn:hover {
   background: linear-gradient(135deg,
-    rgba(255, 255, 255, 0.05) 0%,
-    rgba(255, 255, 255, 0.02) 100%
-  );
-  color: rgba(255, 255, 255, 0.7);
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.iconify-button:hover {
-  background: linear-gradient(135deg,
-    rgba(255, 255, 255, 0.1) 0%,
-    rgba(255, 255, 255, 0.05) 100%
-  );
-  color: rgba(255, 255, 255, 0.9);
-}
-
-.iconify-button.selected {
-  background: linear-gradient(135deg,
-    rgba(59, 130, 246, 0.3) 0%,
-    rgba(59, 130, 246, 0.2) 100%
+    rgba(59, 130, 246, 0.25) 0%,
+    rgba(59, 130, 246, 0.15) 100%
   );
   border-color: rgba(59, 130, 246, 0.5);
-  color: rgba(255, 255, 255, 0.9);
+  color: rgba(59, 130, 246, 1);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2);
 }
 
-.iconify-icon {
-  width: 1.5rem;
-  height: 1.5rem;
+.library-icon {
+  width: 1rem;
+  height: 1rem;
+  stroke-width: 2;
 }
 
-.iconify-label {
-  font-size: 0.75rem;
-  text-align: center;
+.usage-tip {
+  margin-top: 1rem;
+  padding: 1rem;
+  border-radius: 0.5rem;
+  background: linear-gradient(135deg,
+    rgba(34, 197, 94, 0.1) 0%,
+    rgba(34, 197, 94, 0.05) 100%
+  );
+  border: 1px solid rgba(34, 197, 94, 0.2);
 }
+
+.usage-tip p {
+  margin: 0 0 0.5rem 0;
+  font-size: 0.875rem;
+  color: rgba(255, 255, 255, 0.8);
+  line-height: 1.4;
+}
+
+.usage-tip p:last-child {
+  margin-bottom: 0;
+}
+
+.usage-tip code {
+  background: rgba(255, 255, 255, 0.1);
+  padding: 0.125rem 0.375rem;
+  border-radius: 0.25rem;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 0.8rem;
+  color: rgba(34, 197, 94, 0.9);
+}
+
+
 
 .dialog-actions {
   display: flex;
