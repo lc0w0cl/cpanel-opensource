@@ -7,6 +7,29 @@ definePageMeta({
   layout: 'blank'
 })
 
+// 添加关键CSS到头部，防止布局跳动
+useHead({
+  style: [{
+    innerHTML: `
+      .login-container {
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        width: 100vw !important;
+        height: 100vh !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        background-image: url('/background/机甲.png') !important;
+        background-size: cover !important;
+        background-position: center !important;
+        overflow: hidden !important;
+        z-index: 1000 !important;
+      }
+    `
+  }]
+})
+
 // 导入JWT工具函数
 import { hasTokens, setTokens, apiRequest } from '~/composables/useJwt'
 
@@ -15,9 +38,16 @@ const password = ref('')
 const isLoading = ref(false)
 const showPassword = ref(false)
 const errorMessage = ref('')
+const isClient = ref(false)
 
 // 检查是否已登录（简化版本）
 onMounted(async () => {
+  // 标记为客户端环境
+  isClient.value = true
+
+  // 等待一个tick确保DOM完全渲染
+  await nextTick()
+
   // 检查是否有有效的认证缓存
   if (process.client) {
     const cachedAuth = sessionStorage.getItem('auth_status')
@@ -106,8 +136,8 @@ const handleKeydown = (event: KeyboardEvent) => {
 </script>
 
 <template>
-  <div class="login-container">
-    <div class="login-content">
+  <div class="login-container" :class="{ 'is-loaded': isClient }">
+    <div class="login-content" v-show="isClient">
       <!-- 登录卡片 -->
       <div class="login-card">
         <!-- 标题区域 -->
@@ -177,25 +207,42 @@ const handleKeydown = (event: KeyboardEvent) => {
 
 <style scoped>
 .login-container {
-  position: relative;
-  width: 100%;
-  min-height: 100vh;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 2rem;
+  z-index: 1000;
 
   /* 背景图片 - 与导航页面保持一致 */
   background-image: url('/background/机甲.png');
   background-size: cover;
   background-position: center;
   background-attachment: fixed;
+
+  /* 防止布局跳动和滚动 */
+  overflow: hidden;
 }
 
 .login-content {
   width: 100%;
   max-width: 400px;
   position: relative;
+
+  /* 初始状态隐藏，防止布局跳动 */
+  opacity: 0;
+  transform: translateY(20px);
+  transition: all 0.3s ease-out;
+}
+
+/* 客户端加载完成后显示 */
+.login-container.is-loaded .login-content {
+  opacity: 1;
+  transform: translateY(0);
 }
 
 .login-card {
@@ -469,6 +516,8 @@ const handleKeydown = (event: KeyboardEvent) => {
     transform: rotate(360deg);
   }
 }
+
+
 
 /* 响应式设计 */
 @media (max-width: 480px) {
