@@ -42,3 +42,14 @@ INSERT INTO panel_navigation_items (name, url, logo, category_id, description, i
 ('DNSPod', 'https://www.bing.com', '/logo/DNSPod.svg', 2, NULL, NULL, 1, '2023-01-01 00:00:00', '2023-01-01 00:00:00'),
 ('Docker', 'https://www.bing.com', '/logo/docker-official.svg', 2, NULL, NULL, 2, '2023-01-01 00:00:00', '2023-01-01 00:00:00'),
 ('Yacd', 'https://www.bing.com', '/logo/yacd-128.png', 2, NULL, NULL, 3, '2023-01-01 00:00:00', '2023-01-01 00:00:00');
+
+-- 创建系统配置表
+CREATE TABLE IF NOT EXISTS panel_system_config (
+  id INT AUTO_INCREMENT PRIMARY KEY COMMENT '配置ID，自增主键',
+  config_key VARCHAR(100) NOT NULL UNIQUE COMMENT '配置键名',
+  config_value TEXT COMMENT '配置值',
+  description VARCHAR(255) COMMENT '配置描述',
+  created_at VARCHAR(19) COMMENT '创建时间，格式：yyyy-MM-dd HH:mm:ss',
+  updated_at VARCHAR(19) COMMENT '更新时间，格式：yyyy-MM-dd HH:mm:ss',
+  INDEX idx_config_key (config_key)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='系统配置表';

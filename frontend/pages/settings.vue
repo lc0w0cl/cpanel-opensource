@@ -27,6 +27,15 @@ const categories = ref<Category[]>([])
 const loading = ref(false)
 const saving = ref(false)
 
+// 密码设置相关
+const passwordForm = ref({
+  currentPassword: '',
+  newPassword: '',
+  confirmPassword: ''
+})
+const passwordLoading = ref(false)
+const showPasswordForm = ref(false)
+
 // API配置
 const config = useRuntimeConfig()
 const API_BASE_URL = `${config.public.apiBaseUrl}/api`
@@ -91,6 +100,63 @@ const saveCategoriesSort = async () => {
 const handleDragEnd = () => {
   console.log('拖拽排序完成')
   saveCategoriesSort()
+}
+
+// 修改密码
+const changePassword = async () => {
+  if (passwordForm.value.newPassword !== passwordForm.value.confirmPassword) {
+    console.error('两次输入的密码不一致')
+    return
+  }
+
+  if (passwordForm.value.newPassword.length < 4) {
+    console.error('密码长度不能少于4位')
+    return
+  }
+
+  passwordLoading.value = true
+  try {
+    const response = await fetch(`${API_BASE_URL}/auth/change-password`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include', // 包含会话信息
+      body: JSON.stringify({
+        currentPassword: passwordForm.value.currentPassword,
+        newPassword: passwordForm.value.newPassword
+      })
+    })
+
+    const result: ApiResponse<string> = await response.json()
+
+    if (result.success) {
+      console.log('密码修改成功')
+      // 重置表单
+      passwordForm.value = {
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: ''
+      }
+      showPasswordForm.value = false
+    } else {
+      console.error('密码修改失败:', result.message)
+    }
+  } catch (error) {
+    console.error('密码修改失败:', error)
+  } finally {
+    passwordLoading.value = false
+  }
+}
+
+// 取消密码修改
+const cancelPasswordChange = () => {
+  passwordForm.value = {
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  }
+  showPasswordForm.value = false
 }
 
 // 页面加载时获取数据
@@ -175,7 +241,93 @@ onMounted(() => {
         </div>
       </div>
 
-      <!-- 其他设置卡片可以在这里添加 -->
+      <!-- 密码设置卡片 -->
+      <div class="settings-card">
+        <div class="card-header">
+          <div class="header-content">
+            <Icon icon="mdi:lock" class="header-icon" />
+            <div>
+              <h2 class="card-title">登录密码</h2>
+              <p class="card-description">设置面板登录密码</p>
+            </div>
+          </div>
+          <div class="header-actions">
+            <button
+              v-if="!showPasswordForm"
+              class="change-password-btn"
+              @click="showPasswordForm = true"
+            >
+              <Icon icon="mdi:pencil" class="btn-icon" />
+              修改密码
+            </button>
+          </div>
+        </div>
+
+        <div class="card-content">
+          <div v-if="!showPasswordForm" class="password-info">
+            <div class="info-item">
+              <Icon icon="mdi:information" class="info-icon" />
+              <div class="info-content">
+                <p class="info-title">当前状态</p>
+                <p class="info-description">密码保护已启用，默认密码为 "admin"</p>
+              </div>
+            </div>
+          </div>
+
+          <div v-else class="password-form">
+            <div class="form-group">
+              <label class="form-label">当前密码</label>
+              <input
+                v-model="passwordForm.currentPassword"
+                type="password"
+                class="form-input"
+                placeholder="输入当前密码"
+              />
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">新密码</label>
+              <input
+                v-model="passwordForm.newPassword"
+                type="password"
+                class="form-input"
+                placeholder="输入新密码（至少4位）"
+              />
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">确认新密码</label>
+              <input
+                v-model="passwordForm.confirmPassword"
+                type="password"
+                class="form-input"
+                placeholder="再次输入新密码"
+              />
+            </div>
+
+            <div class="form-actions">
+              <button
+                class="cancel-btn"
+                @click="cancelPasswordChange"
+                :disabled="passwordLoading"
+              >
+                取消
+              </button>
+              <button
+                class="save-btn"
+                @click="changePassword"
+                :disabled="passwordLoading || !passwordForm.newPassword || passwordForm.newPassword !== passwordForm.confirmPassword"
+              >
+                <Icon v-if="passwordLoading" icon="mdi:loading" class="spin btn-icon" />
+                <Icon v-else icon="mdi:check" class="btn-icon" />
+                {{ passwordLoading ? '保存中...' : '保存' }}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 其他设置卡片 -->
       <div class="settings-card">
         <div class="card-header">
           <div class="header-content">
@@ -497,6 +649,192 @@ onMounted(() => {
   }
 }
 
+/* 密码设置样式 */
+.change-password-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid rgba(255, 193, 7, 0.3);
+  border-radius: 0.5rem;
+  background: linear-gradient(135deg,
+    rgba(255, 193, 7, 0.15) 0%,
+    rgba(255, 193, 7, 0.08) 100%
+  );
+  color: rgba(255, 193, 7, 0.9);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.change-password-btn:hover {
+  background: linear-gradient(135deg,
+    rgba(255, 193, 7, 0.25) 0%,
+    rgba(255, 193, 7, 0.15) 100%
+  );
+  border-color: rgba(255, 193, 7, 0.5);
+  color: rgba(255, 193, 7, 1);
+  transform: translateY(-1px);
+}
+
+.btn-icon {
+  width: 1rem;
+  height: 1rem;
+}
+
+.password-info {
+  padding: 1rem 0;
+}
+
+.info-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 1rem;
+  border-radius: 0.75rem;
+  background: linear-gradient(135deg,
+    rgba(59, 130, 246, 0.1) 0%,
+    rgba(59, 130, 246, 0.05) 100%
+  );
+  border: 1px solid rgba(59, 130, 246, 0.2);
+}
+
+.info-icon {
+  width: 1.5rem;
+  height: 1.5rem;
+  color: rgba(59, 130, 246, 0.8);
+  flex-shrink: 0;
+  margin-top: 0.125rem;
+}
+
+.info-content {
+  flex: 1;
+}
+
+.info-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+  margin: 0 0 0.25rem 0;
+}
+
+.info-description {
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.6);
+  margin: 0;
+  line-height: 1.4;
+}
+
+.password-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.form-label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.form-input {
+  padding: 0.75rem 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 0.5rem;
+  background: linear-gradient(135deg,
+    rgba(255, 255, 255, 0.08) 0%,
+    rgba(255, 255, 255, 0.04) 100%
+  );
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 0.875rem;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.form-input:focus {
+  outline: none;
+  border-color: rgba(59, 130, 246, 0.5);
+  background: linear-gradient(135deg,
+    rgba(255, 255, 255, 0.12) 0%,
+    rgba(255, 255, 255, 0.06) 100%
+  );
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.form-input::placeholder {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.form-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: flex-end;
+  margin-top: 0.5rem;
+}
+
+.cancel-btn,
+.save-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.cancel-btn {
+  background: linear-gradient(135deg,
+    rgba(239, 68, 68, 0.15) 0%,
+    rgba(239, 68, 68, 0.08) 100%
+  );
+  color: rgba(239, 68, 68, 0.9);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.cancel-btn:hover {
+  background: linear-gradient(135deg,
+    rgba(239, 68, 68, 0.25) 0%,
+    rgba(239, 68, 68, 0.15) 100%
+  );
+  border-color: rgba(239, 68, 68, 0.5);
+  color: rgba(239, 68, 68, 1);
+}
+
+.save-btn {
+  background: linear-gradient(135deg,
+    rgba(34, 197, 94, 0.2) 0%,
+    rgba(34, 197, 94, 0.1) 100%
+  );
+  color: rgba(34, 197, 94, 0.9);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+.save-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg,
+    rgba(34, 197, 94, 0.3) 0%,
+    rgba(34, 197, 94, 0.15) 100%
+  );
+  border-color: rgba(34, 197, 94, 0.5);
+  color: rgba(34, 197, 94, 1);
+}
+
+.save-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 /* 响应式设计 */
 @media (max-width: 768px) {
   .settings-container {
@@ -533,6 +871,16 @@ onMounted(() => {
 
   .category-meta {
     font-size: 0.7rem;
+  }
+
+  .form-actions {
+    flex-direction: column;
+  }
+
+  .cancel-btn,
+  .save-btn {
+    width: 100%;
+    justify-content: center;
   }
 }
 </style>
