@@ -9,6 +9,10 @@
         <Squares2X2Icon class="icon" />
         <span class="button-text">导航</span>
       </NuxtLink>
+      <NuxtLink to="/settings" class="nav-button">
+        <Squares2X2Icon class="icon" />
+        <span class="button-text">设置</span>
+      </NuxtLink>
       <NuxtLink to="/about" class="nav-button">
         <InformationCircleIcon class="icon" />
         <span class="button-text">关于</span>

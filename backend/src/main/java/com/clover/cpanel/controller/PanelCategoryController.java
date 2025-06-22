@@ -110,4 +110,27 @@ public class PanelCategoryController {
             return ApiResponse.error("分类删除失败：" + e.getMessage());
         }
     }
+
+    /**
+     * 批量更新分类排序
+     * @param categories 分类列表（包含新的排序信息）
+     * @return 更新结果
+     */
+    @PutMapping("/sort")
+    public ApiResponse<String> updateCategoriesSort(@RequestBody List<PanelCategory> categories) {
+        try {
+            if (categories == null || categories.isEmpty()) {
+                return ApiResponse.error("排序数据不能为空");
+            }
+
+            boolean success = panelCategoryService.updateCategoriesSort(categories);
+            if (success) {
+                return ApiResponse.success("分类排序更新成功");
+            } else {
+                return ApiResponse.error("分类排序更新失败");
+            }
+        } catch (Exception e) {
+            return ApiResponse.error("分类排序更新失败：" + e.getMessage());
+        }
+    }
 }

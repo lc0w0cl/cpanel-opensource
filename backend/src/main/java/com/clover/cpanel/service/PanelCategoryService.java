@@ -43,4 +43,11 @@ public interface PanelCategoryService extends IService<PanelCategory> {
      * @return 是否删除成功
      */
     boolean deleteCategory(Integer id);
+
+    /**
+     * 批量更新分类排序
+     * @param categories 分类列表（包含新的排序信息）
+     * @return 是否更新成功
+     */
+    boolean updateCategoriesSort(List<PanelCategory> categories);
 }

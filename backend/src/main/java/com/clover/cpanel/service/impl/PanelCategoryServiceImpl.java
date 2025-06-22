@@ -41,4 +41,23 @@ public class PanelCategoryServiceImpl extends ServiceImpl<PanelCategoryMapper, P
     public boolean deleteCategory(Integer id) {
         return removeById(id);
     }
+
+    @Override
+    public boolean updateCategoriesSort(List<PanelCategory> categories) {
+        if (categories == null || categories.isEmpty()) {
+            return false;
+        }
+
+        try {
+            // 批量更新排序
+            for (int i = 0; i < categories.size(); i++) {
+                PanelCategory category = categories.get(i);
+                category.setOrder(i + 1); // 排序从1开始
+                updateById(category);
+            }
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
+    }
 }
