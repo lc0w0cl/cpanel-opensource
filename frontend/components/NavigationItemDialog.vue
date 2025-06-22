@@ -49,6 +49,7 @@ const iconUrl = ref('')
 const selectedHeroIcon = ref('')
 const selectedFile = ref<File | null>(null)
 const previewUrl = ref('')
+const serverImagePath = ref('')
 
 // 预定义的 Hero Icons 选项
 const heroIcons = [
@@ -100,6 +101,8 @@ watch(() => props.visible, (newVisible) => {
         formData.value.iconType = 'upload'
         // 对于编辑模式，显示现有的图片
         previewUrl.value = ''
+        // 设置服务器图片路径
+        serverImagePath.value = props.item.logo
       }
     } else {
       // 新增模式，重置表单
@@ -116,6 +119,7 @@ watch(() => props.visible, (newVisible) => {
       selectedHeroIcon.value = ''
       selectedFile.value = null
       previewUrl.value = ''
+      serverImagePath.value = ''
     }
   }
 })
@@ -147,6 +151,9 @@ const handleFileUpload = (event: Event) => {
       previewUrl.value = e.target?.result as string
     }
     reader.readAsDataURL(file)
+
+    // 显示将要上传的文件名（预估服务器路径）
+    serverImagePath.value = `将上传: ${file.name}`
   }
 }
 
@@ -340,21 +347,32 @@ const handleOverlayClick = (event: MouseEvent) => {
 
           <!-- 上传图片 -->
           <div v-if="formData.iconType === 'upload'" class="icon-upload-area">
-            <input
-              ref="fileInput"
-              type="file"
-              accept="image/*"
-              class="file-input"
-              @change="handleFileUpload"
-            />
-            <button
-              type="button"
-              class="upload-button"
-              @click="fileInput?.click()"
-            >
-              <PhotoIcon class="upload-icon" />
-              选择图片文件
-            </button>
+            <div class="upload-row">
+              <input
+                ref="fileInput"
+                type="file"
+                accept="image/*"
+                class="file-input"
+                @change="handleFileUpload"
+              />
+              <button
+                type="button"
+                class="upload-button"
+                @click="fileInput?.click()"
+              >
+                <PhotoIcon class="upload-icon" />
+                选择图片文件
+              </button>
+              <div class="server-path-input">
+                <input
+                  v-model="serverImagePath"
+                  type="text"
+                  class="form-input h-full"
+                  placeholder="服务器图片路径"
+                  readonly
+                />
+              </div>
+            </div>
           </div>
 
           <!-- 在线图标 -->
@@ -701,6 +719,27 @@ const handleOverlayClick = (event: MouseEvent) => {
   margin-top: 0.5rem;
 }
 
+.upload-row {
+  display: flex;
+  gap: 1rem;
+  align-items: stretch;
+}
+
+.server-path-input {
+  flex: 1;
+  min-width: 200px;
+}
+
+.server-path-input .form-input[readonly] {
+  background: linear-gradient(135deg,
+    rgba(255, 255, 255, 0.05) 0%,
+    rgba(255, 255, 255, 0.02) 100%
+  );
+  color: rgba(255, 255, 255, 0.7);
+  cursor: default;
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
 .file-input {
   display: none;
 }
@@ -710,8 +749,8 @@ const handleOverlayClick = (event: MouseEvent) => {
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  width: 100%;
-  padding: 2rem;
+  min-width: 160px;
+  padding: 1rem 1.5rem;
   border: 2px dashed rgba(255, 255, 255, 0.3);
   border-radius: 0.75rem;
   background: transparent;
@@ -719,6 +758,7 @@ const handleOverlayClick = (event: MouseEvent) => {
   font-size: 0.875rem;
   cursor: pointer;
   transition: all 0.3s ease;
+  white-space: nowrap;
 }
 
 .upload-button:hover {
