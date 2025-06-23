@@ -110,12 +110,50 @@ public class NavigationItemController {
 
 
     /**
+     * 创建新导航项（JSON格式，用于在线图标和Iconify图标）
+     * @param navigationItem 导航项信息
+     * @return 创建结果
+     */
+    @PostMapping("/json")
+    public ApiResponse<NavigationItem> createNavigationItem(@RequestBody NavigationItem navigationItem) {
+        try {
+            log.info("开始创建导航项（JSON），名称: {}", navigationItem.getName());
+
+            // 基本验证
+            if (navigationItem.getName() == null || navigationItem.getName().trim().isEmpty()) {
+                return ApiResponse.error("导航项名称不能为空");
+            }
+            if (navigationItem.getUrl() == null || navigationItem.getUrl().trim().isEmpty()) {
+                return ApiResponse.error("导航项URL不能为空");
+            }
+            if (navigationItem.getLogo() == null || navigationItem.getLogo().trim().isEmpty()) {
+                return ApiResponse.error("导航项图标不能为空");
+            }
+            if (navigationItem.getCategoryId() == null) {
+                return ApiResponse.error("分类ID不能为空");
+            }
+
+            // 保存到数据库
+            boolean success = navigationItemService.createNavigationItem(navigationItem);
+            if (success) {
+                log.info("导航项创建成功: {}", navigationItem.getName());
+                return ApiResponse.success("导航项创建成功", navigationItem);
+            } else {
+                return ApiResponse.error("导航项创建失败");
+            }
+        } catch (Exception e) {
+            log.error("创建导航项失败: {}", e.getMessage(), e);
+            return ApiResponse.error("导航项创建失败：" + e.getMessage());
+        }
+    }
+
+    /**
      * 创建新导航项（支持文件上传）
      * @param logoFile 图标文件
      * @param request 导航项信息
      * @return 创建结果
      */
-    @PostMapping("")
+    @PostMapping("/upload")
     public ApiResponse<NavigationItem> createNavigationItemWithUpload(
             @RequestParam("logoFile") MultipartFile logoFile,
             @ModelAttribute NavigationItemCreateRequest request) {

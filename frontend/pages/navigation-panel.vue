@@ -146,7 +146,7 @@ const api = {
   },
 
   async createNavigationItem(item: Omit<NavigationItem, 'id' | 'createdAt' | 'updatedAt'>): Promise<NavigationItem> {
-    const response = await apiRequest(`${API_BASE_URL}/navigation-items`, {
+    const response = await apiRequest(`${API_BASE_URL}/navigation-items/json`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -162,7 +162,7 @@ const api = {
   },
 
   async createNavigationItemWithUpload(formData: FormData): Promise<NavigationItem> {
-    const response = await apiRequest(`${API_BASE_URL}/navigation-items`, {
+    const response = await apiRequest(`${API_BASE_URL}/navigation-items/upload`, {
       method: 'POST',
       body: formData
     })

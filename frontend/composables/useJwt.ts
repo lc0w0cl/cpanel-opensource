@@ -140,17 +140,24 @@ export const getTokenRemainingTime = (token: string): number => {
 
 /**
  * 创建带有Authorization头的请求配置
+ * @param isFormData 是否为FormData请求，如果是则不设置Content-Type
  */
-export const createAuthHeaders = () => {
+export const createAuthHeaders = (isFormData: boolean = false) => {
   const token = getAccessToken()
   if (!token) {
     return {}
   }
-  
-  return {
-    'Authorization': `Bearer ${token}`,
-    'Content-Type': 'application/json'
+
+  const headers: Record<string, string> = {
+    'Authorization': `Bearer ${token}`
   }
+
+  // 对于FormData请求，不设置Content-Type，让浏览器自动设置
+  if (!isFormData) {
+    headers['Content-Type'] = 'application/json'
+  }
+
+  return headers
 }
 
 /**
@@ -223,37 +230,40 @@ export const autoRefreshToken = async (): Promise<boolean> => {
 export const apiRequest = async (url: string, options: RequestInit = {}): Promise<Response> => {
   // 尝试自动刷新token
   await autoRefreshToken()
-  
+
+  // 检测是否为FormData请求
+  const isFormData = options.body instanceof FormData
+
   // 添加认证头
   const headers = {
-    ...createAuthHeaders(),
+    ...createAuthHeaders(isFormData),
     ...options.headers
   }
-  
+
   const requestOptions = {
     ...options,
     headers
   }
-  
+
   const response = await fetch(url, requestOptions)
-  
+
   // 如果返回401，尝试刷新token并重试
   if (response.status === 401) {
     console.log('收到401响应，尝试刷新token')
     const refreshSuccess = await refreshAccessToken()
-    
+
     if (refreshSuccess) {
       // 重新添加认证头并重试请求
       const newHeaders = {
-        ...createAuthHeaders(),
+        ...createAuthHeaders(isFormData),
         ...options.headers
       }
-      
+
       const retryOptions = {
         ...options,
         headers: newHeaders
       }
-      
+
       return await fetch(url, retryOptions)
     } else {
       // 刷新失败，清除tokens并跳转到登录页
@@ -261,6 +271,6 @@ export const apiRequest = async (url: string, options: RequestInit = {}): Promis
       await navigateTo('/login')
     }
   }
-  
+
   return response
 }
