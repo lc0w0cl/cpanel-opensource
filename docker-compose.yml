@@ -27,9 +27,7 @@ services:
 
   # 主应用服务
   cpanel-app:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: c0w0c/cpanel-app:1.0
     container_name: cpanel-app
     restart: unless-stopped
     environment:
