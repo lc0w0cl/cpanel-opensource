@@ -1,0 +1,47 @@
+spring:
+  # 数据源配置
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://192.168.6.5:3306/baby_care?useUnicode=true&characterEncoding=UTF-8&zeroDateTimeBehavior=convertToNull&useSSL=false&serverTimezone=GMT%2B8&allowPublicKeyRetrieval=true
+    username: test
+    password: 1XWacgGU6djd3j
+    # 连接池配置
+    hikari:
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+      maximum-pool-size: 10
+      minimum-idle: 5
+      connection-test-query: SELECT 1
+
+  # 文件上传配置
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
+      enabled: true
+
+# 文件上传配置
+file:
+  upload:
+    # 上传文件存储路径
+    path: ./uploads/
+    # 访问URL前缀
+    url-prefix: /uploads/
+    # 允许的文件类型
+    allowed-types: jpg,jpeg,png,gif,bmp,webp,svg
+    # 最大文件大小（字节）
+    max-size: 10485760
+
+# JWT配置
+jwt:
+  # JWT密钥（生产环境请使用更复杂的密钥）
+  secret: cpanel-jwt-secret-key-for-authentication-system-2024-very-long-secret
+  # 访问token过期时间（毫秒）- 24小时
+  expiration: 86400000
+  # 刷新token过期时间（毫秒）- 7天
+  refresh-expiration: 604800000
+  # 发行者
+  issuer: cpanel
+  # 受众
+  audience: cpanel-users
