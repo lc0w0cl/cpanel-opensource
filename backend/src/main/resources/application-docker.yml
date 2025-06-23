@@ -6,7 +6,7 @@ spring:
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
     # 使用环境变量配置数据库连接
-    url: jdbc:mysql://${DB_HOST:mysql}:${DB_PORT:3306}/${DB_NAME:cpanel}?useUnicode=true&characterEncoding=utf8&zeroDateTimeBehavior=convertToNull&useSSL=false&serverTimezone=GMT%2B8&allowPublicKeyRetrieval=true
+    url: jdbc:mysql://${DB_HOST:mysql}:${DB_PORT:3306}/${DB_NAME:cpanel}?useUnicode=true&characterEncoding=UTF-8&zeroDateTimeBehavior=convertToNull&useSSL=false&serverTimezone=GMT%2B8&allowPublicKeyRetrieval=true
     username: ${DB_USERNAME:cpanel_user}
     password: ${DB_PASSWORD:cpanel_password}
     # 连接池配置
@@ -24,6 +24,13 @@ spring:
       max-file-size: 10MB
       max-request-size: 10MB
       enabled: true
+
+  # HTTP字符编码配置
+  http:
+    encoding:
+      charset: UTF-8
+      enabled: true
+      force: true
 
 # 服务器配置
 server:
