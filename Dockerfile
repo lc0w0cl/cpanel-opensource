@@ -9,7 +9,7 @@ WORKDIR /app/frontend
 COPY frontend/package*.json ./
 
 # 安装依赖
-RUN npm ci --only=production
+RUN npm install
 
 # 复制前端源码
 COPY frontend/ ./
@@ -18,7 +18,7 @@ COPY frontend/ ./
 RUN npm run generate
 
 # 阶段2: 构建后端
-FROM maven:3.9-openjdk-17-slim AS backend-builder
+FROM maven:3.8.5-openjdk-17 AS backend-builder
 
 # 设置工作目录
 WORKDIR /app/backend
@@ -42,7 +42,7 @@ COPY --from=frontend-builder /app/frontend/.output/public ./src/main/resources/s
 RUN mvn clean package -DskipTests -B
 
 # 阶段3: 运行时镜像
-FROM openjdk:17-jre-slim
+FROM openjdk:17-ea-slim
 
 # 设置时区
 ENV TZ=Asia/Shanghai
