@@ -53,6 +53,7 @@ const previewUrl = ref('')
 const serverImagePath = ref('')
 const selectedIconifyIcon = ref('')
 const customIconifyIcon = ref('')
+const imageLoadError = ref(false)
 
 
 
@@ -66,10 +67,12 @@ const previewIcon = computed(() => {
       return getImageUrl(formData.value.logo)
     }
     return null
-  } else if (formData.value.iconType === 'online' && iconUrl.value) {
-    return iconUrl.value
-  } else if (formData.value.iconType === 'iconify' && selectedIconifyIcon.value) {
-    return selectedIconifyIcon.value
+  } else if (formData.value.iconType === 'online') {
+    // 在线图标：优先使用iconUrl.value，其次使用formData.value.logo
+    return iconUrl.value || formData.value.logo || null
+  } else if (formData.value.iconType === 'iconify') {
+    // Iconify图标：优先使用selectedIconifyIcon.value，其次使用formData.value.logo
+    return selectedIconifyIcon.value || formData.value.logo || null
   }
   return null
 })
@@ -121,6 +124,7 @@ watch(() => props.visible, (newVisible) => {
       selectedFile.value = null
       previewUrl.value = ''
       serverImagePath.value = ''
+      imageLoadError.value = false
     }
   }
 })
@@ -162,7 +166,19 @@ const handleFileUpload = (event: Event) => {
 const handleIconUrlChange = () => {
   if (formData.value.iconType === 'online') {
     formData.value.logo = iconUrl.value
+    // 重置图片加载错误状态
+    imageLoadError.value = false
   }
+}
+
+// 处理图片加载错误
+const handleImageError = () => {
+  imageLoadError.value = true
+}
+
+// 处理图片加载成功
+const handleImageLoad = () => {
+  imageLoadError.value = false
 }
 
 // 处理 Iconify 图标选择
@@ -286,19 +302,27 @@ const handleOverlayClick = (event: MouseEvent) => {
           <label class="form-label">效果预览</label>
           <div class="preview-card">
             <div class="preview-icon">
+              <!-- 图片预览（上传文件、在线图标） -->
               <img
-                v-if="previewIcon && typeof previewIcon === 'string' && (previewIcon.startsWith('http') || previewIcon.startsWith('/uploads/') || previewIcon.startsWith('data:'))"
+                v-if="previewIcon && typeof previewIcon === 'string' && (previewIcon.startsWith('http') || previewIcon.startsWith('/uploads/') || previewIcon.startsWith('data:')) && !imageLoadError"
                 :src="previewIcon"
                 :alt="formData.name"
                 class="preview-icon-img"
+                @load="handleImageLoad"
+                @error="handleImageError"
               />
+              <!-- Iconify图标预览 -->
               <Icon
-                v-else-if="previewIcon && typeof previewIcon === 'string'"
+                v-else-if="previewIcon && typeof previewIcon === 'string' && formData.iconType === 'iconify'"
                 :icon="previewIcon"
                 class="preview-icon-svg"
               />
+              <!-- 图片加载失败或无图标时的占位符 -->
               <div v-else class="preview-icon-placeholder">
-                <PhotoIcon class="placeholder-icon" />
+                <PhotoIcon v-if="formData.iconType === 'upload'" class="placeholder-icon" />
+                <LinkIcon v-else-if="formData.iconType === 'online'" class="placeholder-icon" />
+                <Icon v-else-if="formData.iconType === 'iconify'" icon="mdi:star" class="placeholder-icon" />
+                <PhotoIcon v-else class="placeholder-icon" />
               </div>
             </div>
             <div class="preview-content">
@@ -396,9 +420,24 @@ const handleOverlayClick = (event: MouseEvent) => {
               v-model="iconUrl"
               type="url"
               class="form-input"
-              placeholder="请输入图标URL地址"
+              placeholder="请输入图标URL地址，如：https://example.com/icon.png"
               @input="handleIconUrlChange"
             />
+            <div v-if="iconUrl && imageLoadError" class="url-error-tip">
+              <svg class="error-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="15" y1="9" x2="9" y2="15"></line>
+                <line x1="9" y1="9" x2="15" y2="15"></line>
+              </svg>
+              <span>图片加载失败，请检查URL是否正确</span>
+            </div>
+            <div v-else-if="iconUrl && !imageLoadError && previewIcon" class="url-success-tip">
+              <svg class="success-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path d="M9 12l2 2 4-4"></path>
+                <circle cx="12" cy="12" r="10"></circle>
+              </svg>
+              <span>图片加载成功</span>
+            </div>
           </div>
 
           <!-- Iconify 图标选择 -->
@@ -804,6 +843,36 @@ const handleOverlayClick = (event: MouseEvent) => {
 
 .icon-url-input {
   margin-top: 0.5rem;
+}
+
+.url-error-tip,
+.url-success-tip {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+}
+
+.url-error-tip {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  color: rgba(239, 68, 68, 0.9);
+}
+
+.url-success-tip {
+  background: rgba(34, 197, 94, 0.1);
+  border: 1px solid rgba(34, 197, 94, 0.2);
+  color: rgba(34, 197, 94, 0.9);
+}
+
+.error-icon,
+.success-icon {
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
 }
 
 .hero-icons-grid {
