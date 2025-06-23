@@ -25,44 +25,6 @@
 
 ### 使用预构建 Docker 镜像部署
 
-#### 1. 安装 Docker 和 Docker Compose
-
-**Ubuntu/Debian:**
-```bash
-# 更新包索引
-sudo apt update
-
-# 安装 Docker
-curl -fsSL https://get.docker.com -o get-docker.sh
-sudo sh get-docker.sh
-
-# 启动 Docker 服务
-sudo systemctl start docker
-sudo systemctl enable docker
-
-# 将当前用户添加到 docker 组
-sudo usermod -aG docker $USER
-
-# 重新登录以使组权限生效
-newgrp docker
-```
-
-**CentOS/RHEL:**
-```bash
-# 安装 Docker
-curl -fsSL https://get.docker.com -o get-docker.sh
-sudo sh get-docker.sh
-
-# 启动 Docker 服务
-sudo systemctl start docker
-sudo systemctl enable docker
-
-# 将当前用户添加到 docker 组
-sudo usermod -aG docker $USER
-
-# 重新登录以使组权限生效
-newgrp docker
-```
 
 #### 2. 下载配置文件
 
@@ -159,131 +121,6 @@ echo "部署完成！访问 http://your-server-ip:8081 使用应用"
 └── .env                   # 环境变量配置
 ```
 
-## 🔒 安全配置
-
-### 1. 防火墙配置
-
-```bash
-# Ubuntu/Debian (使用 ufw)
-sudo ufw allow 22/tcp          # SSH
-sudo ufw allow 8081/tcp        # 应用端口
-sudo ufw enable
-
-# CentOS/RHEL (使用 firewalld)
-sudo firewall-cmd --permanent --add-port=22/tcp
-sudo firewall-cmd --permanent --add-port=8081/tcp
-sudo firewall-cmd --reload
-```
-
-### 2. SSL/TLS 配置 (使用 Nginx 反向代理)
-
-```bash
-# 安装 Nginx
-sudo apt install -y nginx  # Ubuntu/Debian
-# 或
-sudo yum install -y nginx   # CentOS/RHEL
-
-# 创建 Nginx 配置
-sudo tee /etc/nginx/sites-available/cpanel << 'EOF'
-server {
-    listen 80;
-    server_name your-domain.com;
-
-    # 重定向到 HTTPS
-    return 301 https://$server_name$request_uri;
-}
-
-server {
-    listen 443 ssl http2;
-    server_name your-domain.com;
-
-    # SSL 证书配置
-    ssl_certificate /etc/ssl/certs/cpanel.crt;
-    ssl_certificate_key /etc/ssl/private/cpanel.key;
-
-    # SSL 安全配置
-    ssl_protocols TLSv1.2 TLSv1.3;
-    ssl_ciphers ECDHE-RSA-AES256-GCM-SHA512:DHE-RSA-AES256-GCM-SHA512:ECDHE-RSA-AES256-GCM-SHA384:DHE-RSA-AES256-GCM-SHA384;
-    ssl_prefer_server_ciphers off;
-    ssl_session_cache shared:SSL:10m;
-
-    # 反向代理配置
-    location / {
-        proxy_pass http://localhost:8081;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-
-        # WebSocket 支持
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
-    }
-
-    # 静态文件缓存
-    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg)$ {
-        proxy_pass http://localhost:8081;
-        expires 1y;
-        add_header Cache-Control "public, immutable";
-    }
-}
-EOF
-
-# 启用站点
-sudo ln -s /etc/nginx/sites-available/cpanel /etc/nginx/sites-enabled/
-sudo nginx -t
-sudo systemctl restart nginx
-```
-
-### 3. 使用 Let's Encrypt 免费 SSL 证书
-
-```bash
-# 安装 Certbot
-sudo apt install -y certbot python3-certbot-nginx  # Ubuntu/Debian
-# 或
-sudo yum install -y certbot python3-certbot-nginx   # CentOS/RHEL
-
-# 获取 SSL 证书
-sudo certbot --nginx -d your-domain.com
-
-# 设置自动续期
-sudo crontab -e
-# 添加以下行：
-# 0 12 * * * /usr/bin/certbot renew --quiet
-```
-
-## 🛠️ 常见问题
-
-### Q1: 服务启动失败，提示端口被占用
-```bash
-# 查看端口占用情况
-sudo netstat -tlnp | grep :8081
-# 或
-sudo ss -tlnp | grep :8081
-
-# 杀死占用端口的进程
-sudo kill -9 <PID>
-
-# 重新启动服务
-docker compose restart  # Docker 部署
-# 或
-sudo systemctl restart cpanel  # 手动部署
-```
-
-### Q2: 数据库连接失败
-```bash
-# 检查 MySQL 服务状态
-sudo systemctl status mysql
-
-# 检查数据库连接
-mysql -u cpanel_user -p -h localhost cpanel
-
-# 检查防火墙设置
-sudo ufw status  # Ubuntu/Debian
-sudo firewall-cmd --list-all  # CentOS/RHEL
-```
-
 ### Q3: 文件上传失败
 ```bash
 # 检查上传目录权限
@@ -295,18 +132,6 @@ sudo chmod 755 /opt/cpanel/uploads/
 
 # 检查磁盘空间
 df -h
-```
-
-### Q4: 前端页面无法访问
-```bash
-# 检查 Nginx 状态
-sudo systemctl status nginx
-
-# 检查 Nginx 配置
-sudo nginx -t
-
-# 查看 Nginx 错误日志
-sudo tail -f /var/log/nginx/error.log
 ```
 
 ## 🔄 维护操作
@@ -370,28 +195,6 @@ docker compose up -d
 docker compose logs -f cpanel-app
 ```
 
-### 监控和日志
-
-```bash
-# 查看应用日志
-docker compose logs -f cpanel-app  # Docker 部署
-# 或
-sudo journalctl -u cpanel -f      # 手动部署
-
-# 查看系统资源使用情况
-htop
-# 或
-docker stats  # Docker 部署
-
-# 查看磁盘使用情况
-df -h
-
-# 查看数据库状态
-docker compose exec mysql mysql -u root -p -e "SHOW PROCESSLIST;"  # Docker 部署
-# 或
-mysql -u root -p -e "SHOW PROCESSLIST;"  # 手动部署
-```
-
 ### 性能优化
 
 ```bash
@@ -415,7 +218,7 @@ sudo systemctl restart mysql
 
 如果在部署过程中遇到问题，可以通过以下方式获取帮助：
 
-1. **查看项目文档**: [GitHub Repository](https://github.com/your-repo/cpanel)
+1. **查看项目文档**: [GitHub Repository](https://github.com/lc0w0cl/cpanel-opensource)
 2. **提交 Issue**: [GitHub Issues](https://github.com/your-repo/cpanel/issues)
 3. **社区讨论**: [GitHub Discussions](https://github.com/your-repo/cpanel/discussions)
 
