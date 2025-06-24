@@ -234,4 +234,4 @@ sudo systemctl restart mysql
 
 ---
 
-**部署完成后，访问 `http://your-server-ip:8081` 即可使用 CPanel 导航面板！**
+**部署完成后，访问 `http://your-server-ip:8081` 即可使用 CPanel 导航面板！** 
