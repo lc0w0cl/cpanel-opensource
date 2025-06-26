@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch, computed } from 'vue'
+import { ref, watch, computed, onUnmounted } from 'vue'
 import { Icon } from '@iconify/vue'
 import { PhotoIcon, LinkIcon } from '@heroicons/vue/24/outline'
 import { getImageUrl } from '~/lib/utils'
@@ -309,26 +309,42 @@ const handleConfirm = () => {
   closeDialog()
 }
 
-// 处理遮罩层点击
-const handleOverlayClick = (event: MouseEvent) => {
-  if (event.target === event.currentTarget) {
+// 处理ESC键关闭
+const handleKeydown = (event: KeyboardEvent) => {
+  if (event.key === 'Escape') {
     closeDialog()
   }
 }
+
+// 监听键盘事件
+watch(() => props.visible, (newVisible) => {
+  if (newVisible) {
+    document.addEventListener('keydown', handleKeydown)
+  } else {
+    document.removeEventListener('keydown', handleKeydown)
+  }
+})
+
+// 组件卸载时清理事件监听
+onUnmounted(() => {
+  document.removeEventListener('keydown', handleKeydown)
+})
 </script>
 
 <template>
   <div
     v-if="visible"
     class="dialog-overlay"
-    @click="handleOverlayClick"
   >
-    <div class="dialog-container" @click.stop>
+    <div class="dialog-container">
       <div class="dialog-header">
-        <h3 class="dialog-title">
-          {{ mode === 'add' ? '新增导航项' : '编辑导航项' }}
-        </h3>
-        <button class="close-button" @click="closeDialog">
+        <div class="header-left">
+          <h3 class="dialog-title">
+            {{ mode === 'add' ? '新增导航项' : '编辑导航项' }}
+          </h3>
+          <span class="esc-hint">按 ESC 键关闭</span>
+        </div>
+        <button class="close-button" @click="closeDialog" title="关闭对话框 (ESC)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
             <line x1="18" y1="6" x2="6" y2="18"></line>
             <line x1="6" y1="6" x2="18" y2="18"></line>
@@ -614,6 +630,12 @@ const handleOverlayClick = (event: MouseEvent) => {
   flex-shrink: 0;
 }
 
+.header-left {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
 .dialog-title {
   font-size: 1.25rem;
   font-weight: 600;
@@ -621,23 +643,40 @@ const handleOverlayClick = (event: MouseEvent) => {
   margin: 0;
 }
 
+.esc-hint {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.5);
+  font-weight: 400;
+}
+
 .close-button {
-  width: 2rem;
-  height: 2rem;
-  border: none;
-  background: transparent;
-  color: rgba(255, 255, 255, 0.6);
+  width: 2.5rem;
+  height: 2.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: linear-gradient(135deg,
+    rgba(255, 255, 255, 0.1) 0%,
+    rgba(255, 255, 255, 0.05) 100%
+  );
+  color: rgba(255, 255, 255, 0.7);
   cursor: pointer;
-  border-radius: 0.5rem;
+  border-radius: 0.75rem;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s ease;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 }
 
 .close-button:hover {
-  background: rgba(255, 255, 255, 0.1);
+  background: linear-gradient(135deg,
+    rgba(255, 255, 255, 0.2) 0%,
+    rgba(255, 255, 255, 0.1) 100%
+  );
+  border-color: rgba(255, 255, 255, 0.3);
   color: rgba(255, 255, 255, 0.9);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
 .close-button svg {
@@ -1225,6 +1264,27 @@ const handleOverlayClick = (event: MouseEvent) => {
     min-width: 320px;
     max-width: 95vw;
     margin: 1rem;
+  }
+
+  .dialog-header {
+    padding: 1rem 1rem 0.75rem;
+  }
+
+  .header-left {
+    gap: 0.125rem;
+  }
+
+  .dialog-title {
+    font-size: 1.125rem;
+  }
+
+  .esc-hint {
+    font-size: 0.7rem;
+  }
+
+  .close-button {
+    width: 2.25rem;
+    height: 2.25rem;
   }
 
   .form-row {
