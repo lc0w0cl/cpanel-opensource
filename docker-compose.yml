@@ -27,7 +27,7 @@ services:
 
   # 主应用服务
   cpanel-app:
-    image: c0w0c/cpanel-app:1.0
+    image: c0w0c/cpanel-app:latest
     container_name: cpanel-app
     restart: unless-stopped
     environment:
