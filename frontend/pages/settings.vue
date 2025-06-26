@@ -36,6 +36,18 @@ const addCategoryForm = ref({
 })
 const addCategoryLoading = ref(false)
 
+// 编辑分组相关
+const editingCategoryId = ref<number | null>(null)
+const editCategoryForm = ref({
+  name: ''
+})
+const editCategoryLoading = ref(false)
+
+// 删除分组相关
+const showDeleteConfirm = ref(false)
+const deletingCategory = ref<Category | null>(null)
+const deleteCategoryLoading = ref(false)
+
 // 密码设置相关
 const passwordForm = ref({
   currentPassword: '',
@@ -153,6 +165,101 @@ const createCategory = async () => {
 const cancelAddCategory = () => {
   addCategoryForm.value.name = ''
   showAddCategoryForm.value = false
+}
+
+// 开始编辑分组
+const startEditCategory = (category: Category) => {
+  editingCategoryId.value = category.id
+  editCategoryForm.value.name = category.name
+}
+
+// 保存编辑分组
+const saveEditCategory = async () => {
+  if (!editCategoryForm.value.name.trim()) {
+    console.error('分组名称不能为空')
+    return
+  }
+
+  if (editingCategoryId.value === null) {
+    return
+  }
+
+  editCategoryLoading.value = true
+  try {
+    const response = await apiRequest(`${API_BASE_URL}/categories/${editingCategoryId.value}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        name: editCategoryForm.value.name.trim()
+      })
+    })
+
+    const result: ApiResponse<Category> = await response.json()
+
+    if (result.success) {
+      console.log('分组更新成功')
+      // 取消编辑状态
+      cancelEditCategory()
+      // 重新获取分组列表
+      await fetchCategories()
+    } else {
+      console.error('分组更新失败:', result.message)
+    }
+  } catch (error) {
+    console.error('分组更新失败:', error)
+  } finally {
+    editCategoryLoading.value = false
+  }
+}
+
+// 取消编辑分组
+const cancelEditCategory = () => {
+  editingCategoryId.value = null
+  editCategoryForm.value.name = ''
+}
+
+// 显示删除确认对话框
+const showDeleteCategoryConfirm = (category: Category) => {
+  deletingCategory.value = category
+  showDeleteConfirm.value = true
+}
+
+// 确认删除分组
+const confirmDeleteCategory = async () => {
+  if (!deletingCategory.value) {
+    return
+  }
+
+  deleteCategoryLoading.value = true
+  try {
+    const response = await apiRequest(`${API_BASE_URL}/categories/${deletingCategory.value.id}`, {
+      method: 'DELETE'
+    })
+
+    const result: ApiResponse<string> = await response.json()
+
+    if (result.success) {
+      console.log('分组删除成功')
+      // 关闭确认对话框
+      cancelDeleteCategory()
+      // 重新获取分组列表
+      await fetchCategories()
+    } else {
+      console.error('分组删除失败:', result.message)
+    }
+  } catch (error) {
+    console.error('分组删除失败:', error)
+  } finally {
+    deleteCategoryLoading.value = false
+  }
+}
+
+// 取消删除分组
+const cancelDeleteCategory = () => {
+  deletingCategory.value = null
+  showDeleteConfirm.value = false
 }
 
 // 修改密码
@@ -326,14 +433,65 @@ onMounted(() => {
               </div>
 
               <div class="category-info">
-                <div class="category-name">{{ category.name }}</div>
-                <div class="category-meta">
-                  排序: {{ index + 1 }} | ID: {{ category.id }}
+                <!-- 编辑状态 -->
+                <div v-if="editingCategoryId === category.id" class="edit-form">
+                  <input
+                    v-model="editCategoryForm.name"
+                    type="text"
+                    class="edit-input"
+                    placeholder="请输入分组名称"
+                    @keyup.enter="saveEditCategory"
+                    @keyup.esc="cancelEditCategory"
+                    :disabled="editCategoryLoading"
+                  />
+                  <div class="edit-actions">
+                    <button
+                      class="edit-save-btn"
+                      @click="saveEditCategory"
+                      :disabled="editCategoryLoading || !editCategoryForm.name.trim()"
+                    >
+                      <Icon v-if="editCategoryLoading" icon="mdi:loading" class="spin" />
+                      <Icon v-else icon="mdi:check" />
+                    </button>
+                    <button
+                      class="edit-cancel-btn"
+                      @click="cancelEditCategory"
+                      :disabled="editCategoryLoading"
+                    >
+                      <Icon icon="mdi:close" />
+                    </button>
+                  </div>
+                </div>
+
+                <!-- 显示状态 -->
+                <div v-else>
+                  <div class="category-name">{{ category.name }}</div>
+                  <div class="category-meta">
+                    排序: {{ index + 1 }} | ID: {{ category.id }}
+                  </div>
                 </div>
               </div>
 
               <div class="category-actions">
                 <span class="order-badge">{{ index + 1 }}</span>
+
+                <!-- 操作按钮 -->
+                <div v-if="editingCategoryId !== category.id" class="action-buttons">
+                  <button
+                    class="edit-btn"
+                    @click="startEditCategory(category)"
+                    title="编辑分组"
+                  >
+                    <Icon icon="mdi:pencil" />
+                  </button>
+                  <button
+                    class="delete-btn"
+                    @click="showDeleteCategoryConfirm(category)"
+                    title="删除分组"
+                  >
+                    <Icon icon="mdi:delete" />
+                  </button>
+                </div>
               </div>
             </div>
           </VueDraggable>
@@ -443,6 +601,44 @@ onMounted(() => {
             <Icon icon="mdi:wrench" class="coming-soon-icon" />
             <p>更多设置功能即将推出...</p>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 删除确认对话框 -->
+    <div v-if="showDeleteConfirm" class="modal-overlay" @click="cancelDeleteCategory">
+      <div class="delete-confirm-dialog" @click.stop>
+        <div class="dialog-header">
+          <Icon icon="mdi:alert-circle" class="warning-icon" />
+          <h3 class="dialog-title">确认删除分组</h3>
+        </div>
+
+        <div class="dialog-content">
+          <p class="dialog-message">
+            您确定要删除分组 <strong>"{{ deletingCategory?.name }}"</strong> 吗？
+          </p>
+          <p class="dialog-warning">
+            此操作不可撤销，该分组下的所有导航项也将被删除。
+          </p>
+        </div>
+
+        <div class="dialog-actions">
+          <button
+            class="dialog-cancel-btn"
+            @click="cancelDeleteCategory"
+            :disabled="deleteCategoryLoading"
+          >
+            取消
+          </button>
+          <button
+            class="dialog-confirm-btn"
+            @click="confirmDeleteCategory"
+            :disabled="deleteCategoryLoading"
+          >
+            <Icon v-if="deleteCategoryLoading" icon="mdi:loading" class="spin btn-icon" />
+            <Icon v-else icon="mdi:delete" class="btn-icon" />
+            {{ deleteCategoryLoading ? '删除中...' : '确认删除' }}
+          </button>
         </div>
       </div>
     </div>
@@ -692,6 +888,331 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+}
+
+.action-buttons {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-left: 0.5rem;
+}
+
+.edit-btn,
+.delete-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.5rem;
+  border: none;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-size: 0.875rem;
+}
+
+.edit-btn {
+  background: linear-gradient(135deg,
+    rgba(255, 193, 7, 0.2) 0%,
+    rgba(255, 193, 7, 0.1) 100%
+  );
+  color: rgba(255, 193, 7, 0.9);
+  border: 1px solid rgba(255, 193, 7, 0.3);
+}
+
+.edit-btn:hover {
+  background: linear-gradient(135deg,
+    rgba(255, 193, 7, 0.3) 0%,
+    rgba(255, 193, 7, 0.15) 100%
+  );
+  border-color: rgba(255, 193, 7, 0.5);
+  transform: translateY(-1px) scale(1.05);
+}
+
+.delete-btn {
+  background: linear-gradient(135deg,
+    rgba(239, 68, 68, 0.2) 0%,
+    rgba(239, 68, 68, 0.1) 100%
+  );
+  color: rgba(239, 68, 68, 0.9);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.delete-btn:hover {
+  background: linear-gradient(135deg,
+    rgba(239, 68, 68, 0.3) 0%,
+    rgba(239, 68, 68, 0.15) 100%
+  );
+  border-color: rgba(239, 68, 68, 0.5);
+  transform: translateY(-1px) scale(1.05);
+}
+
+/* 编辑表单样式 */
+.edit-form {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+}
+
+.edit-input {
+  flex: 1;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 0.5rem;
+  background: linear-gradient(135deg,
+    rgba(255, 255, 255, 0.08) 0%,
+    rgba(255, 255, 255, 0.04) 100%
+  );
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 0.875rem;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.edit-input:focus {
+  outline: none;
+  border-color: rgba(59, 130, 246, 0.5);
+  background: linear-gradient(135deg,
+    rgba(255, 255, 255, 0.12) 0%,
+    rgba(255, 255, 255, 0.06) 100%
+  );
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.edit-input::placeholder {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.edit-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.edit-save-btn,
+.edit-cancel-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.5rem;
+  border: none;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-size: 0.875rem;
+}
+
+.edit-save-btn {
+  background: linear-gradient(135deg,
+    rgba(34, 197, 94, 0.2) 0%,
+    rgba(34, 197, 94, 0.1) 100%
+  );
+  color: rgba(34, 197, 94, 0.9);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+.edit-save-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg,
+    rgba(34, 197, 94, 0.3) 0%,
+    rgba(34, 197, 94, 0.15) 100%
+  );
+  border-color: rgba(34, 197, 94, 0.5);
+  transform: translateY(-1px) scale(1.05);
+}
+
+.edit-cancel-btn {
+  background: linear-gradient(135deg,
+    rgba(239, 68, 68, 0.2) 0%,
+    rgba(239, 68, 68, 0.1) 100%
+  );
+  color: rgba(239, 68, 68, 0.9);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.edit-cancel-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg,
+    rgba(239, 68, 68, 0.3) 0%,
+    rgba(239, 68, 68, 0.15) 100%
+  );
+  border-color: rgba(239, 68, 68, 0.5);
+  transform: translateY(-1px) scale(1.05);
+}
+
+.edit-save-btn:disabled,
+.edit-cancel-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* 删除确认对话框样式 */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: modalFadeIn 0.3s ease;
+}
+
+.delete-confirm-dialog {
+  min-width: 400px;
+  max-width: 500px;
+  border-radius: 1rem;
+  overflow: hidden;
+
+  /* 液态玻璃效果 */
+  background: linear-gradient(135deg,
+    rgba(255, 255, 255, 0.15) 0%,
+    rgba(255, 255, 255, 0.08) 50%,
+    rgba(255, 255, 255, 0.05) 100%
+  );
+  backdrop-filter: blur(20px) saturate(150%);
+  -webkit-backdrop-filter: blur(20px) saturate(150%);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+
+  /* 阴影效果 */
+  box-shadow:
+    0 20px 40px rgba(0, 0, 0, 0.3),
+    0 8px 16px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.1);
+
+  animation: dialogSlideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.dialog-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.warning-icon {
+  width: 2rem;
+  height: 2rem;
+  color: rgba(255, 193, 7, 0.9);
+}
+
+.dialog-title {
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+  margin: 0;
+}
+
+.dialog-content {
+  padding: 1.5rem;
+}
+
+.dialog-message {
+  font-size: 1rem;
+  color: rgba(255, 255, 255, 0.8);
+  margin: 0 0 1rem 0;
+  line-height: 1.5;
+}
+
+.dialog-warning {
+  font-size: 0.875rem;
+  color: rgba(255, 193, 7, 0.8);
+  margin: 0;
+  line-height: 1.4;
+}
+
+.dialog-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: flex-end;
+  padding: 1.5rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.dialog-cancel-btn,
+.dialog-confirm-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.dialog-cancel-btn {
+  background: linear-gradient(135deg,
+    rgba(255, 255, 255, 0.15) 0%,
+    rgba(255, 255, 255, 0.08) 100%
+  );
+  color: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.dialog-cancel-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg,
+    rgba(255, 255, 255, 0.25) 0%,
+    rgba(255, 255, 255, 0.15) 100%
+  );
+  border-color: rgba(255, 255, 255, 0.3);
+  color: rgba(255, 255, 255, 1);
+}
+
+.dialog-confirm-btn {
+  background: linear-gradient(135deg,
+    rgba(239, 68, 68, 0.2) 0%,
+    rgba(239, 68, 68, 0.1) 100%
+  );
+  color: rgba(239, 68, 68, 0.9);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.dialog-confirm-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg,
+    rgba(239, 68, 68, 0.3) 0%,
+    rgba(239, 68, 68, 0.15) 100%
+  );
+  border-color: rgba(239, 68, 68, 0.5);
+  color: rgba(239, 68, 68, 1);
+}
+
+.dialog-cancel-btn:disabled,
+.dialog-confirm-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* 动画 */
+@keyframes modalFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes dialogSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 .order-badge {
@@ -1038,6 +1559,56 @@ onMounted(() => {
   .save-btn {
     width: 100%;
     justify-content: center;
+  }
+
+  /* 移动端编辑和删除按钮优化 */
+  .edit-btn,
+  .delete-btn {
+    width: 2.5rem;
+    height: 2.5rem;
+    font-size: 1rem;
+  }
+
+  .action-buttons {
+    gap: 0.75rem;
+  }
+
+  /* 移动端编辑表单优化 */
+  .edit-form {
+    flex-direction: column;
+    gap: 1rem;
+    align-items: stretch;
+  }
+
+  .edit-actions {
+    justify-content: center;
+    gap: 1rem;
+  }
+
+  .edit-save-btn,
+  .edit-cancel-btn {
+    width: 3rem;
+    height: 3rem;
+    font-size: 1rem;
+  }
+
+  /* 移动端对话框优化 */
+  .delete-confirm-dialog {
+    min-width: 320px;
+    max-width: 90vw;
+    margin: 1rem;
+  }
+
+  .dialog-actions {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .dialog-cancel-btn,
+  .dialog-confirm-btn {
+    width: 100%;
+    justify-content: center;
+    padding: 1rem;
   }
 }
 </style>
