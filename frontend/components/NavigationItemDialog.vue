@@ -139,7 +139,7 @@ const handleFileUpload = (event: Event) => {
   const file = target.files?.[0]
   if (file) {
     // 验证文件类型
-    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/bmp', 'image/webp', 'image/svg+xml','image/ico']
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/bmp', 'image/webp', 'image/svg+xml','image/ico','image/x-icon']
     if (!allowedTypes.includes(file.type)) {
       alert('请选择有效的图片文件（jpg, jpeg, png, gif, bmp, webp, svg, ico）')
       return
