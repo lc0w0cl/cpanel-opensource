@@ -29,7 +29,26 @@ public class PanelCategoryServiceImpl extends ServiceImpl<PanelCategoryMapper, P
 
     @Override
     public boolean createCategory(PanelCategory category) {
+        // 如果没有设置排序号，自动设置为最大排序号+1
+        if (category.getOrder() == null) {
+            Integer maxOrder = getMaxOrder();
+            category.setOrder(maxOrder + 1);
+        }
         return save(category);
+    }
+
+    /**
+     * 获取最大排序号
+     * @return 最大排序号
+     */
+    private Integer getMaxOrder() {
+        QueryWrapper<PanelCategory> queryWrapper = new QueryWrapper<>();
+        queryWrapper.select("MAX(`order`) as max_order");
+        PanelCategory result = getOne(queryWrapper);
+        if (result != null && result.getOrder() != null) {
+            return result.getOrder();
+        }
+        return 0;
     }
 
     @Override

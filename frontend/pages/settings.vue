@@ -29,6 +29,13 @@ const categories = ref<Category[]>([])
 const loading = ref(false)
 const saving = ref(false)
 
+// 新增分组相关
+const showAddCategoryForm = ref(false)
+const addCategoryForm = ref({
+  name: ''
+})
+const addCategoryLoading = ref(false)
+
 // 密码设置相关
 const passwordForm = ref({
   currentPassword: '',
@@ -102,6 +109,50 @@ const saveCategoriesSort = async () => {
 const handleDragEnd = () => {
   console.log('拖拽排序完成')
   saveCategoriesSort()
+}
+
+// 创建新分组
+const createCategory = async () => {
+  if (!addCategoryForm.value.name.trim()) {
+    console.error('分组名称不能为空')
+    return
+  }
+
+  addCategoryLoading.value = true
+  try {
+    const response = await apiRequest(`${API_BASE_URL}/categories`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        name: addCategoryForm.value.name.trim()
+      })
+    })
+
+    const result: ApiResponse<Category> = await response.json()
+
+    if (result.success) {
+      console.log('分组创建成功')
+      // 重置表单
+      addCategoryForm.value.name = ''
+      showAddCategoryForm.value = false
+      // 重新获取分组列表
+      await fetchCategories()
+    } else {
+      console.error('分组创建失败:', result.message)
+    }
+  } catch (error) {
+    console.error('分组创建失败:', error)
+  } finally {
+    addCategoryLoading.value = false
+  }
+}
+
+// 取消新增分组
+const cancelAddCategory = () => {
+  addCategoryForm.value.name = ''
+  showAddCategoryForm.value = false
 }
 
 // 修改密码
@@ -187,6 +238,14 @@ onMounted(() => {
           </div>
           <div class="header-actions">
             <button
+              v-if="!showAddCategoryForm"
+              class="add-category-btn"
+              @click="showAddCategoryForm = true"
+            >
+              <Icon icon="mdi:plus" class="btn-icon" />
+              新增分组
+            </button>
+            <button
               v-if="saving"
               class="save-button saving"
               disabled
@@ -198,7 +257,46 @@ onMounted(() => {
         </div>
 
         <div class="card-content">
-          <div v-if="loading" class="loading-state">
+          <!-- 新增分组表单 -->
+          <div v-if="showAddCategoryForm" class="add-category-form">
+            <div class="form-header">
+              <h3 class="form-title">新增分组</h3>
+              <p class="form-description">输入分组名称创建新的导航分组</p>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">分组名称</label>
+              <input
+                v-model="addCategoryForm.name"
+                type="text"
+                class="form-input"
+                placeholder="请输入分组名称"
+                @keyup.enter="createCategory"
+                :disabled="addCategoryLoading"
+              />
+            </div>
+
+            <div class="form-actions">
+              <button
+                class="cancel-btn"
+                @click="cancelAddCategory"
+                :disabled="addCategoryLoading"
+              >
+                取消
+              </button>
+              <button
+                class="save-btn"
+                @click="createCategory"
+                :disabled="addCategoryLoading || !addCategoryForm.name.trim()"
+              >
+                <Icon v-if="addCategoryLoading" icon="mdi:loading" class="spin btn-icon" />
+                <Icon v-else icon="mdi:check" class="btn-icon" />
+                {{ addCategoryLoading ? '创建中...' : '创建' }}
+              </button>
+            </div>
+          </div>
+
+          <div v-else-if="loading" class="loading-state">
             <Icon icon="mdi:loading" class="loading-icon spin" />
             <p>加载分组数据中...</p>
           </div>
@@ -648,6 +746,64 @@ onMounted(() => {
   to {
     transform: rotate(360deg);
   }
+}
+
+/* 新增分组按钮样式 */
+.add-category-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  border-radius: 0.5rem;
+  background: linear-gradient(135deg,
+    rgba(34, 197, 94, 0.15) 0%,
+    rgba(34, 197, 94, 0.08) 100%
+  );
+  color: rgba(34, 197, 94, 0.9);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.add-category-btn:hover {
+  background: linear-gradient(135deg,
+    rgba(34, 197, 94, 0.25) 0%,
+    rgba(34, 197, 94, 0.15) 100%
+  );
+  border-color: rgba(34, 197, 94, 0.5);
+  color: rgba(34, 197, 94, 1);
+  transform: translateY(-1px);
+}
+
+/* 新增分组表单样式 */
+.add-category-form {
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+  border-radius: 1rem;
+  background: linear-gradient(135deg,
+    rgba(34, 197, 94, 0.08) 0%,
+    rgba(34, 197, 94, 0.04) 100%
+  );
+  border: 1px solid rgba(34, 197, 94, 0.2);
+}
+
+.form-header {
+  margin-bottom: 1.5rem;
+}
+
+.form-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+  margin: 0 0 0.5rem 0;
+}
+
+.form-description {
+  font-size: 0.875rem;
+  color: rgba(255, 255, 255, 0.6);
+  margin: 0;
 }
 
 /* 密码设置样式 */
