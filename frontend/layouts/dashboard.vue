@@ -7,11 +7,15 @@
 
     <div class="content-container">
       <div class="content-glass-panel">
-        <GlowBorder
-            :color="['#A07CFE', '#FE8FB5', '#FFBE7B']"
-            :border-radius="10"
-        />
-        <slot /> <!-- 渲染页面内容 -->
+        <div class="glow-border-container">
+          <GlowBorder
+              :color="['#A07CFE', '#FE8FB5', '#FFBE7B']"
+              :border-radius="10"
+          />
+        </div>
+        <div class="content-wrapper">
+          <slot /> <!-- 渲染页面内容 -->
+        </div>
       </div>
     </div>
   </div>
@@ -36,7 +40,6 @@
 .content-container {
   flex: 1;
   padding: 1.5rem;
-  overflow-y: auto;
   max-width: 100%;
   max-height: 100vh; /* 限制最大高度为视口高度 */
   display: flex; /* 使子元素能够填充高度 */
@@ -85,12 +88,9 @@
 
 .content-glass-panel {
   border-radius: 1.5rem;
-  padding: 2rem;
   position: relative;
-  overflow-y: auto; /* 允许内容溢出时在面板内滚动 */
   flex: 1; /* 填充父容器空间 */
-
-  /* 其他样式保持不变 */
+  overflow: hidden; /* 隐藏溢出内容，保持边框完整 */
 
   /* 更透明的液态玻璃效果 */
   background: linear-gradient(135deg,
@@ -114,18 +114,36 @@
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* 液态玻璃风格滚动条 - content-glass-panel */
-.content-glass-panel::-webkit-scrollbar {
+.glow-border-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.content-wrapper {
+  position: relative;
+  height: 100%; /* 填满父容器高度 */
+  padding: 2rem;
+  z-index: 2;
+  overflow-y: auto; /* 在内容包装器中处理滚动 */
+}
+
+/* 液态玻璃风格滚动条 - content-wrapper */
+.content-wrapper::-webkit-scrollbar {
   width: 6px;
 }
 
-.content-glass-panel::-webkit-scrollbar-track {
+.content-wrapper::-webkit-scrollbar-track {
   background: rgba(255, 255, 255, 0.01);
   border-radius: 8px;
   backdrop-filter: blur(1px);
 }
 
-.content-glass-panel::-webkit-scrollbar-thumb {
+.content-wrapper::-webkit-scrollbar-thumb {
   background: linear-gradient(135deg,
     rgba(255, 255, 255, 0.12) 0%,
     rgba(255, 255, 255, 0.06) 50%,
@@ -137,7 +155,7 @@
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.content-glass-panel::-webkit-scrollbar-thumb:hover {
+.content-wrapper::-webkit-scrollbar-thumb:hover {
   background: linear-gradient(135deg,
     rgba(255, 255, 255, 0.2) 0%,
     rgba(255, 255, 255, 0.12) 50%,
@@ -147,7 +165,7 @@
   box-shadow: 0 1px 4px rgba(255, 255, 255, 0.08);
 }
 
-.content-glass-panel::-webkit-scrollbar-thumb:active {
+.content-wrapper::-webkit-scrollbar-thumb:active {
   background: linear-gradient(135deg,
     rgba(255, 255, 255, 0.25) 0%,
     rgba(255, 255, 255, 0.15) 50%,
@@ -161,7 +179,7 @@
   scrollbar-color: rgba(255, 255, 255, 0.15) rgba(255, 255, 255, 0.02);
 }
 
-.content-glass-panel {
+.content-wrapper {
   scrollbar-width: thin;
   scrollbar-color: rgba(255, 255, 255, 0.12) rgba(255, 255, 255, 0.01);
 }
