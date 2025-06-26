@@ -29,7 +29,7 @@ file:
     # 访问URL前缀
     url-prefix: /uploads/
     # 允许的文件类型
-    allowed-types: jpg,jpeg,png,gif,bmp,webp,svg
+    allowed-types: jpg,jpeg,png,gif,bmp,webp,svg,ico,x-icon
     # 最大文件大小（字节）
     max-size: 10485760
 
