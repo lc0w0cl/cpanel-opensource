@@ -458,20 +458,18 @@
   filter: brightness(1.1) saturate(1.2);
 }
 
-/* Iconify 图标样式 */
+/* Iconify 图标样式 - 简洁无边框版本 */
 .iconify-icon {
   width: 100%;
   height: 100%;
   color: rgba(255, 255, 255, 0.9);
-  padding: 0.5rem;
-  background: linear-gradient(135deg,
-    rgba(59, 130, 246, 0.2) 0%,
-    rgba(59, 130, 246, 0.1) 100%
-  );
-  border-radius: 0.75rem;
-  border: 1px solid rgba(59, 130, 246, 0.3);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  padding: 0;
+  background: none;
+  border: none;
+  border-radius: 0;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* 保留原有的文字图标样式以备后用 */

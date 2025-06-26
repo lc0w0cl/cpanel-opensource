@@ -778,9 +778,12 @@ onUnmounted(() => {
 }
 
 .preview-icon-svg {
-  width: 2rem;
-  height: 2rem;
-  color: rgba(255, 255, 255, 0.8);
+  width: 100%;
+  height: 100%;
+  color: rgba(255, 255, 255, 0.9);
+  padding: 0;
+  background: none;
+  border: none;
 }
 
 .preview-icon-placeholder {
