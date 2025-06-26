@@ -3,6 +3,7 @@ import { ref, watch, computed } from 'vue'
 import { Icon } from '@iconify/vue'
 import { PhotoIcon, LinkIcon } from '@heroicons/vue/24/outline'
 import { getImageUrl } from '~/lib/utils'
+import { apiRequest } from '~/composables/useJwt'
 
 // 定义组件的 props
 interface Props {
@@ -54,6 +55,9 @@ const serverImagePath = ref('')
 const selectedIconifyIcon = ref('')
 const customIconifyIcon = ref('')
 const imageLoadError = ref(false)
+
+// 获取图标相关
+const fetchingIcon = ref(false)
 
 
 
@@ -201,6 +205,42 @@ const handleCustomIconifyChange = () => {
 // 打开 Iconify 图标库
 const openIconLibrary = () => {
   window.open('https://icon-sets.iconify.design/', '_blank')
+}
+
+// 获取网站图标
+const fetchWebsiteIcon = async () => {
+  if (!formData.value.url.trim()) {
+    alert('请先输入网站地址')
+    return
+  }
+
+  fetchingIcon.value = true
+  try {
+    const config = useRuntimeConfig()
+    const API_BASE_URL = `${config.public.apiBaseUrl}/api`
+
+    // 使用带token的apiRequest方法
+    const response = await apiRequest(`${API_BASE_URL}/navigation-items/fetch-icon?url=${encodeURIComponent(formData.value.url)}`)
+    const result = await response.json()
+
+    if (result.success && result.data) {
+      // 设置为在线图标模式
+      formData.value.iconType = 'online'
+      iconUrl.value = result.data
+      formData.value.logo = result.data
+      imageLoadError.value = false
+
+      console.log('成功获取网站图标:', result.data)
+    } else {
+      console.error('获取图标失败:', result.message)
+      alert(result.message || '获取图标失败，请手动设置图标')
+    }
+  } catch (error) {
+    console.error('获取图标时发生错误:', error)
+    alert('获取图标时发生错误，请检查网络连接')
+  } finally {
+    fetchingIcon.value = false
+  }
 }
 
 // 关闭弹窗
@@ -473,12 +513,25 @@ const handleOverlayClick = (event: MouseEvent) => {
         <!-- 地址 -->
         <div class="form-group">
           <label class="form-label">地址</label>
-          <input
-            v-model="formData.url"
-            type="url"
-            class="form-input"
-            placeholder="请输入外网访问地址"
-          />
+          <div class="url-input-group">
+            <input
+              v-model="formData.url"
+              type="url"
+              class="form-input url-input"
+              placeholder="请输入外网访问地址"
+            />
+            <button
+              type="button"
+              class="fetch-icon-btn"
+              @click="fetchWebsiteIcon"
+              :disabled="fetchingIcon || !formData.url.trim()"
+              title="自动获取网站图标"
+            >
+              <Icon v-if="fetchingIcon" icon="mdi:loading" class="spin btn-icon" />
+              <Icon v-else icon="mdi:image-search" class="btn-icon" />
+              {{ fetchingIcon ? '获取中...' : '获取图标' }}
+            </button>
+          </div>
         </div>
 
         <!-- 内网地址 -->
@@ -1011,6 +1064,76 @@ const handleOverlayClick = (event: MouseEvent) => {
   color: rgba(34, 197, 94, 0.9);
 }
 
+/* URL输入组样式 */
+.url-input-group {
+  display: flex;
+  gap: 0.75rem;
+  align-items: stretch;
+}
+
+.url-input {
+  flex: 1;
+}
+
+.fetch-icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-width: 120px;
+  padding: 0.75rem 1rem;
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  border-radius: 0.75rem;
+  background: linear-gradient(135deg,
+    rgba(34, 197, 94, 0.15) 0%,
+    rgba(34, 197, 94, 0.08) 100%
+  );
+  color: rgba(34, 197, 94, 0.9);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-decoration: none;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.fetch-icon-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg,
+    rgba(34, 197, 94, 0.25) 0%,
+    rgba(34, 197, 94, 0.15) 100%
+  );
+  border-color: rgba(34, 197, 94, 0.5);
+  color: rgba(34, 197, 94, 1);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(34, 197, 94, 0.2);
+}
+
+.fetch-icon-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.btn-icon {
+  width: 1rem;
+  height: 1rem;
+}
+
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 
 
 .dialog-actions {
@@ -1132,6 +1255,16 @@ const handleOverlayClick = (event: MouseEvent) => {
     width: 100%;
   }
 
+  .url-input-group {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .fetch-icon-btn {
+    width: 100%;
+    justify-content: center;
+    min-width: auto;
+  }
 
   .dialog-actions {
     flex-direction: column-reverse;

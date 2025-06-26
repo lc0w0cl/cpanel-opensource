@@ -4,6 +4,7 @@ import com.clover.cpanel.common.ApiResponse;
 import com.clover.cpanel.dto.NavigationItemCreateRequest;
 import com.clover.cpanel.entity.NavigationItem;
 import com.clover.cpanel.service.FileUploadService;
+import com.clover.cpanel.service.IconFetchService;
 import com.clover.cpanel.service.NavigationItemService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -26,6 +27,9 @@ public class NavigationItemController {
 
     @Autowired
     private FileUploadService fileUploadService;
+
+    @Autowired
+    private IconFetchService iconFetchService;
 
     /**
      * 获取所有导航项
@@ -369,6 +373,38 @@ public class NavigationItemController {
             }
         } catch (Exception e) {
             return ApiResponse.error("排序更新失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * 获取网站图标
+     * @param url 目标网站URL
+     * @return 图标URL
+     */
+    @GetMapping("/fetch-icon")
+    public ApiResponse<String> fetchIcon(@RequestParam String url) {
+        try {
+            log.info("开始获取网站图标，URL: {}", url);
+
+            // 验证URL参数
+            if (url == null || url.trim().isEmpty()) {
+                return ApiResponse.error("URL不能为空");
+            }
+
+            // 调用图标抓取服务
+            String iconUrl = iconFetchService.fetchIcon(url);
+
+            if (iconUrl != null) {
+                log.info("成功获取图标，URL: {}, 图标: {}", url, iconUrl);
+                return ApiResponse.success("图标获取成功", iconUrl);
+            } else {
+                log.warn("未能获取到图标，URL: {}", url);
+                return ApiResponse.error("未能获取到网站图标，请检查URL是否正确或手动设置图标");
+            }
+
+        } catch (Exception e) {
+            log.error("获取网站图标失败，URL: {}", url, e);
+            return ApiResponse.error("获取网站图标失败：" + e.getMessage());
         }
     }
 }
