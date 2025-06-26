@@ -30,7 +30,7 @@ public class FileUploadServiceImpl implements FileUploadService {
     @Value("${file.upload.url-prefix:/uploads/}")
     private String urlPrefix;
 
-    @Value("${file.upload.allowed-types:jpg,jpeg,png,gif,bmp,webp,svg}")
+    @Value("${file.upload.allowed-types:jpg,jpeg,png,gif,bmp,webp,svg,ico,x-icon}")
     private String allowedTypes;
 
     @Value("${file.upload.max-size:10485760}")
