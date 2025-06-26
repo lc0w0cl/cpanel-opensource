@@ -32,7 +32,7 @@ services:
     restart: unless-stopped
     environment:
       # 数据库配置
-      DB_HOST: mysql
+      DB_HOST: ${DB_HOST:-mysql}
       DB_PORT: 3306
       DB_NAME: ${DB_NAME:-cpanel}
       DB_USERNAME: ${DB_USERNAME:-cpanel_user}
