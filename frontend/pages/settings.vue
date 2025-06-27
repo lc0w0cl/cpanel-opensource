@@ -381,37 +381,39 @@ onMounted(() => {
       <!-- 设置网格布局 -->
       <div class="settings-grid">
         <!-- 分组管理 -->
-        <div class="settings-item">
-          <div class="item-header" @click="isGroupManagementCollapsed = !isGroupManagementCollapsed">
-            <div class="header-content">
-              <Icon icon="mdi:folder-multiple" class="header-icon" />
-              <div>
-                <h2 class="item-title">分组管理</h2>
-                <p class="item-description">拖拽调整分组显示顺序</p>
+        <div class="settings-item group-management-item">
+          <ClientOnly>
+            <div class="settings-wrapper">
+              <div class="item-header" @click="isGroupManagementCollapsed = !isGroupManagementCollapsed">
+                <div class="header-content">
+                  <Icon icon="mdi:folder-multiple" class="header-icon" />
+                  <div>
+                    <h2 class="item-title">分组管理</h2>
+                    <p class="item-description">拖拽调整分组显示顺序</p>
+                  </div>
+                </div>
+                <div class="header-actions">
+                  <button
+                    v-if="!showAddCategoryForm && !isGroupManagementCollapsed"
+                    class="add-category-btn"
+                    @click.stop="showAddCategoryForm = true"
+                  >
+                    <Icon icon="mdi:plus" class="btn-icon" />
+                    新增分组
+                  </button>
+                  <button
+                    v-if="saving && !isGroupManagementCollapsed"
+                    class="save-button saving"
+                    disabled
+                  >
+                    <Icon icon="mdi:loading" class="spin" />
+                    保存中...
+                  </button>
+                  <button class="collapse-btn" :class="{ collapsed: isGroupManagementCollapsed }">
+                    <Icon icon="mdi:chevron-down" class="collapse-icon" />
+                  </button>
+                </div>
               </div>
-            </div>
-            <div class="header-actions">
-              <button
-                v-if="!showAddCategoryForm && !isGroupManagementCollapsed"
-                class="add-category-btn"
-                @click.stop="showAddCategoryForm = true"
-              >
-                <Icon icon="mdi:plus" class="btn-icon" />
-                新增分组
-              </button>
-              <button
-                v-if="saving && !isGroupManagementCollapsed"
-                class="save-button saving"
-                disabled
-              >
-                <Icon icon="mdi:loading" class="spin" />
-                保存中...
-              </button>
-              <button class="collapse-btn" :class="{ collapsed: isGroupManagementCollapsed }">
-                <Icon icon="mdi:chevron-down" class="collapse-icon" />
-              </button>
-            </div>
-          </div>
 
           <div v-if="!isGroupManagementCollapsed" class="item-content">
             <!-- 新增分组表单 -->
@@ -545,206 +547,288 @@ onMounted(() => {
                 </div>
               </div>
             </VueDraggable>
-          </div>
+              </div>
+
+              <BorderBeam
+                  v-if="!isGroupManagementCollapsed"
+                  :size="200"
+                  :duration="15"
+                  :delay="0"
+                  :border-width="1.5"
+                  color-from="#34d399"
+                  color-to="#10b981"
+              />
+            </div>
+          </ClientOnly>
         </div>
 
         <!-- 密码设置 -->
-        <div class="settings-item">
-          <div class="item-header" @click="isPasswordSettingsCollapsed = !isPasswordSettingsCollapsed">
-            <div class="header-content">
-              <Icon icon="mdi:lock" class="header-icon" />
-              <div>
-                <h2 class="item-title">登录密码</h2>
-                <p class="item-description">设置面板登录密码</p>
-              </div>
-            </div>
-            <div class="header-actions">
-              <button
-                v-if="!showPasswordForm && !isPasswordSettingsCollapsed"
-                class="change-password-btn"
-                @click.stop="showPasswordForm = true"
-              >
-                <Icon icon="mdi:pencil" class="btn-icon" />
-                修改密码
-              </button>
-              <button class="collapse-btn" :class="{ collapsed: isPasswordSettingsCollapsed }">
-                <Icon icon="mdi:chevron-down" class="collapse-icon" />
-              </button>
-            </div>
-          </div>
-
-          <div v-if="!isPasswordSettingsCollapsed" class="item-content">
-            <div v-if="!showPasswordForm" class="password-info">
-              <div class="info-item">
-                <Icon icon="mdi:information" class="info-icon" />
-                <div class="info-content">
-                  <p class="info-title">当前状态</p>
-                  <p class="info-description">密码保护已启用，默认密码为 "admin"</p>
+        <div class="settings-item password-settings-item">
+          <ClientOnly>
+            <div class="password-settings-wrapper">
+              <div class="item-header" @click="isPasswordSettingsCollapsed = !isPasswordSettingsCollapsed">
+                <div class="header-content">
+                  <Icon icon="mdi:lock" class="header-icon" />
+                  <div>
+                    <h2 class="item-title">登录密码</h2>
+                    <p class="item-description">设置面板登录密码</p>
+                  </div>
+                </div>
+                <div class="header-actions">
+                  <button
+                      v-if="!showPasswordForm && !isPasswordSettingsCollapsed"
+                      class="change-password-btn"
+                      @click.stop="showPasswordForm = true"
+                  >
+                    <Icon icon="mdi:pencil" class="btn-icon" />
+                    修改密码
+                  </button>
+                  <button class="collapse-btn" :class="{ collapsed: isPasswordSettingsCollapsed }">
+                    <Icon icon="mdi:chevron-down" class="collapse-icon" />
+                  </button>
                 </div>
               </div>
+
+              <div v-if="!isPasswordSettingsCollapsed" class="item-content">
+                <div v-if="!showPasswordForm" class="password-info">
+                  <div class="info-item">
+                    <Icon icon="mdi:information" class="info-icon" />
+                    <div class="info-content">
+                      <p class="info-title">当前状态</p>
+                      <p class="info-description">密码保护已启用，默认密码为 "admin"</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div v-else class="password-form">
+                  <div class="form-group">
+                    <label class="form-label">当前密码</label>
+                    <input
+                        v-model="passwordForm.currentPassword"
+                        type="password"
+                        class="form-input"
+                        placeholder="输入当前密码"
+                    />
+                  </div>
+
+                  <div class="form-group">
+                    <label class="form-label">新密码</label>
+                    <input
+                        v-model="passwordForm.newPassword"
+                        type="password"
+                        class="form-input"
+                        placeholder="输入新密码（至少4位）"
+                    />
+                  </div>
+
+                  <div class="form-group">
+                    <label class="form-label">确认新密码</label>
+                    <input
+                        v-model="passwordForm.confirmPassword"
+                        type="password"
+                        class="form-input"
+                        placeholder="再次输入新密码"
+                    />
+                  </div>
+
+                  <div class="form-actions">
+                    <button
+                        class="cancel-btn"
+                        @click="cancelPasswordChange"
+                        :disabled="passwordLoading"
+                    >
+                      取消
+                    </button>
+                    <button
+                        class="save-btn"
+                        @click="changePassword"
+                        :disabled="passwordLoading || !passwordForm.newPassword || passwordForm.newPassword !== passwordForm.confirmPassword"
+                    >
+                      <Icon v-if="passwordLoading" icon="mdi:loading" class="spin btn-icon" />
+                      <Icon v-else icon="mdi:check" class="btn-icon" />
+                      {{ passwordLoading ? '保存中...' : '保存' }}
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <BorderBeam
+                  v-if="!isPasswordSettingsCollapsed"
+                  :size="250"
+                  :duration="12"
+                  :delay="9"
+                  :border-width="2"
+              />
             </div>
-
-            <div v-else class="password-form">
-              <div class="form-group">
-                <label class="form-label">当前密码</label>
-                <input
-                  v-model="passwordForm.currentPassword"
-                  type="password"
-                  class="form-input"
-                  placeholder="输入当前密码"
-                />
-              </div>
-
-              <div class="form-group">
-                <label class="form-label">新密码</label>
-                <input
-                  v-model="passwordForm.newPassword"
-                  type="password"
-                  class="form-input"
-                  placeholder="输入新密码（至少4位）"
-                />
-              </div>
-
-              <div class="form-group">
-                <label class="form-label">确认新密码</label>
-                <input
-                  v-model="passwordForm.confirmPassword"
-                  type="password"
-                  class="form-input"
-                  placeholder="再次输入新密码"
-                />
-              </div>
-
-              <div class="form-actions">
-                <button
-                  class="cancel-btn"
-                  @click="cancelPasswordChange"
-                  :disabled="passwordLoading"
-                >
-                  取消
-                </button>
-                <button
-                  class="save-btn"
-                  @click="changePassword"
-                  :disabled="passwordLoading || !passwordForm.newPassword || passwordForm.newPassword !== passwordForm.confirmPassword"
-                >
-                  <Icon v-if="passwordLoading" icon="mdi:loading" class="spin btn-icon" />
-                  <Icon v-else icon="mdi:check" class="btn-icon" />
-                  {{ passwordLoading ? '保存中...' : '保存' }}
-                </button>
-              </div>
-            </div>
-          </div>
+          </ClientOnly>
         </div>
 
-        <!-- 系统配置 -->
-        <div class="settings-item">
-          <div class="item-header" @click="isSystemConfigCollapsed = !isSystemConfigCollapsed">
-            <div class="header-content">
-              <Icon icon="mdi:cog" class="header-icon" />
-              <div>
-                <h2 class="item-title">系统配置</h2>
-                <p class="item-description">其他系统设置选项</p>
-              </div>
-            </div>
-            <div class="header-actions">
-              <button class="collapse-btn" :class="{ collapsed: isSystemConfigCollapsed }">
-                <Icon icon="mdi:chevron-down" class="collapse-icon" />
-              </button>
-            </div>
-          </div>
 
-          <div v-if="!isSystemConfigCollapsed" class="item-content">
-            <div class="coming-soon">
-              <Icon icon="mdi:wrench" class="coming-soon-icon" />
-              <p>更多设置功能即将推出...</p>
+
+        <!-- 系统配置 -->
+        <div class="settings-item system-config-item">
+          <ClientOnly>
+            <div class="settings-wrapper">
+              <div class="item-header" @click="isSystemConfigCollapsed = !isSystemConfigCollapsed">
+                <div class="header-content">
+                  <Icon icon="mdi:cog" class="header-icon" />
+                  <div>
+                    <h2 class="item-title">系统配置</h2>
+                    <p class="item-description">其他系统设置选项</p>
+                  </div>
+                </div>
+                <div class="header-actions">
+                  <button class="collapse-btn" :class="{ collapsed: isSystemConfigCollapsed }">
+                    <Icon icon="mdi:chevron-down" class="collapse-icon" />
+                  </button>
+                </div>
+              </div>
+
+              <div v-if="!isSystemConfigCollapsed" class="item-content">
+                <div class="coming-soon">
+                  <Icon icon="mdi:wrench" class="coming-soon-icon" />
+                  <p>更多设置功能即将推出...</p>
+                </div>
+              </div>
+
+              <BorderBeam
+                  v-if="!isSystemConfigCollapsed"
+                  :size="180"
+                  :duration="18"
+                  :delay="3"
+                  :border-width="1.5"
+                  color-from="#6366f1"
+                  color-to="#8b5cf6"
+              />
             </div>
-          </div>
+          </ClientOnly>
         </div>
 
         <!-- 主题设置 -->
-        <div class="settings-item">
-          <div class="item-header" @click="isThemeSettingsCollapsed = !isThemeSettingsCollapsed">
-            <div class="header-content">
-              <Icon icon="mdi:palette" class="header-icon" />
-              <div>
-                <h2 class="item-title">主题设置</h2>
-                <p class="item-description">自定义界面主题</p>
+        <div class="settings-item theme-settings-item">
+          <ClientOnly>
+            <div class="settings-wrapper">
+              <div class="item-header" @click="isThemeSettingsCollapsed = !isThemeSettingsCollapsed">
+                <div class="header-content">
+                  <Icon icon="mdi:palette" class="header-icon" />
+                  <div>
+                    <h2 class="item-title">主题设置</h2>
+                    <p class="item-description">自定义界面主题</p>
+                  </div>
+                </div>
+                <div class="header-actions">
+                  <button class="collapse-btn" :class="{ collapsed: isThemeSettingsCollapsed }">
+                    <Icon icon="mdi:chevron-down" class="collapse-icon" />
+                  </button>
+                </div>
               </div>
-            </div>
-            <div class="header-actions">
-              <button class="collapse-btn" :class="{ collapsed: isThemeSettingsCollapsed }">
-                <Icon icon="mdi:chevron-down" class="collapse-icon" />
-              </button>
-            </div>
-          </div>
 
-          <div v-if="!isThemeSettingsCollapsed" class="item-content">
-            <div class="coming-soon">
-              <Icon icon="mdi:brush" class="coming-soon-icon" />
-              <p>主题自定义功能即将推出...</p>
+              <div v-if="!isThemeSettingsCollapsed" class="item-content">
+                <div class="coming-soon">
+                  <Icon icon="mdi:brush" class="coming-soon-icon" />
+                  <p>主题自定义功能即将推出...</p>
+                </div>
+              </div>
+
+              <BorderBeam
+                  v-if="!isThemeSettingsCollapsed"
+                  :size="220"
+                  :duration="20"
+                  :delay="6"
+                  :border-width="1.5"
+                  color-from="#f59e0b"
+                  color-to="#ef4444"
+              />
             </div>
-          </div>
+          </ClientOnly>
         </div>
 
         <!-- 备份恢复 -->
-        <div class="settings-item">
-          <div class="item-header" @click="isBackupRestoreCollapsed = !isBackupRestoreCollapsed">
-            <div class="header-content">
-              <Icon icon="mdi:backup-restore" class="header-icon" />
-              <div>
-                <h2 class="item-title">备份恢复</h2>
-                <p class="item-description">数据备份与恢复</p>
+        <div class="settings-item backup-restore-item">
+          <ClientOnly>
+            <div class="settings-wrapper">
+              <div class="item-header" @click="isBackupRestoreCollapsed = !isBackupRestoreCollapsed">
+                <div class="header-content">
+                  <Icon icon="mdi:backup-restore" class="header-icon" />
+                  <div>
+                    <h2 class="item-title">备份恢复</h2>
+                    <p class="item-description">数据备份与恢复</p>
+                  </div>
+                </div>
+                <div class="header-actions">
+                  <button class="collapse-btn" :class="{ collapsed: isBackupRestoreCollapsed }">
+                    <Icon icon="mdi:chevron-down" class="collapse-icon" />
+                  </button>
+                </div>
               </div>
-            </div>
-            <div class="header-actions">
-              <button class="collapse-btn" :class="{ collapsed: isBackupRestoreCollapsed }">
-                <Icon icon="mdi:chevron-down" class="collapse-icon" />
-              </button>
-            </div>
-          </div>
 
-          <div v-if="!isBackupRestoreCollapsed" class="item-content">
-            <div class="coming-soon">
-              <Icon icon="mdi:database" class="coming-soon-icon" />
-              <p>备份恢复功能即将推出...</p>
+              <div v-if="!isBackupRestoreCollapsed" class="item-content">
+                <div class="coming-soon">
+                  <Icon icon="mdi:database" class="coming-soon-icon" />
+                  <p>备份恢复功能即将推出...</p>
+                </div>
+              </div>
+
+              <BorderBeam
+                  v-if="!isBackupRestoreCollapsed"
+                  :size="190"
+                  :duration="22"
+                  :delay="9"
+                  :border-width="1.5"
+                  color-from="#06b6d4"
+                  color-to="#0891b2"
+              />
             </div>
-          </div>
+          </ClientOnly>
         </div>
 
         <!-- 系统信息 -->
-        <div class="settings-item">
-          <div class="item-header" @click="isSystemInfoCollapsed = !isSystemInfoCollapsed">
-            <div class="header-content">
-              <Icon icon="mdi:information" class="header-icon" />
-              <div>
-                <h2 class="item-title">系统信息</h2>
-                <p class="item-description">查看系统版本信息</p>
+        <div class="settings-item system-info-item">
+          <ClientOnly>
+            <div class="settings-wrapper">
+              <div class="item-header" @click="isSystemInfoCollapsed = !isSystemInfoCollapsed">
+                <div class="header-content">
+                  <Icon icon="mdi:information" class="header-icon" />
+                  <div>
+                    <h2 class="item-title">系统信息</h2>
+                    <p class="item-description">查看系统版本信息</p>
+                  </div>
+                </div>
+                <div class="header-actions">
+                  <button class="collapse-btn" :class="{ collapsed: isSystemInfoCollapsed }">
+                    <Icon icon="mdi:chevron-down" class="collapse-icon" />
+                  </button>
+                </div>
               </div>
-            </div>
-            <div class="header-actions">
-              <button class="collapse-btn" :class="{ collapsed: isSystemInfoCollapsed }">
-                <Icon icon="mdi:chevron-down" class="collapse-icon" />
-              </button>
-            </div>
-          </div>
 
-          <div v-if="!isSystemInfoCollapsed" class="item-content">
-            <div class="system-info">
-              <div class="info-row">
-                <span class="info-label">版本号</span>
-                <span class="info-value">v1.0.0</span>
+              <div v-if="!isSystemInfoCollapsed" class="item-content">
+                <div class="system-info">
+                  <div class="info-row">
+                    <span class="info-label">版本号</span>
+                    <span class="info-value">v1.0.0</span>
+                  </div>
+                  <div class="info-row">
+                    <span class="info-label">构建时间</span>
+                    <span class="info-value">2024-01-01</span>
+                  </div>
+                  <div class="info-row">
+                    <span class="info-label">技术栈</span>
+                    <span class="info-value">Vue 3 + Spring Boot</span>
+                  </div>
+                </div>
               </div>
-              <div class="info-row">
-                <span class="info-label">构建时间</span>
-                <span class="info-value">2024-01-01</span>
-              </div>
-              <div class="info-row">
-                <span class="info-label">技术栈</span>
-                <span class="info-value">Vue 3 + Spring Boot</span>
-              </div>
+
+              <BorderBeam
+                  v-if="!isSystemInfoCollapsed"
+                  :size="160"
+                  :duration="25"
+                  :delay="12"
+                  :border-width="1.5"
+                  color-from="#84cc16"
+                  color-to="#65a30d"
+              />
             </div>
-          </div>
+          </ClientOnly>
         </div>
       </div>
     </div>
@@ -877,6 +961,23 @@ onMounted(() => {
 
 .settings-item:hover {
   border-color: rgba(255, 255, 255, 0.2);
+}
+
+/* 设置项特殊样式 */
+.password-settings-item,
+.group-management-item,
+.system-config-item,
+.theme-settings-item,
+.backup-restore-item,
+.system-info-item {
+  position: relative;
+}
+
+.password-settings-wrapper,
+.settings-wrapper {
+  position: relative;
+  width: 100%;
+  height: 100%;
 }
 
 /* 移除全宽样式，所有设置项都使用网格布局 */
