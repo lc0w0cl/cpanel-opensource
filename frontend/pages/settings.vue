@@ -48,6 +48,9 @@ const showDeleteConfirm = ref(false)
 const deletingCategory = ref<Category | null>(null)
 const deleteCategoryLoading = ref(false)
 
+// 分组管理折叠状态
+const isGroupManagementCollapsed = ref(false)
+
 // 密码设置相关
 const passwordForm = ref({
   currentPassword: '',
@@ -334,36 +337,39 @@ onMounted(() => {
       </div>
 
       <!-- 分组设置卡片 -->
-      <div class="settings-card">
-        <div class="card-header">
+      <div class="settings-item">
+        <div class="item-header" @click="isGroupManagementCollapsed = !isGroupManagementCollapsed">
           <div class="header-content">
             <Icon icon="mdi:folder-multiple" class="header-icon" />
             <div>
-              <h2 class="card-title">分组管理</h2>
-              <p class="card-description">拖拽调整分组显示顺序</p>
+              <h2 class="item-title">分组管理</h2>
+              <p class="item-description">拖拽调整分组显示顺序</p>
             </div>
           </div>
           <div class="header-actions">
             <button
-              v-if="!showAddCategoryForm"
+              v-if="!showAddCategoryForm && !isGroupManagementCollapsed"
               class="add-category-btn"
-              @click="showAddCategoryForm = true"
+              @click.stop="showAddCategoryForm = true"
             >
               <Icon icon="mdi:plus" class="btn-icon" />
               新增分组
             </button>
             <button
-              v-if="saving"
+              v-if="saving && !isGroupManagementCollapsed"
               class="save-button saving"
               disabled
             >
               <Icon icon="mdi:loading" class="spin" />
               保存中...
             </button>
+            <button class="collapse-btn" :class="{ collapsed: isGroupManagementCollapsed }">
+              <Icon icon="mdi:chevron-down" class="collapse-icon" />
+            </button>
           </div>
         </div>
 
-        <div class="card-content">
+        <div v-if="!isGroupManagementCollapsed" class="item-content">
           <!-- 新增分组表单 -->
           <div v-if="showAddCategoryForm" class="add-category-form">
             <div class="form-header">
@@ -499,13 +505,13 @@ onMounted(() => {
       </div>
 
       <!-- 密码设置卡片 -->
-      <div class="settings-card">
-        <div class="card-header">
+      <div class="settings-item">
+        <div class="item-header">
           <div class="header-content">
             <Icon icon="mdi:lock" class="header-icon" />
             <div>
-              <h2 class="card-title">登录密码</h2>
-              <p class="card-description">设置面板登录密码</p>
+              <h2 class="item-title">登录密码</h2>
+              <p class="item-description">设置面板登录密码</p>
             </div>
           </div>
           <div class="header-actions">
@@ -520,7 +526,7 @@ onMounted(() => {
           </div>
         </div>
 
-        <div class="card-content">
+        <div class="item-content">
           <div v-if="!showPasswordForm" class="password-info">
             <div class="info-item">
               <Icon icon="mdi:information" class="info-icon" />
@@ -585,18 +591,18 @@ onMounted(() => {
       </div>
 
       <!-- 其他设置卡片 -->
-      <div class="settings-card">
-        <div class="card-header">
+      <div class="settings-item">
+        <div class="item-header">
           <div class="header-content">
             <Icon icon="mdi:cog" class="header-icon" />
             <div>
-              <h2 class="card-title">系统配置</h2>
-              <p class="card-description">其他系统设置选项</p>
+              <h2 class="item-title">系统配置</h2>
+              <p class="item-description">其他系统设置选项</p>
             </div>
           </div>
         </div>
 
-        <div class="card-content">
+        <div class="item-content">
           <div class="coming-soon">
             <Icon icon="mdi:wrench" class="coming-soon-icon" />
             <p>更多设置功能即将推出...</p>
@@ -674,26 +680,31 @@ onMounted(() => {
   text-align: left;
 }
 
-/* 设置卡片 */
-.settings-card {
-  background: linear-gradient(135deg,
-    rgba(255, 255, 255, 0.08) 0%,
-    rgba(255, 255, 255, 0.04) 100%
-  );
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+/* 设置项 */
+.settings-item {
+  margin-bottom: 2rem;
+  border-radius: 0.75rem;
   border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 1rem;
-  margin-bottom: 3rem;
   overflow: hidden;
+  transition: all 0.3s ease;
 }
 
-.card-header {
+.settings-item:hover {
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.item-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 1.5rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 1rem 1.5rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.item-header:hover {
+  background: rgba(255, 255, 255, 0.02);
 }
 
 .header-content {
@@ -703,20 +714,20 @@ onMounted(() => {
 }
 
 .header-icon {
-  width: 2rem;
-  height: 2rem;
+  width: 1.5rem;
+  height: 1.5rem;
   color: rgba(59, 130, 246, 0.8);
 }
 
-.card-title {
-  font-size: 1.4rem;
+.item-title {
+  font-size: 1.1rem;
   font-weight: 600;
   color: rgba(255, 255, 255, 0.9);
   margin: 0 0 0.25rem 0;
 }
 
-.card-description {
-  font-size: 0.875rem;
+.item-description {
+  font-size: 0.8rem;
   color: rgba(255, 255, 255, 0.6);
   margin: 0;
 }
@@ -750,8 +761,38 @@ onMounted(() => {
   cursor: not-allowed;
 }
 
-.card-content {
-  padding: 1.5rem;
+.item-content {
+  padding: 0 1.5rem 1.5rem 1.5rem;
+}
+
+/* 折叠按钮样式 */
+.collapse-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border: none;
+  border-radius: 0.5rem;
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.6);
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.collapse-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.collapse-icon {
+  width: 1.25rem;
+  height: 1.25rem;
+  transition: transform 0.3s ease;
+}
+
+.collapse-btn.collapsed .collapse-icon {
+  transform: rotate(-90deg);
 }
 
 /* 加载和空状态 */
@@ -795,9 +836,9 @@ onMounted(() => {
   align-items: center;
   gap: 0.75rem;
   padding: 0.75rem 1rem;
-  border-radius: 1rem;
+  border-radius: 0.75rem;
   background: transparent;
-  border: 2px solid transparent;
+  border: 1px solid rgba(255, 255, 255, 0.05);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   cursor: grab;
   position: relative;
@@ -805,16 +846,9 @@ onMounted(() => {
 }
 
 .category-item:hover {
-  transform: translateY(-2px) scale(1.02);
-  border: 2px solid rgba(255, 255, 255, 0.3);
-  background: linear-gradient(135deg,
-    rgba(255, 255, 255, 0.1) 0%,
-    rgba(255, 255, 255, 0.05) 100%
-  );
-  box-shadow:
-    0 8px 25px rgba(0, 0, 0, 0.15),
-    0 4px 10px rgba(0, 0, 0, 0.1),
-    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  transform: translateY(-1px);
+  border-color: rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.02);
 }
 
 .category-item:active {
@@ -825,28 +859,20 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 3rem;
-  height: 3rem;
-  border-radius: 0.75rem;
-  background: linear-gradient(135deg,
-    rgba(168, 85, 247, 0.2) 0%,
-    rgba(168, 85, 247, 0.1) 100%
-  );
-  border: 1px solid rgba(168, 85, 247, 0.3);
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 0.5rem;
+  background: rgba(168, 85, 247, 0.1);
+  border: 1px solid rgba(168, 85, 247, 0.2);
   cursor: grab;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
   flex-shrink: 0;
 }
 
 .drag-handle:hover {
-  background: linear-gradient(135deg,
-    rgba(168, 85, 247, 0.3) 0%,
-    rgba(168, 85, 247, 0.15) 100%
-  );
-  transform: translateY(-1px) scale(1.05);
-  box-shadow: 0 4px 12px rgba(168, 85, 247, 0.3);
+  background: rgba(168, 85, 247, 0.15);
+  border-color: rgba(168, 85, 247, 0.3);
+  transform: translateY(-1px);
 }
 
 .drag-handle:active {
@@ -1302,12 +1328,9 @@ onMounted(() => {
 .add-category-form {
   padding: 1.5rem;
   margin-bottom: 1.5rem;
-  border-radius: 1rem;
-  background: linear-gradient(135deg,
-    rgba(34, 197, 94, 0.08) 0%,
-    rgba(34, 197, 94, 0.04) 100%
-  );
-  border: 1px solid rgba(34, 197, 94, 0.2);
+  border-radius: 0.75rem;
+  background: rgba(34, 197, 94, 0.03);
+  border: 1px solid rgba(34, 197, 94, 0.15);
 }
 
 .form-header {
@@ -1370,12 +1393,9 @@ onMounted(() => {
   align-items: flex-start;
   gap: 1rem;
   padding: 1rem;
-  border-radius: 0.75rem;
-  background: linear-gradient(135deg,
-    rgba(59, 130, 246, 0.1) 0%,
-    rgba(59, 130, 246, 0.05) 100%
-  );
-  border: 1px solid rgba(59, 130, 246, 0.2);
+  border-radius: 0.5rem;
+  background: rgba(59, 130, 246, 0.05);
+  border: 1px solid rgba(59, 130, 246, 0.15);
 }
 
 .info-icon {
@@ -1523,7 +1543,7 @@ onMounted(() => {
     font-size: 1.5rem;
   }
 
-  .card-header {
+  .item-header {
     flex-direction: column;
     align-items: flex-start;
     gap: 1rem;
