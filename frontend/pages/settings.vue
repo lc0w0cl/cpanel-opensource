@@ -937,39 +937,60 @@ onMounted(() => {
                     </h3>
                     <p class="section-description">上传自定义背景图片，支持 JPG、PNG 格式</p>
 
-                    <!-- 当前壁纸预览 -->
-                    <div class="wallpaper-preview">
-                      <div class="preview-container" :style="{
-                        backgroundImage: currentWallpaper ? `url(${currentWallpaper})` : 'none',
-                        filter: `blur(${wallpaperBlur}px)`
-                      }">
+                    <!-- 壁纸预览和上传区域 -->
+                    <div class="wallpaper-upload-preview">
+                      <div class="upload-preview-container"
+                           @click="triggerFileUpload"
+                           @dragover.prevent
+                           @drop.prevent="handleFileDrop">
+                        <!-- 隐藏的文件输入 -->
+                        <input
+                          ref="fileInput"
+                          type="file"
+                          accept="image/jpeg,image/jpg,image/png"
+                          @change="handleFileSelect"
+                          style="display: none"
+                        />
+
+                        <!-- 背景图片层（带模糊） -->
+                        <div v-if="currentWallpaper" class="background-layer" :style="{
+                          backgroundImage: `url(${currentWallpaper})`,
+                          filter: `blur(${wallpaperBlur}px)`
+                        }"></div>
+
                         <!-- 遮罩层 -->
                         <div v-if="currentWallpaper" class="preview-mask" :style="{
                           backgroundColor: `rgba(0, 0, 0, ${wallpaperMask / 100})`
                         }"></div>
-                        <div v-if="!currentWallpaper" class="no-wallpaper">
-                          <Icon icon="mdi:image-off" class="no-wallpaper-icon" />
-                          <span>暂无自定义壁纸</span>
+
+                        <!-- 上传提示层 -->
+                        <div class="upload-overlay">
+                          <div v-if="!currentWallpaper" class="no-wallpaper-upload">
+                            <Icon icon="mdi:cloud-upload" class="upload-icon" />
+                            <p class="upload-text">点击上传或拖拽图片到此处</p>
+                            <p class="upload-hint">支持 JPG、PNG 格式，建议尺寸 1920x1080</p>
+                          </div>
+
+                          <div v-else class="has-wallpaper-upload">
+                            <div class="wallpaper-actions-overlay">
+                              <button class="overlay-btn change-btn" @click.stop="triggerFileUpload">
+                                <Icon icon="mdi:image-edit" class="btn-icon" />
+                                更换壁纸
+                              </button>
+                              <button class="overlay-btn preview-btn" @click.stop="previewWallpaper">
+                                <Icon icon="mdi:eye" class="btn-icon" />
+                                预览
+                              </button>
+                            </div>
+                          </div>
                         </div>
                       </div>
+
+                      <!-- 预览信息 -->
                       <div class="preview-info">
                         <span class="blur-value">模糊度: {{ wallpaperBlur }}px</span>
                         <span class="mask-value">遮罩: {{ wallpaperMask }}%</span>
                       </div>
-                    </div>
-
-                    <!-- 上传区域 -->
-                    <div class="upload-area" @click="triggerFileUpload" @dragover.prevent @drop.prevent="handleFileDrop">
-                      <input
-                        ref="fileInput"
-                        type="file"
-                        accept="image/jpeg,image/jpg,image/png"
-                        @change="handleFileSelect"
-                        style="display: none"
-                      />
-                      <Icon icon="mdi:cloud-upload" class="upload-icon" />
-                      <p class="upload-text">点击上传或拖拽图片到此处</p>
-                      <p class="upload-hint">支持 JPG、PNG 格式，建议尺寸 1920x1080</p>
                     </div>
 
                     <!-- 模糊度调整 -->
@@ -1020,14 +1041,6 @@ onMounted(() => {
 
                     <!-- 操作按钮 -->
                     <div class="wallpaper-actions">
-                      <button
-                        class="action-btn preview-btn"
-                        @click="previewWallpaper"
-                        :disabled="!currentWallpaper"
-                      >
-                        <Icon icon="mdi:eye" class="btn-icon" />
-                        预览效果
-                      </button>
                       <button
                         class="action-btn apply-btn"
                         @click="applyWallpaper"
@@ -2223,30 +2236,42 @@ onMounted(() => {
   line-height: 1.4;
 }
 
-/* 壁纸预览 */
-.wallpaper-preview {
+/* 壁纸预览和上传区域 */
+.wallpaper-upload-preview {
   margin-bottom: 1.5rem;
 }
 
-.preview-container {
+.upload-preview-container {
   width: 100%;
-  height: 120px;
+  height: 200px;
   border-radius: 0.75rem;
-  border: 2px solid rgba(255, 255, 255, 0.1);
+  border: 2px dashed rgba(249, 115, 22, 0.3);
+  background-color: rgba(255, 255, 255, 0.02);
+  position: relative;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  overflow: hidden;
+}
+
+/* 背景图片层 */
+.background-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
-  background-color: rgba(255, 255, 255, 0.02);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.3s ease;
-  overflow: hidden;
-  position: relative;
+  border-radius: 0.75rem;
+  /* 扩展背景以避免模糊边缘 */
+  transform: scale(1.1);
+  z-index: 1;
 }
 
-.preview-container:hover {
-  border-color: rgba(255, 255, 255, 0.2);
+.upload-preview-container:hover {
+  border-color: rgba(249, 115, 22, 0.5);
+  transform: translateY(-2px);
 }
 
 .preview-mask {
@@ -2257,19 +2282,132 @@ onMounted(() => {
   height: 100%;
   border-radius: 0.75rem;
   pointer-events: none;
+  z-index: 2;
 }
 
-.no-wallpaper {
+/* 上传覆盖层 */
+.upload-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg,
+    rgba(0, 0, 0, 0.3) 0%,
+    rgba(0, 0, 0, 0.1) 100%
+  );
+  border-radius: 0.75rem;
+  transition: all 0.3s ease;
+  z-index: 3;
+}
+
+.upload-preview-container:hover .upload-overlay {
+  background: linear-gradient(135deg,
+    rgba(0, 0, 0, 0.5) 0%,
+    rgba(0, 0, 0, 0.2) 100%
+  );
+}
+
+/* 无壁纸上传状态 */
+.no-wallpaper-upload {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.5rem;
-  color: rgba(255, 255, 255, 0.4);
+  gap: 1rem;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.8);
 }
 
-.no-wallpaper-icon {
-  width: 2rem;
-  height: 2rem;
+.upload-icon {
+  width: 3rem;
+  height: 3rem;
+  color: rgba(249, 115, 22, 0.7);
+  margin-bottom: 0.5rem;
+}
+
+.upload-text {
+  font-size: 1rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.8);
+  margin: 0;
+}
+
+.upload-hint {
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.5);
+  margin: 0;
+}
+
+/* 有壁纸状态 */
+.has-wallpaper-upload {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.wallpaper-actions-overlay {
+  display: flex;
+  gap: 1rem;
+  opacity: 0;
+  transform: translateY(10px);
+  transition: all 0.3s ease;
+}
+
+.upload-preview-container:hover .wallpaper-actions-overlay {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.overlay-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.25rem;
+  border: none;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.change-btn {
+  background: linear-gradient(135deg,
+    rgba(249, 115, 22, 0.8) 0%,
+    rgba(249, 115, 22, 0.6) 100%
+  );
+  color: white;
+}
+
+.change-btn:hover {
+  background: linear-gradient(135deg,
+    rgba(249, 115, 22, 0.9) 0%,
+    rgba(249, 115, 22, 0.7) 100%
+  );
+  transform: translateY(-1px);
+}
+
+.overlay-btn.preview-btn {
+  background: linear-gradient(135deg,
+    rgba(59, 130, 246, 0.8) 0%,
+    rgba(59, 130, 246, 0.6) 100%
+  );
+  color: white;
+}
+
+.overlay-btn.preview-btn:hover {
+  background: linear-gradient(135deg,
+    rgba(59, 130, 246, 0.9) 0%,
+    rgba(59, 130, 246, 0.7) 100%
+  );
+  transform: translateY(-1px);
 }
 
 .preview-info {
@@ -2287,49 +2425,7 @@ onMounted(() => {
   font-weight: 500;
 }
 
-/* 上传区域 */
-.upload-area {
-  border: 2px dashed rgba(249, 115, 22, 0.3);
-  border-radius: 0.75rem;
-  padding: 2rem;
-  text-align: center;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  background: linear-gradient(135deg,
-    rgba(249, 115, 22, 0.05) 0%,
-    rgba(249, 115, 22, 0.02) 100%
-  );
-  margin-bottom: 1.5rem;
-}
 
-.upload-area:hover {
-  border-color: rgba(249, 115, 22, 0.5);
-  background: linear-gradient(135deg,
-    rgba(249, 115, 22, 0.1) 0%,
-    rgba(249, 115, 22, 0.05) 100%
-  );
-  transform: translateY(-2px);
-}
-
-.upload-icon {
-  width: 3rem;
-  height: 3rem;
-  color: rgba(249, 115, 22, 0.7);
-  margin-bottom: 1rem;
-}
-
-.upload-text {
-  font-size: 1rem;
-  font-weight: 500;
-  color: rgba(255, 255, 255, 0.8);
-  margin: 0 0 0.5rem 0;
-}
-
-.upload-hint {
-  font-size: 0.8rem;
-  color: rgba(255, 255, 255, 0.5);
-  margin: 0;
-}
 
 /* 模糊度控制 */
 .blur-control,
@@ -2664,8 +2760,8 @@ onMounted(() => {
     min-width: auto;
   }
 
-  .upload-area {
-    padding: 1.5rem 1rem;
+  .upload-preview-container {
+    height: 150px;
   }
 
   .upload-icon {
@@ -2673,8 +2769,14 @@ onMounted(() => {
     height: 2.5rem;
   }
 
-  .preview-container {
-    height: 100px;
+  .wallpaper-actions-overlay {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .overlay-btn {
+    padding: 0.5rem 1rem;
+    font-size: 0.8rem;
   }
 }
 </style>
