@@ -5,6 +5,7 @@ import { ref, onMounted, onUnmounted, computed } from 'vue';
 // 壁纸相关状态
 const customWallpaper = ref('')
 const wallpaperBlur = ref(5)
+const wallpaperMask = ref(30)
 
 // 计算背景样式
 const backgroundStyle = computed(() => {
@@ -27,7 +28,8 @@ const backgroundImageUrl = computed(() => {
 const cssVars = computed(() => {
   return {
     '--bg-image': `url(${backgroundImageUrl.value})`,
-    '--bg-blur': `${wallpaperBlur.value}px`
+    '--bg-blur': `${wallpaperBlur.value}px`,
+    '--bg-mask': `${wallpaperMask.value / 100}`
   }
 })
 
@@ -40,6 +42,8 @@ const loadWallpaperSettings = () => {
     if (savedWallpaper) {
       customWallpaper.value = savedWallpaper
       wallpaperBlur.value = savedBlur ? parseInt(savedBlur) : 5
+      const savedMask = localStorage.getItem('wallpaperMask')
+      wallpaperMask.value = savedMask ? parseInt(savedMask) : 30
     }
   }
 }
@@ -105,6 +109,19 @@ onUnmounted(() => {
   z-index: -1;
   /* 扩展背景以避免模糊边缘 */
   transform: scale(1.1);
+}
+
+/* 背景遮罩伪元素 */
+.layout-container::after {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, var(--bg-mask));
+  z-index: -1;
+  pointer-events: none;
 }
 
 /* 确保内容在背景之上 */

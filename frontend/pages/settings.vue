@@ -68,6 +68,7 @@ const showPasswordForm = ref(false)
 // 壁纸设置相关
 const currentWallpaper = ref('')
 const wallpaperBlur = ref(5)
+const wallpaperMask = ref(30)
 const wallpaperApplying = ref(false)
 const wallpaperResetting = ref(false)
 const fileInput = ref<HTMLInputElement | null>(null)
@@ -410,6 +411,11 @@ const updateWallpaperBlur = () => {
   console.log('模糊度更新为:', wallpaperBlur.value)
 }
 
+const updateWallpaperMask = () => {
+  // 实时更新遮罩效果
+  console.log('遮罩透明度更新为:', wallpaperMask.value)
+}
+
 const previewWallpaper = () => {
   if (!currentWallpaper.value) return
 
@@ -445,6 +451,18 @@ const previewWallpaper = () => {
     transform: scale(1.1);
   `
 
+  // 创建遮罩层
+  const maskDiv = document.createElement('div')
+  maskDiv.style.cssText = `
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, ${wallpaperMask.value / 100});
+    z-index: 1;
+  `
+
   // 创建提示文字
   const hintText = document.createElement('div')
   hintText.style.cssText = `
@@ -462,6 +480,7 @@ const previewWallpaper = () => {
   hintText.textContent = '点击任意位置关闭预览'
 
   previewContainer.appendChild(backgroundDiv)
+  previewContainer.appendChild(maskDiv)
   previewContainer.appendChild(hintText)
 
   previewContainer.addEventListener('click', () => {
@@ -486,6 +505,7 @@ const applyWallpaper = async () => {
     // 保存到localStorage
     localStorage.setItem('customWallpaper', currentWallpaper.value)
     localStorage.setItem('wallpaperBlur', wallpaperBlur.value.toString())
+    localStorage.setItem('wallpaperMask', wallpaperMask.value.toString())
 
     // 触发自定义事件通知布局更新
     if (process.client) {
@@ -506,10 +526,12 @@ const resetWallpaper = async () => {
     // 清除自定义壁纸
     currentWallpaper.value = ''
     wallpaperBlur.value = 5
+    wallpaperMask.value = 30
 
     // 清除localStorage
     localStorage.removeItem('customWallpaper')
     localStorage.removeItem('wallpaperBlur')
+    localStorage.removeItem('wallpaperMask')
 
     // 触发自定义事件通知布局更新
     if (process.client) {
@@ -527,10 +549,12 @@ const resetWallpaper = async () => {
 const loadSavedWallpaper = () => {
   const savedWallpaper = localStorage.getItem('customWallpaper')
   const savedBlur = localStorage.getItem('wallpaperBlur')
+  const savedMask = localStorage.getItem('wallpaperMask')
 
   if (savedWallpaper) {
     currentWallpaper.value = savedWallpaper
     wallpaperBlur.value = savedBlur ? parseInt(savedBlur) : 5
+    wallpaperMask.value = savedMask ? parseInt(savedMask) : 30
   }
 }
 
@@ -919,6 +943,10 @@ onMounted(() => {
                         backgroundImage: currentWallpaper ? `url(${currentWallpaper})` : 'none',
                         filter: `blur(${wallpaperBlur}px)`
                       }">
+                        <!-- 遮罩层 -->
+                        <div v-if="currentWallpaper" class="preview-mask" :style="{
+                          backgroundColor: `rgba(0, 0, 0, ${wallpaperMask / 100})`
+                        }"></div>
                         <div v-if="!currentWallpaper" class="no-wallpaper">
                           <Icon icon="mdi:image-off" class="no-wallpaper-icon" />
                           <span>暂无自定义壁纸</span>
@@ -926,6 +954,7 @@ onMounted(() => {
                       </div>
                       <div class="preview-info">
                         <span class="blur-value">模糊度: {{ wallpaperBlur }}px</span>
+                        <span class="mask-value">遮罩: {{ wallpaperMask }}%</span>
                       </div>
                     </div>
 
@@ -962,6 +991,29 @@ onMounted(() => {
                         <div class="slider-labels">
                           <span>清晰</span>
                           <span>模糊</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- 遮罩调整 -->
+                    <div class="mask-control">
+                      <label class="control-label">
+                        <Icon icon="mdi:opacity" class="control-icon" />
+                        背景遮罩
+                      </label>
+                      <div class="slider-container">
+                        <input
+                          type="range"
+                          min="0"
+                          max="80"
+                          step="5"
+                          v-model="wallpaperMask"
+                          class="mask-slider"
+                          @input="updateWallpaperMask"
+                        />
+                        <div class="slider-labels">
+                          <span>透明</span>
+                          <span>不透明</span>
                         </div>
                       </div>
                     </div>
@@ -2197,6 +2249,16 @@ onMounted(() => {
   border-color: rgba(255, 255, 255, 0.2);
 }
 
+.preview-mask {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 0.75rem;
+  pointer-events: none;
+}
+
 .no-wallpaper {
   display: flex;
   flex-direction: column;
@@ -2218,7 +2280,8 @@ onMounted(() => {
   padding: 0 0.5rem;
 }
 
-.blur-value {
+.blur-value,
+.mask-value {
   font-size: 0.8rem;
   color: rgba(255, 255, 255, 0.6);
   font-weight: 500;
@@ -2269,7 +2332,8 @@ onMounted(() => {
 }
 
 /* 模糊度控制 */
-.blur-control {
+.blur-control,
+.mask-control {
   margin-bottom: 1.5rem;
 }
 
@@ -2293,51 +2357,85 @@ onMounted(() => {
   position: relative;
 }
 
-.blur-slider {
+.blur-slider,
+.mask-slider {
   width: 100%;
   height: 6px;
   border-radius: 3px;
-  background: linear-gradient(to right,
-    rgba(255, 255, 255, 0.1) 0%,
-    rgba(249, 115, 22, 0.3) 100%
-  );
   outline: none;
   cursor: pointer;
   -webkit-appearance: none;
   appearance: none;
 }
 
-.blur-slider::-webkit-slider-thumb {
+.blur-slider {
+  background: linear-gradient(to right,
+    rgba(255, 255, 255, 0.1) 0%,
+    rgba(249, 115, 22, 0.3) 100%
+  );
+}
+
+.mask-slider {
+  background: linear-gradient(to right,
+    rgba(255, 255, 255, 0.1) 0%,
+    rgba(0, 0, 0, 0.5) 100%
+  );
+}
+
+.blur-slider::-webkit-slider-thumb,
+.mask-slider::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
   width: 20px;
   height: 20px;
   border-radius: 50%;
-  background: linear-gradient(135deg,
-    rgba(249, 115, 22, 0.9) 0%,
-    rgba(249, 115, 22, 0.7) 100%
-  );
   border: 2px solid rgba(255, 255, 255, 0.2);
   cursor: pointer;
   transition: all 0.3s ease;
 }
 
-.blur-slider::-webkit-slider-thumb:hover {
+.blur-slider::-webkit-slider-thumb {
+  background: linear-gradient(135deg,
+    rgba(249, 115, 22, 0.9) 0%,
+    rgba(249, 115, 22, 0.7) 100%
+  );
+}
+
+.mask-slider::-webkit-slider-thumb {
+  background: linear-gradient(135deg,
+    rgba(0, 0, 0, 0.8) 0%,
+    rgba(0, 0, 0, 0.6) 100%
+  );
+}
+
+.blur-slider::-webkit-slider-thumb:hover,
+.mask-slider::-webkit-slider-thumb:hover {
   transform: scale(1.1);
   border-color: rgba(255, 255, 255, 0.4);
 }
 
-.blur-slider::-moz-range-thumb {
+.blur-slider::-moz-range-thumb,
+.mask-slider::-moz-range-thumb {
   width: 20px;
   height: 20px;
   border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.blur-slider::-moz-range-thumb {
   background: linear-gradient(135deg,
     rgba(249, 115, 22, 0.9) 0%,
     rgba(249, 115, 22, 0.7) 100%
   );
-  border: 2px solid rgba(255, 255, 255, 0.2);
-  cursor: pointer;
-  transition: all 0.3s ease;
+}
+
+.mask-slider::-moz-range-thumb {
+  background: linear-gradient(135deg,
+    rgba(0, 0, 0, 0.8) 0%,
+    rgba(0, 0, 0, 0.6) 100%
+  );
 }
 
 .slider-labels {
