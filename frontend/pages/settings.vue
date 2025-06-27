@@ -417,7 +417,7 @@ const updateWallpaperMask = () => {
 }
 
 const previewWallpaper = () => {
-  if (!currentWallpaper.value) return
+  const wallpaperUrl = currentWallpaper.value || '/background/机甲.png'
 
   // 创建全屏预览容器
   const previewContainer = document.createElement('div')
@@ -443,7 +443,7 @@ const previewWallpaper = () => {
     left: 0;
     width: 100%;
     height: 100%;
-    background-image: url(${currentWallpaper.value});
+    background-image: url(${wallpaperUrl});
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
@@ -498,12 +498,19 @@ const previewWallpaper = () => {
 }
 
 const applyWallpaper = async () => {
-  if (!currentWallpaper.value) return
+  // 可以应用自定义壁纸或默认壁纸的设置
 
   wallpaperApplying.value = true
   try {
     // 保存到localStorage
-    localStorage.setItem('customWallpaper', currentWallpaper.value)
+    if (currentWallpaper.value) {
+      localStorage.setItem('customWallpaper', currentWallpaper.value)
+    } else {
+      // 如果没有自定义壁纸，确保清除自定义壁纸设置
+      localStorage.removeItem('customWallpaper')
+    }
+
+    // 始终保存模糊和遮罩设置
     localStorage.setItem('wallpaperBlur', wallpaperBlur.value.toString())
     localStorage.setItem('wallpaperMask', wallpaperMask.value.toString())
 
@@ -512,9 +519,9 @@ const applyWallpaper = async () => {
       window.dispatchEvent(new CustomEvent('wallpaperChanged'))
     }
 
-    console.log('壁纸应用成功')
+    console.log('壁纸设置应用成功')
   } catch (error) {
-    console.error('壁纸应用失败:', error)
+    console.error('壁纸设置应用失败:', error)
   } finally {
     wallpaperApplying.value = false
   }
@@ -551,11 +558,14 @@ const loadSavedWallpaper = () => {
   const savedBlur = localStorage.getItem('wallpaperBlur')
   const savedMask = localStorage.getItem('wallpaperMask')
 
+  // 加载自定义壁纸（如果有的话）
   if (savedWallpaper) {
     currentWallpaper.value = savedWallpaper
-    wallpaperBlur.value = savedBlur ? parseInt(savedBlur) : 5
-    wallpaperMask.value = savedMask ? parseInt(savedMask) : 30
   }
+
+  // 始终加载模糊和遮罩设置，即使没有自定义壁纸
+  wallpaperBlur.value = savedBlur ? parseInt(savedBlur) : 5
+  wallpaperMask.value = savedMask ? parseInt(savedMask) : 30
 }
 
 // 页面加载时获取数据
@@ -953,13 +963,13 @@ onMounted(() => {
                         />
 
                         <!-- 背景图片层（带模糊） -->
-                        <div v-if="currentWallpaper" class="background-layer" :style="{
-                          backgroundImage: `url(${currentWallpaper})`,
+                        <div class="background-layer" :style="{
+                          backgroundImage: `url(${currentWallpaper || '/background/机甲.png'})`,
                           filter: `blur(${wallpaperBlur}px)`
                         }"></div>
 
                         <!-- 遮罩层 -->
-                        <div v-if="currentWallpaper" class="preview-mask" :style="{
+                        <div class="preview-mask" :style="{
                           backgroundColor: `rgba(0, 0, 0, ${wallpaperMask / 100})`
                         }"></div>
 
@@ -988,6 +998,7 @@ onMounted(() => {
 
                       <!-- 预览信息 -->
                       <div class="preview-info">
+                        <span class="wallpaper-status">{{ currentWallpaper ? '自定义壁纸' : '默认壁纸' }}</span>
                         <span class="blur-value">模糊度: {{ wallpaperBlur }}px</span>
                         <span class="mask-value">遮罩: {{ wallpaperMask }}%</span>
                       </div>
@@ -1044,7 +1055,7 @@ onMounted(() => {
                       <button
                         class="action-btn apply-btn"
                         @click="applyWallpaper"
-                        :disabled="!currentWallpaper || wallpaperApplying"
+                        :disabled="wallpaperApplying"
                       >
                         <Icon v-if="wallpaperApplying" icon="mdi:loading" class="spin btn-icon" />
                         <Icon v-else icon="mdi:check" class="btn-icon" />
@@ -2416,6 +2427,21 @@ onMounted(() => {
   align-items: center;
   margin-top: 0.75rem;
   padding: 0 0.5rem;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.wallpaper-status {
+  font-size: 0.8rem;
+  color: rgba(249, 115, 22, 0.8);
+  font-weight: 600;
+  padding: 0.25rem 0.5rem;
+  background: linear-gradient(135deg,
+    rgba(249, 115, 22, 0.1) 0%,
+    rgba(249, 115, 22, 0.05) 100%
+  );
+  border-radius: 0.375rem;
+  border: 1px solid rgba(249, 115, 22, 0.2);
 }
 
 .blur-value,

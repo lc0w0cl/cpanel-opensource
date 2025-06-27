@@ -38,13 +38,16 @@ const loadWallpaperSettings = () => {
   if (process.client) {
     const savedWallpaper = localStorage.getItem('customWallpaper')
     const savedBlur = localStorage.getItem('wallpaperBlur')
+    const savedMask = localStorage.getItem('wallpaperMask')
 
+    // 加载自定义壁纸（如果有的话）
     if (savedWallpaper) {
       customWallpaper.value = savedWallpaper
-      wallpaperBlur.value = savedBlur ? parseInt(savedBlur) : 5
-      const savedMask = localStorage.getItem('wallpaperMask')
-      wallpaperMask.value = savedMask ? parseInt(savedMask) : 30
     }
+
+    // 始终加载模糊和遮罩设置，即使没有自定义壁纸
+    wallpaperBlur.value = savedBlur ? parseInt(savedBlur) : 5
+    wallpaperMask.value = savedMask ? parseInt(savedMask) : 30
   }
 }
 
@@ -92,7 +95,7 @@ onUnmounted(() => {
   overflow: hidden;
 }
 
-/* 背景图片伪元素 */
+/* 背景图片伪元素 - 始终显示 */
 .layout-container::before {
   content: '';
   position: fixed;
@@ -106,12 +109,12 @@ onUnmounted(() => {
   background-repeat: no-repeat;
   background-attachment: fixed;
   filter: blur(var(--bg-blur));
-  z-index: -1;
+  z-index: -2;
   /* 扩展背景以避免模糊边缘 */
   transform: scale(1.1);
 }
 
-/* 背景遮罩伪元素 */
+/* 背景遮罩伪元素 - 始终显示 */
 .layout-container::after {
   content: '';
   position: fixed;
