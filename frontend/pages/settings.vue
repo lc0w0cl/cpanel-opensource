@@ -48,8 +48,13 @@ const showDeleteConfirm = ref(false)
 const deletingCategory = ref<Category | null>(null)
 const deleteCategoryLoading = ref(false)
 
-// 分组管理折叠状态
-const isGroupManagementCollapsed = ref(false)
+// 所有设置项的折叠状态
+const isGroupManagementCollapsed = ref(true)
+const isPasswordSettingsCollapsed = ref(true)
+const isSystemConfigCollapsed = ref(true)
+const isThemeSettingsCollapsed = ref(true)
+const isBackupRestoreCollapsed = ref(true)
+const isSystemInfoCollapsed = ref(true)
 
 // 密码设置相关
 const passwordForm = ref({
@@ -321,6 +326,35 @@ const cancelPasswordChange = () => {
   showPasswordForm.value = false
 }
 
+// 全部展开/收起功能
+const toggleAllSections = () => {
+  const allCollapsed = isGroupManagementCollapsed.value &&
+                      isPasswordSettingsCollapsed.value &&
+                      isSystemConfigCollapsed.value &&
+                      isThemeSettingsCollapsed.value &&
+                      isBackupRestoreCollapsed.value &&
+                      isSystemInfoCollapsed.value
+
+  const newState = !allCollapsed
+
+  isGroupManagementCollapsed.value = newState
+  isPasswordSettingsCollapsed.value = newState
+  isSystemConfigCollapsed.value = newState
+  isThemeSettingsCollapsed.value = newState
+  isBackupRestoreCollapsed.value = newState
+  isSystemInfoCollapsed.value = newState
+}
+
+// 计算是否全部收起
+const allSectionsCollapsed = computed(() => {
+  return isGroupManagementCollapsed.value &&
+         isPasswordSettingsCollapsed.value &&
+         isSystemConfigCollapsed.value &&
+         isThemeSettingsCollapsed.value &&
+         isBackupRestoreCollapsed.value &&
+         isSystemInfoCollapsed.value
+})
+
 // 页面加载时获取数据
 onMounted(() => {
   fetchCategories()
@@ -332,280 +366,384 @@ onMounted(() => {
     <div class="settings-container">
       <!-- 页面标题 -->
       <div class="page-header">
-        <h1 class="page-title">系统设置</h1>
-        <p class="page-description">管理导航分组和系统配置</p>
+        <div class="header-left">
+          <h1 class="page-title">系统设置</h1>
+          <p class="page-description">管理导航分组和系统配置</p>
+        </div>
+        <div class="header-right">
+          <button class="toggle-all-btn" @click="toggleAllSections">
+            <Icon :icon="allSectionsCollapsed ? 'mdi:unfold-more-horizontal' : 'mdi:unfold-less-horizontal'" class="btn-icon" />
+            {{ allSectionsCollapsed ? '全部展开' : '全部收起' }}
+          </button>
+        </div>
       </div>
 
-      <!-- 分组设置卡片 -->
-      <div class="settings-item">
-        <div class="item-header" @click="isGroupManagementCollapsed = !isGroupManagementCollapsed">
-          <div class="header-content">
-            <Icon icon="mdi:folder-multiple" class="header-icon" />
-            <div>
-              <h2 class="item-title">分组管理</h2>
-              <p class="item-description">拖拽调整分组显示顺序</p>
+      <!-- 设置网格布局 -->
+      <div class="settings-grid">
+        <!-- 分组管理 -->
+        <div class="settings-item">
+          <div class="item-header" @click="isGroupManagementCollapsed = !isGroupManagementCollapsed">
+            <div class="header-content">
+              <Icon icon="mdi:folder-multiple" class="header-icon" />
+              <div>
+                <h2 class="item-title">分组管理</h2>
+                <p class="item-description">拖拽调整分组显示顺序</p>
+              </div>
             </div>
-          </div>
-          <div class="header-actions">
-            <button
-              v-if="!showAddCategoryForm && !isGroupManagementCollapsed"
-              class="add-category-btn"
-              @click.stop="showAddCategoryForm = true"
-            >
-              <Icon icon="mdi:plus" class="btn-icon" />
-              新增分组
-            </button>
-            <button
-              v-if="saving && !isGroupManagementCollapsed"
-              class="save-button saving"
-              disabled
-            >
-              <Icon icon="mdi:loading" class="spin" />
-              保存中...
-            </button>
-            <button class="collapse-btn" :class="{ collapsed: isGroupManagementCollapsed }">
-              <Icon icon="mdi:chevron-down" class="collapse-icon" />
-            </button>
-          </div>
-        </div>
-
-        <div v-if="!isGroupManagementCollapsed" class="item-content">
-          <!-- 新增分组表单 -->
-          <div v-if="showAddCategoryForm" class="add-category-form">
-            <div class="form-header">
-              <h3 class="form-title">新增分组</h3>
-              <p class="form-description">输入分组名称创建新的导航分组</p>
-            </div>
-
-            <div class="form-group">
-              <label class="form-label">分组名称</label>
-              <input
-                v-model="addCategoryForm.name"
-                type="text"
-                class="form-input"
-                placeholder="请输入分组名称"
-                @keyup.enter="createCategory"
-                :disabled="addCategoryLoading"
-              />
-            </div>
-
-            <div class="form-actions">
+            <div class="header-actions">
               <button
-                class="cancel-btn"
-                @click="cancelAddCategory"
-                :disabled="addCategoryLoading"
+                v-if="!showAddCategoryForm && !isGroupManagementCollapsed"
+                class="add-category-btn"
+                @click.stop="showAddCategoryForm = true"
               >
-                取消
+                <Icon icon="mdi:plus" class="btn-icon" />
+                新增分组
               </button>
               <button
-                class="save-btn"
-                @click="createCategory"
-                :disabled="addCategoryLoading || !addCategoryForm.name.trim()"
+                v-if="saving && !isGroupManagementCollapsed"
+                class="save-button saving"
+                disabled
               >
-                <Icon v-if="addCategoryLoading" icon="mdi:loading" class="spin btn-icon" />
-                <Icon v-else icon="mdi:check" class="btn-icon" />
-                {{ addCategoryLoading ? '创建中...' : '创建' }}
+                <Icon icon="mdi:loading" class="spin" />
+                保存中...
+              </button>
+              <button class="collapse-btn" :class="{ collapsed: isGroupManagementCollapsed }">
+                <Icon icon="mdi:chevron-down" class="collapse-icon" />
               </button>
             </div>
           </div>
 
-          <div v-else-if="loading" class="loading-state">
-            <Icon icon="mdi:loading" class="loading-icon spin" />
-            <p>加载分组数据中...</p>
-          </div>
-
-          <div v-else-if="categories.length === 0" class="empty-state">
-            <Icon icon="mdi:folder-off" class="empty-icon" />
-            <p>暂无分组数据</p>
-          </div>
-
-          <VueDraggable
-            v-else
-            v-model="categories"
-            class="categories-list"
-            :animation="200"
-            ghost-class="ghost-item"
-            chosen-class="chosen-item"
-            drag-class="drag-item"
-            @end="handleDragEnd"
-          >
-            <div
-              v-for="(category, index) in categories"
-              :key="category.id"
-              class="category-item"
-            >
-              <div class="drag-handle">
-                <Icon icon="mdi:drag-vertical" class="drag-icon" />
+          <div v-if="!isGroupManagementCollapsed" class="item-content">
+            <!-- 新增分组表单 -->
+            <div v-if="showAddCategoryForm" class="add-category-form">
+              <div class="form-header">
+                <h3 class="form-title">新增分组</h3>
+                <p class="form-description">输入分组名称创建新的导航分组</p>
               </div>
 
-              <div class="category-info">
-                <!-- 编辑状态 -->
-                <div v-if="editingCategoryId === category.id" class="edit-form">
-                  <input
-                    v-model="editCategoryForm.name"
-                    type="text"
-                    class="edit-input"
-                    placeholder="请输入分组名称"
-                    @keyup.enter="saveEditCategory"
-                    @keyup.esc="cancelEditCategory"
-                    :disabled="editCategoryLoading"
-                  />
-                  <div class="edit-actions">
-                    <button
-                      class="edit-save-btn"
-                      @click="saveEditCategory"
-                      :disabled="editCategoryLoading || !editCategoryForm.name.trim()"
-                    >
-                      <Icon v-if="editCategoryLoading" icon="mdi:loading" class="spin" />
-                      <Icon v-else icon="mdi:check" />
-                    </button>
-                    <button
-                      class="edit-cancel-btn"
-                      @click="cancelEditCategory"
+              <div class="form-group">
+                <label class="form-label">分组名称</label>
+                <input
+                  v-model="addCategoryForm.name"
+                  type="text"
+                  class="form-input"
+                  placeholder="请输入分组名称"
+                  @keyup.enter="createCategory"
+                  :disabled="addCategoryLoading"
+                />
+              </div>
+
+              <div class="form-actions">
+                <button
+                  class="cancel-btn"
+                  @click="cancelAddCategory"
+                  :disabled="addCategoryLoading"
+                >
+                  取消
+                </button>
+                <button
+                  class="save-btn"
+                  @click="createCategory"
+                  :disabled="addCategoryLoading || !addCategoryForm.name.trim()"
+                >
+                  <Icon v-if="addCategoryLoading" icon="mdi:loading" class="spin btn-icon" />
+                  <Icon v-else icon="mdi:check" class="btn-icon" />
+                  {{ addCategoryLoading ? '创建中...' : '创建' }}
+                </button>
+              </div>
+            </div>
+
+            <div v-else-if="loading" class="loading-state compact">
+              <Icon icon="mdi:loading" class="loading-icon spin" />
+              <p>加载中...</p>
+            </div>
+
+            <div v-else-if="categories.length === 0" class="empty-state compact">
+              <Icon icon="mdi:folder-off" class="empty-icon" />
+              <p>暂无数据</p>
+            </div>
+
+            <VueDraggable
+              v-else
+              v-model="categories"
+              class="categories-list"
+              :animation="200"
+              ghost-class="ghost-item"
+              chosen-class="chosen-item"
+              drag-class="drag-item"
+              @end="handleDragEnd"
+            >
+              <div
+                v-for="(category, index) in categories"
+                :key="category.id"
+                class="category-item"
+              >
+                <div class="drag-handle">
+                  <Icon icon="mdi:drag-vertical" class="drag-icon" />
+                </div>
+
+                <div class="category-info">
+                  <!-- 编辑状态 -->
+                  <div v-if="editingCategoryId === category.id" class="edit-form">
+                    <input
+                      v-model="editCategoryForm.name"
+                      type="text"
+                      class="edit-input"
+                      placeholder="请输入分组名称"
+                      @keyup.enter="saveEditCategory"
+                      @keyup.esc="cancelEditCategory"
                       :disabled="editCategoryLoading"
+                    />
+                    <div class="edit-actions">
+                      <button
+                        class="edit-save-btn"
+                        @click="saveEditCategory"
+                        :disabled="editCategoryLoading || !editCategoryForm.name.trim()"
+                      >
+                        <Icon v-if="editCategoryLoading" icon="mdi:loading" class="spin" />
+                        <Icon v-else icon="mdi:check" />
+                      </button>
+                      <button
+                        class="edit-cancel-btn"
+                        @click="cancelEditCategory"
+                        :disabled="editCategoryLoading"
+                      >
+                        <Icon icon="mdi:close" />
+                      </button>
+                    </div>
+                  </div>
+
+                  <!-- 显示状态 -->
+                  <div v-else>
+                    <div class="category-name">{{ category.name }}</div>
+                    <div class="category-meta">
+                      #{{ index + 1 }}
+                    </div>
+                  </div>
+                </div>
+
+                <div class="category-actions">
+                  <span class="order-badge">{{ index + 1 }}</span>
+
+                  <!-- 操作按钮 -->
+                  <div v-if="editingCategoryId !== category.id" class="action-buttons">
+                    <button
+                      class="edit-btn"
+                      @click="startEditCategory(category)"
+                      title="编辑分组"
                     >
-                      <Icon icon="mdi:close" />
+                      <Icon icon="mdi:pencil" />
+                    </button>
+                    <button
+                      class="delete-btn"
+                      @click="showDeleteCategoryConfirm(category)"
+                      title="删除分组"
+                    >
+                      <Icon icon="mdi:delete" />
                     </button>
                   </div>
                 </div>
-
-                <!-- 显示状态 -->
-                <div v-else>
-                  <div class="category-name">{{ category.name }}</div>
-                  <div class="category-meta">
-                    排序: {{ index + 1 }} | ID: {{ category.id }}
-                  </div>
-                </div>
               </div>
-
-              <div class="category-actions">
-                <span class="order-badge">{{ index + 1 }}</span>
-
-                <!-- 操作按钮 -->
-                <div v-if="editingCategoryId !== category.id" class="action-buttons">
-                  <button
-                    class="edit-btn"
-                    @click="startEditCategory(category)"
-                    title="编辑分组"
-                  >
-                    <Icon icon="mdi:pencil" />
-                  </button>
-                  <button
-                    class="delete-btn"
-                    @click="showDeleteCategoryConfirm(category)"
-                    title="删除分组"
-                  >
-                    <Icon icon="mdi:delete" />
-                  </button>
-                </div>
-              </div>
-            </div>
-          </VueDraggable>
-        </div>
-      </div>
-
-      <!-- 密码设置卡片 -->
-      <div class="settings-item">
-        <div class="item-header">
-          <div class="header-content">
-            <Icon icon="mdi:lock" class="header-icon" />
-            <div>
-              <h2 class="item-title">登录密码</h2>
-              <p class="item-description">设置面板登录密码</p>
-            </div>
-          </div>
-          <div class="header-actions">
-            <button
-              v-if="!showPasswordForm"
-              class="change-password-btn"
-              @click="showPasswordForm = true"
-            >
-              <Icon icon="mdi:pencil" class="btn-icon" />
-              修改密码
-            </button>
+            </VueDraggable>
           </div>
         </div>
 
-        <div class="item-content">
-          <div v-if="!showPasswordForm" class="password-info">
-            <div class="info-item">
-              <Icon icon="mdi:information" class="info-icon" />
-              <div class="info-content">
-                <p class="info-title">当前状态</p>
-                <p class="info-description">密码保护已启用，默认密码为 "admin"</p>
+        <!-- 密码设置 -->
+        <div class="settings-item">
+          <div class="item-header" @click="isPasswordSettingsCollapsed = !isPasswordSettingsCollapsed">
+            <div class="header-content">
+              <Icon icon="mdi:lock" class="header-icon" />
+              <div>
+                <h2 class="item-title">登录密码</h2>
+                <p class="item-description">设置面板登录密码</p>
               </div>
             </div>
-          </div>
-
-          <div v-else class="password-form">
-            <div class="form-group">
-              <label class="form-label">当前密码</label>
-              <input
-                v-model="passwordForm.currentPassword"
-                type="password"
-                class="form-input"
-                placeholder="输入当前密码"
-              />
-            </div>
-
-            <div class="form-group">
-              <label class="form-label">新密码</label>
-              <input
-                v-model="passwordForm.newPassword"
-                type="password"
-                class="form-input"
-                placeholder="输入新密码（至少4位）"
-              />
-            </div>
-
-            <div class="form-group">
-              <label class="form-label">确认新密码</label>
-              <input
-                v-model="passwordForm.confirmPassword"
-                type="password"
-                class="form-input"
-                placeholder="再次输入新密码"
-              />
-            </div>
-
-            <div class="form-actions">
+            <div class="header-actions">
               <button
-                class="cancel-btn"
-                @click="cancelPasswordChange"
-                :disabled="passwordLoading"
+                v-if="!showPasswordForm && !isPasswordSettingsCollapsed"
+                class="change-password-btn"
+                @click.stop="showPasswordForm = true"
               >
-                取消
+                <Icon icon="mdi:pencil" class="btn-icon" />
+                修改密码
               </button>
-              <button
-                class="save-btn"
-                @click="changePassword"
-                :disabled="passwordLoading || !passwordForm.newPassword || passwordForm.newPassword !== passwordForm.confirmPassword"
-              >
-                <Icon v-if="passwordLoading" icon="mdi:loading" class="spin btn-icon" />
-                <Icon v-else icon="mdi:check" class="btn-icon" />
-                {{ passwordLoading ? '保存中...' : '保存' }}
+              <button class="collapse-btn" :class="{ collapsed: isPasswordSettingsCollapsed }">
+                <Icon icon="mdi:chevron-down" class="collapse-icon" />
               </button>
             </div>
           </div>
-        </div>
-      </div>
 
-      <!-- 其他设置卡片 -->
-      <div class="settings-item">
-        <div class="item-header">
-          <div class="header-content">
-            <Icon icon="mdi:cog" class="header-icon" />
-            <div>
-              <h2 class="item-title">系统配置</h2>
-              <p class="item-description">其他系统设置选项</p>
+          <div v-if="!isPasswordSettingsCollapsed" class="item-content">
+            <div v-if="!showPasswordForm" class="password-info">
+              <div class="info-item">
+                <Icon icon="mdi:information" class="info-icon" />
+                <div class="info-content">
+                  <p class="info-title">当前状态</p>
+                  <p class="info-description">密码保护已启用，默认密码为 "admin"</p>
+                </div>
+              </div>
+            </div>
+
+            <div v-else class="password-form">
+              <div class="form-group">
+                <label class="form-label">当前密码</label>
+                <input
+                  v-model="passwordForm.currentPassword"
+                  type="password"
+                  class="form-input"
+                  placeholder="输入当前密码"
+                />
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">新密码</label>
+                <input
+                  v-model="passwordForm.newPassword"
+                  type="password"
+                  class="form-input"
+                  placeholder="输入新密码（至少4位）"
+                />
+              </div>
+
+              <div class="form-group">
+                <label class="form-label">确认新密码</label>
+                <input
+                  v-model="passwordForm.confirmPassword"
+                  type="password"
+                  class="form-input"
+                  placeholder="再次输入新密码"
+                />
+              </div>
+
+              <div class="form-actions">
+                <button
+                  class="cancel-btn"
+                  @click="cancelPasswordChange"
+                  :disabled="passwordLoading"
+                >
+                  取消
+                </button>
+                <button
+                  class="save-btn"
+                  @click="changePassword"
+                  :disabled="passwordLoading || !passwordForm.newPassword || passwordForm.newPassword !== passwordForm.confirmPassword"
+                >
+                  <Icon v-if="passwordLoading" icon="mdi:loading" class="spin btn-icon" />
+                  <Icon v-else icon="mdi:check" class="btn-icon" />
+                  {{ passwordLoading ? '保存中...' : '保存' }}
+                </button>
+              </div>
             </div>
           </div>
         </div>
 
-        <div class="item-content">
-          <div class="coming-soon">
-            <Icon icon="mdi:wrench" class="coming-soon-icon" />
-            <p>更多设置功能即将推出...</p>
+        <!-- 系统配置 -->
+        <div class="settings-item">
+          <div class="item-header" @click="isSystemConfigCollapsed = !isSystemConfigCollapsed">
+            <div class="header-content">
+              <Icon icon="mdi:cog" class="header-icon" />
+              <div>
+                <h2 class="item-title">系统配置</h2>
+                <p class="item-description">其他系统设置选项</p>
+              </div>
+            </div>
+            <div class="header-actions">
+              <button class="collapse-btn" :class="{ collapsed: isSystemConfigCollapsed }">
+                <Icon icon="mdi:chevron-down" class="collapse-icon" />
+              </button>
+            </div>
+          </div>
+
+          <div v-if="!isSystemConfigCollapsed" class="item-content">
+            <div class="coming-soon">
+              <Icon icon="mdi:wrench" class="coming-soon-icon" />
+              <p>更多设置功能即将推出...</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- 主题设置 -->
+        <div class="settings-item">
+          <div class="item-header" @click="isThemeSettingsCollapsed = !isThemeSettingsCollapsed">
+            <div class="header-content">
+              <Icon icon="mdi:palette" class="header-icon" />
+              <div>
+                <h2 class="item-title">主题设置</h2>
+                <p class="item-description">自定义界面主题</p>
+              </div>
+            </div>
+            <div class="header-actions">
+              <button class="collapse-btn" :class="{ collapsed: isThemeSettingsCollapsed }">
+                <Icon icon="mdi:chevron-down" class="collapse-icon" />
+              </button>
+            </div>
+          </div>
+
+          <div v-if="!isThemeSettingsCollapsed" class="item-content">
+            <div class="coming-soon">
+              <Icon icon="mdi:brush" class="coming-soon-icon" />
+              <p>主题自定义功能即将推出...</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- 备份恢复 -->
+        <div class="settings-item">
+          <div class="item-header" @click="isBackupRestoreCollapsed = !isBackupRestoreCollapsed">
+            <div class="header-content">
+              <Icon icon="mdi:backup-restore" class="header-icon" />
+              <div>
+                <h2 class="item-title">备份恢复</h2>
+                <p class="item-description">数据备份与恢复</p>
+              </div>
+            </div>
+            <div class="header-actions">
+              <button class="collapse-btn" :class="{ collapsed: isBackupRestoreCollapsed }">
+                <Icon icon="mdi:chevron-down" class="collapse-icon" />
+              </button>
+            </div>
+          </div>
+
+          <div v-if="!isBackupRestoreCollapsed" class="item-content">
+            <div class="coming-soon">
+              <Icon icon="mdi:database" class="coming-soon-icon" />
+              <p>备份恢复功能即将推出...</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- 系统信息 -->
+        <div class="settings-item">
+          <div class="item-header" @click="isSystemInfoCollapsed = !isSystemInfoCollapsed">
+            <div class="header-content">
+              <Icon icon="mdi:information" class="header-icon" />
+              <div>
+                <h2 class="item-title">系统信息</h2>
+                <p class="item-description">查看系统版本信息</p>
+              </div>
+            </div>
+            <div class="header-actions">
+              <button class="collapse-btn" :class="{ collapsed: isSystemInfoCollapsed }">
+                <Icon icon="mdi:chevron-down" class="collapse-icon" />
+              </button>
+            </div>
+          </div>
+
+          <div v-if="!isSystemInfoCollapsed" class="item-content">
+            <div class="system-info">
+              <div class="info-row">
+                <span class="info-label">版本号</span>
+                <span class="info-value">v1.0.0</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">构建时间</span>
+                <span class="info-value">2024-01-01</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">技术栈</span>
+                <span class="info-value">Vue 3 + Spring Boot</span>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -660,9 +798,20 @@ onMounted(() => {
 
 /* 页面标题 */
 .page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   margin-bottom: 2rem;
   padding-left: 0.5rem;
   padding-right: 0.5rem;
+}
+
+.header-left {
+  flex: 1;
+}
+
+.header-right {
+  flex-shrink: 0;
 }
 
 .page-title {
@@ -680,18 +829,57 @@ onMounted(() => {
   text-align: left;
 }
 
+/* 全部展开/收起按钮 */
+.toggle-all-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  border-radius: 0.5rem;
+  background: linear-gradient(135deg,
+    rgba(59, 130, 246, 0.15) 0%,
+    rgba(59, 130, 246, 0.08) 100%
+  );
+  color: rgba(59, 130, 246, 0.9);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.toggle-all-btn:hover {
+  background: linear-gradient(135deg,
+    rgba(59, 130, 246, 0.25) 0%,
+    rgba(59, 130, 246, 0.15) 100%
+  );
+  border-color: rgba(59, 130, 246, 0.5);
+  color: rgba(59, 130, 246, 1);
+  transform: translateY(-1px);
+}
+
+/* 设置网格布局 */
+.settings-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+  gap: 1.5rem;
+  align-items: start;
+}
+
 /* 设置项 */
 .settings-item {
-  margin-bottom: 2rem;
   border-radius: 0.75rem;
   border: 1px solid rgba(255, 255, 255, 0.1);
   overflow: hidden;
   transition: all 0.3s ease;
+  height: fit-content;
 }
 
 .settings-item:hover {
   border-color: rgba(255, 255, 255, 0.2);
 }
+
+/* 移除全宽样式，所有设置项都使用网格布局 */
 
 .item-header {
   display: flex;
@@ -824,6 +1012,24 @@ onMounted(() => {
   margin: 0;
 }
 
+/* 紧凑状态样式 */
+.loading-state.compact,
+.empty-state.compact {
+  padding: 2rem 1rem;
+}
+
+.loading-state.compact .loading-icon,
+.empty-state.compact .empty-icon {
+  width: 2rem;
+  height: 2rem;
+  margin-bottom: 0.5rem;
+}
+
+.loading-state.compact p,
+.empty-state.compact p {
+  font-size: 0.875rem;
+}
+
 /* 分组列表 */
 .categories-list {
   display: flex;
@@ -834,9 +1040,9 @@ onMounted(() => {
 .category-item {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  padding: 0.75rem 1rem;
-  border-radius: 0.75rem;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.5rem;
   background: transparent;
   border: 1px solid rgba(255, 255, 255, 0.05);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -859,9 +1065,9 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 2.5rem;
-  height: 2.5rem;
-  border-radius: 0.5rem;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.375rem;
   background: rgba(168, 85, 247, 0.1);
   border: 1px solid rgba(168, 85, 247, 0.2);
   cursor: grab;
@@ -928,13 +1134,13 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 2rem;
-  height: 2rem;
-  border-radius: 0.5rem;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 0.375rem;
   border: none;
   cursor: pointer;
   transition: all 0.3s ease;
-  font-size: 0.875rem;
+  font-size: 0.75rem;
 }
 
 .edit-btn {
@@ -1245,8 +1451,8 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 2rem;
-  height: 2rem;
+  width: 1.5rem;
+  height: 1.5rem;
   border-radius: 50%;
   background: linear-gradient(135deg,
     rgba(59, 130, 246, 0.2) 0%,
@@ -1254,7 +1460,7 @@ onMounted(() => {
   );
   border: 1px solid rgba(59, 130, 246, 0.3);
   color: rgba(59, 130, 246, 0.9);
-  font-size: 0.75rem;
+  font-size: 0.625rem;
   font-weight: 600;
 }
 
@@ -1533,14 +1739,71 @@ onMounted(() => {
   cursor: not-allowed;
 }
 
+/* 系统信息样式 */
+.system-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.info-label {
+  font-size: 0.875rem;
+  color: rgba(255, 255, 255, 0.7);
+  font-weight: 500;
+}
+
+.info-value {
+  font-size: 0.875rem;
+  color: rgba(255, 255, 255, 0.9);
+  font-weight: 600;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+}
+
 /* 响应式设计 */
+@media (max-width: 1024px) {
+  .settings-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+}
+
 @media (max-width: 768px) {
   .settings-container {
     padding: 1rem;
   }
 
+  .page-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+
+  .header-right {
+    width: 100%;
+  }
+
+  .toggle-all-btn {
+    width: 100%;
+    justify-content: center;
+  }
+
   .page-title {
     font-size: 1.5rem;
+  }
+
+  .settings-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
   }
 
   .item-header {
