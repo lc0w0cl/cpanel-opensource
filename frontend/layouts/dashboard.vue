@@ -1,8 +1,69 @@
 <script setup lang="ts">
-  import { Motion } from "motion-v";
+import { Motion } from "motion-v";
+import { ref, onMounted, onUnmounted, computed } from 'vue';
+
+// 壁纸相关状态
+const customWallpaper = ref('')
+const wallpaperBlur = ref(5)
+
+// 计算背景样式
+const backgroundStyle = computed(() => {
+  return {
+    minHeight: '100vh',
+    position: 'relative'
+  }
+})
+
+// 计算背景图片样式（用于伪元素）
+const backgroundImageUrl = computed(() => {
+  if (customWallpaper.value) {
+    return customWallpaper.value
+  } else {
+    return '/background/机甲.png'
+  }
+})
+
+// 计算CSS变量
+const cssVars = computed(() => {
+  return {
+    '--bg-image': `url(${backgroundImageUrl.value})`,
+    '--bg-blur': `${wallpaperBlur.value}px`
+  }
+})
+
+// 加载保存的壁纸设置
+const loadWallpaperSettings = () => {
+  if (process.client) {
+    const savedWallpaper = localStorage.getItem('customWallpaper')
+    const savedBlur = localStorage.getItem('wallpaperBlur')
+
+    if (savedWallpaper) {
+      customWallpaper.value = savedWallpaper
+      wallpaperBlur.value = savedBlur ? parseInt(savedBlur) : 5
+    }
+  }
+}
+
+// 监听壁纸变化事件
+const handleWallpaperChange = () => {
+  loadWallpaperSettings()
+}
+
+onMounted(() => {
+  loadWallpaperSettings()
+
+  // 监听自定义事件，当壁纸设置改变时更新
+  window.addEventListener('wallpaperChanged', handleWallpaperChange)
+})
+
+onUnmounted(() => {
+  if (process.client) {
+    window.removeEventListener('wallpaperChanged', handleWallpaperChange)
+  }
+})
 </script>
 <template>
-  <div class="layout-container" style="background-image: url('/background/机甲.png'); background-size: cover; background-position: center; min-height: 100vh;">
+  <div class="layout-container" :style="{ ...backgroundStyle, ...cssVars }">
     <Sidebar class="sidebar-component" />
 
     <div class="content-container">
@@ -20,6 +81,38 @@
     </div>
   </div>
 </template>
+
+<style scoped>
+.layout-container {
+  position: relative;
+  overflow: hidden;
+}
+
+/* 背景图片伪元素 */
+.layout-container::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-image: var(--bg-image);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+  filter: blur(var(--bg-blur));
+  z-index: -1;
+  /* 扩展背景以避免模糊边缘 */
+  transform: scale(1.1);
+}
+
+/* 确保内容在背景之上 */
+.layout-container > * {
+  position: relative;
+  z-index: 1;
+}
+</style>
 
 <style scoped>
 .layout-container {

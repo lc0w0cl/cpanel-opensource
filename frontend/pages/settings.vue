@@ -65,6 +65,13 @@ const passwordForm = ref({
 const passwordLoading = ref(false)
 const showPasswordForm = ref(false)
 
+// 壁纸设置相关
+const currentWallpaper = ref('')
+const wallpaperBlur = ref(5)
+const wallpaperApplying = ref(false)
+const wallpaperResetting = ref(false)
+const fileInput = ref<HTMLInputElement | null>(null)
+
 // API配置
 const config = useRuntimeConfig()
 const API_BASE_URL = `${config.public.apiBaseUrl}/api`
@@ -355,9 +362,182 @@ const allSectionsCollapsed = computed(() => {
          isSystemInfoCollapsed.value
 })
 
+// 壁纸相关方法
+const triggerFileUpload = () => {
+  fileInput.value?.click()
+}
+
+const handleFileSelect = (event: Event) => {
+  const target = event.target as HTMLInputElement
+  const file = target.files?.[0]
+  if (file) {
+    handleWallpaperFile(file)
+  }
+}
+
+const handleFileDrop = (event: DragEvent) => {
+  const file = event.dataTransfer?.files[0]
+  if (file) {
+    handleWallpaperFile(file)
+  }
+}
+
+const handleWallpaperFile = (file: File) => {
+  // 验证文件类型
+  const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png']
+  if (!allowedTypes.includes(file.type)) {
+    console.error('不支持的文件格式，请选择 JPG 或 PNG 格式的图片')
+    return
+  }
+
+  // 验证文件大小 (限制为 10MB)
+  const maxSize = 10 * 1024 * 1024
+  if (file.size > maxSize) {
+    console.error('文件大小不能超过 10MB')
+    return
+  }
+
+  // 创建预览
+  const reader = new FileReader()
+  reader.onload = (e) => {
+    currentWallpaper.value = e.target?.result as string
+  }
+  reader.readAsDataURL(file)
+}
+
+const updateWallpaperBlur = () => {
+  // 实时更新模糊效果
+  console.log('模糊度更新为:', wallpaperBlur.value)
+}
+
+const previewWallpaper = () => {
+  if (!currentWallpaper.value) return
+
+  // 创建全屏预览容器
+  const previewContainer = document.createElement('div')
+  previewContainer.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 9999;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.8);
+  `
+
+  // 创建背景图片元素
+  const backgroundDiv = document.createElement('div')
+  backgroundDiv.style.cssText = `
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-image: url(${currentWallpaper.value});
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    filter: blur(${wallpaperBlur.value}px);
+    transform: scale(1.1);
+  `
+
+  // 创建提示文字
+  const hintText = document.createElement('div')
+  hintText.style.cssText = `
+    position: relative;
+    z-index: 10;
+    color: white;
+    font-size: 1.5rem;
+    font-weight: 600;
+    text-align: center;
+    background: rgba(0, 0, 0, 0.5);
+    padding: 1rem 2rem;
+    border-radius: 0.5rem;
+    backdrop-filter: blur(10px);
+  `
+  hintText.textContent = '点击任意位置关闭预览'
+
+  previewContainer.appendChild(backgroundDiv)
+  previewContainer.appendChild(hintText)
+
+  previewContainer.addEventListener('click', () => {
+    document.body.removeChild(previewContainer)
+  })
+
+  document.body.appendChild(previewContainer)
+
+  // 3秒后自动关闭
+  setTimeout(() => {
+    if (document.body.contains(previewContainer)) {
+      document.body.removeChild(previewContainer)
+    }
+  }, 3000)
+}
+
+const applyWallpaper = async () => {
+  if (!currentWallpaper.value) return
+
+  wallpaperApplying.value = true
+  try {
+    // 保存到localStorage
+    localStorage.setItem('customWallpaper', currentWallpaper.value)
+    localStorage.setItem('wallpaperBlur', wallpaperBlur.value.toString())
+
+    // 触发自定义事件通知布局更新
+    if (process.client) {
+      window.dispatchEvent(new CustomEvent('wallpaperChanged'))
+    }
+
+    console.log('壁纸应用成功')
+  } catch (error) {
+    console.error('壁纸应用失败:', error)
+  } finally {
+    wallpaperApplying.value = false
+  }
+}
+
+const resetWallpaper = async () => {
+  wallpaperResetting.value = true
+  try {
+    // 清除自定义壁纸
+    currentWallpaper.value = ''
+    wallpaperBlur.value = 5
+
+    // 清除localStorage
+    localStorage.removeItem('customWallpaper')
+    localStorage.removeItem('wallpaperBlur')
+
+    // 触发自定义事件通知布局更新
+    if (process.client) {
+      window.dispatchEvent(new CustomEvent('wallpaperChanged'))
+    }
+
+    console.log('壁纸已还原为默认')
+  } catch (error) {
+    console.error('壁纸还原失败:', error)
+  } finally {
+    wallpaperResetting.value = false
+  }
+}
+
+const loadSavedWallpaper = () => {
+  const savedWallpaper = localStorage.getItem('customWallpaper')
+  const savedBlur = localStorage.getItem('wallpaperBlur')
+
+  if (savedWallpaper) {
+    currentWallpaper.value = savedWallpaper
+    wallpaperBlur.value = savedBlur ? parseInt(savedBlur) : 5
+  }
+}
+
 // 页面加载时获取数据
 onMounted(() => {
   fetchCategories()
+  loadSavedWallpaper()
 })
 </script>
 
@@ -724,9 +904,98 @@ onMounted(() => {
               </div>
 
               <div v-if="!isThemeSettingsCollapsed" class="item-content">
-                <div class="coming-soon">
-                  <Icon icon="mdi:brush" class="coming-soon-icon" />
-                  <p>主题自定义功能即将推出...</p>
+                <!-- 壁纸设置 -->
+                <div class="wallpaper-settings">
+                  <div class="setting-section">
+                    <h3 class="section-title">
+                      <Icon icon="mdi:image" class="section-icon" />
+                      自定义壁纸
+                    </h3>
+                    <p class="section-description">上传自定义背景图片，支持 JPG、PNG 格式</p>
+
+                    <!-- 当前壁纸预览 -->
+                    <div class="wallpaper-preview">
+                      <div class="preview-container" :style="{
+                        backgroundImage: currentWallpaper ? `url(${currentWallpaper})` : 'none',
+                        filter: `blur(${wallpaperBlur}px)`
+                      }">
+                        <div v-if="!currentWallpaper" class="no-wallpaper">
+                          <Icon icon="mdi:image-off" class="no-wallpaper-icon" />
+                          <span>暂无自定义壁纸</span>
+                        </div>
+                      </div>
+                      <div class="preview-info">
+                        <span class="blur-value">模糊度: {{ wallpaperBlur }}px</span>
+                      </div>
+                    </div>
+
+                    <!-- 上传区域 -->
+                    <div class="upload-area" @click="triggerFileUpload" @dragover.prevent @drop.prevent="handleFileDrop">
+                      <input
+                        ref="fileInput"
+                        type="file"
+                        accept="image/jpeg,image/jpg,image/png"
+                        @change="handleFileSelect"
+                        style="display: none"
+                      />
+                      <Icon icon="mdi:cloud-upload" class="upload-icon" />
+                      <p class="upload-text">点击上传或拖拽图片到此处</p>
+                      <p class="upload-hint">支持 JPG、PNG 格式，建议尺寸 1920x1080</p>
+                    </div>
+
+                    <!-- 模糊度调整 -->
+                    <div class="blur-control">
+                      <label class="control-label">
+                        <Icon icon="mdi:blur" class="control-icon" />
+                        模糊程度
+                      </label>
+                      <div class="slider-container">
+                        <input
+                          type="range"
+                          min="0"
+                          max="20"
+                          step="1"
+                          v-model="wallpaperBlur"
+                          class="blur-slider"
+                          @input="updateWallpaperBlur"
+                        />
+                        <div class="slider-labels">
+                          <span>清晰</span>
+                          <span>模糊</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- 操作按钮 -->
+                    <div class="wallpaper-actions">
+                      <button
+                        class="action-btn preview-btn"
+                        @click="previewWallpaper"
+                        :disabled="!currentWallpaper"
+                      >
+                        <Icon icon="mdi:eye" class="btn-icon" />
+                        预览效果
+                      </button>
+                      <button
+                        class="action-btn apply-btn"
+                        @click="applyWallpaper"
+                        :disabled="!currentWallpaper || wallpaperApplying"
+                      >
+                        <Icon v-if="wallpaperApplying" icon="mdi:loading" class="spin btn-icon" />
+                        <Icon v-else icon="mdi:check" class="btn-icon" />
+                        {{ wallpaperApplying ? '应用中...' : '应用壁纸' }}
+                      </button>
+                      <button
+                        class="action-btn reset-btn"
+                        @click="resetWallpaper"
+                        :disabled="wallpaperResetting"
+                      >
+                        <Icon v-if="wallpaperResetting" icon="mdi:loading" class="spin btn-icon" />
+                        <Icon v-else icon="mdi:restore" class="btn-icon" />
+                        {{ wallpaperResetting ? '还原中...' : '还原默认' }}
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -1870,6 +2139,298 @@ onMounted(() => {
   font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
 }
 
+/* 壁纸设置样式 */
+.wallpaper-settings {
+  padding: 0;
+}
+
+.setting-section {
+  margin-bottom: 2rem;
+}
+
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 1rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+  margin: 0 0 0.5rem 0;
+}
+
+.section-icon {
+  width: 1.25rem;
+  height: 1.25rem;
+  color: rgba(249, 115, 22, 0.8);
+}
+
+.section-description {
+  font-size: 0.875rem;
+  color: rgba(255, 255, 255, 0.6);
+  margin: 0 0 1.5rem 0;
+  line-height: 1.4;
+}
+
+/* 壁纸预览 */
+.wallpaper-preview {
+  margin-bottom: 1.5rem;
+}
+
+.preview-container {
+  width: 100%;
+  height: 120px;
+  border-radius: 0.75rem;
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-color: rgba(255, 255, 255, 0.02);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+  overflow: hidden;
+  position: relative;
+}
+
+.preview-container:hover {
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.no-wallpaper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.no-wallpaper-icon {
+  width: 2rem;
+  height: 2rem;
+}
+
+.preview-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 0.75rem;
+  padding: 0 0.5rem;
+}
+
+.blur-value {
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.6);
+  font-weight: 500;
+}
+
+/* 上传区域 */
+.upload-area {
+  border: 2px dashed rgba(249, 115, 22, 0.3);
+  border-radius: 0.75rem;
+  padding: 2rem;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  background: linear-gradient(135deg,
+    rgba(249, 115, 22, 0.05) 0%,
+    rgba(249, 115, 22, 0.02) 100%
+  );
+  margin-bottom: 1.5rem;
+}
+
+.upload-area:hover {
+  border-color: rgba(249, 115, 22, 0.5);
+  background: linear-gradient(135deg,
+    rgba(249, 115, 22, 0.1) 0%,
+    rgba(249, 115, 22, 0.05) 100%
+  );
+  transform: translateY(-2px);
+}
+
+.upload-icon {
+  width: 3rem;
+  height: 3rem;
+  color: rgba(249, 115, 22, 0.7);
+  margin-bottom: 1rem;
+}
+
+.upload-text {
+  font-size: 1rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.8);
+  margin: 0 0 0.5rem 0;
+}
+
+.upload-hint {
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.5);
+  margin: 0;
+}
+
+/* 模糊度控制 */
+.blur-control {
+  margin-bottom: 1.5rem;
+}
+
+.control-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.8);
+  margin-bottom: 1rem;
+}
+
+.control-icon {
+  width: 1rem;
+  height: 1rem;
+  color: rgba(249, 115, 22, 0.7);
+}
+
+.slider-container {
+  position: relative;
+}
+
+.blur-slider {
+  width: 100%;
+  height: 6px;
+  border-radius: 3px;
+  background: linear-gradient(to right,
+    rgba(255, 255, 255, 0.1) 0%,
+    rgba(249, 115, 22, 0.3) 100%
+  );
+  outline: none;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.blur-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: linear-gradient(135deg,
+    rgba(249, 115, 22, 0.9) 0%,
+    rgba(249, 115, 22, 0.7) 100%
+  );
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.blur-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.1);
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+.blur-slider::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: linear-gradient(135deg,
+    rgba(249, 115, 22, 0.9) 0%,
+    rgba(249, 115, 22, 0.7) 100%
+  );
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.slider-labels {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 0.5rem;
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+/* 操作按钮 */
+.wallpaper-actions {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.action-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.25rem;
+  border: none;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  flex: 1;
+  min-width: 120px;
+  justify-content: center;
+}
+
+.preview-btn {
+  background: linear-gradient(135deg,
+    rgba(59, 130, 246, 0.2) 0%,
+    rgba(59, 130, 246, 0.1) 100%
+  );
+  color: rgba(59, 130, 246, 0.9);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.preview-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg,
+    rgba(59, 130, 246, 0.3) 0%,
+    rgba(59, 130, 246, 0.15) 100%
+  );
+  border-color: rgba(59, 130, 246, 0.5);
+  transform: translateY(-1px);
+}
+
+.apply-btn {
+  background: linear-gradient(135deg,
+    rgba(34, 197, 94, 0.2) 0%,
+    rgba(34, 197, 94, 0.1) 100%
+  );
+  color: rgba(34, 197, 94, 0.9);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+.apply-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg,
+    rgba(34, 197, 94, 0.3) 0%,
+    rgba(34, 197, 94, 0.15) 100%
+  );
+  border-color: rgba(34, 197, 94, 0.5);
+  transform: translateY(-1px);
+}
+
+.reset-btn {
+  background: linear-gradient(135deg,
+    rgba(239, 68, 68, 0.2) 0%,
+    rgba(239, 68, 68, 0.1) 100%
+  );
+  color: rgba(239, 68, 68, 0.9);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.reset-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg,
+    rgba(239, 68, 68, 0.3) 0%,
+    rgba(239, 68, 68, 0.15) 100%
+  );
+  border-color: rgba(239, 68, 68, 0.5);
+  transform: translateY(-1px);
+}
+
+.action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
 /* 响应式设计 */
 @media (max-width: 1024px) {
   .settings-grid {
@@ -1993,6 +2554,29 @@ onMounted(() => {
     width: 100%;
     justify-content: center;
     padding: 1rem;
+  }
+
+  /* 移动端壁纸设置优化 */
+  .wallpaper-actions {
+    flex-direction: column;
+  }
+
+  .action-btn {
+    width: 100%;
+    min-width: auto;
+  }
+
+  .upload-area {
+    padding: 1.5rem 1rem;
+  }
+
+  .upload-icon {
+    width: 2.5rem;
+    height: 2.5rem;
+  }
+
+  .preview-container {
+    height: 100px;
   }
 }
 </style>
