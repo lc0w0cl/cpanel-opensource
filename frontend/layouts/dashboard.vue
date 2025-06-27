@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Motion } from "motion-v";
-import { ref, onMounted, onUnmounted, computed } from 'vue';
+import { ref, onMounted, onUnmounted, computed, nextTick } from 'vue';
 
 // 壁纸相关状态
 const customWallpaper = ref('')
@@ -40,27 +40,47 @@ const loadWallpaperSettings = () => {
     const savedBlur = localStorage.getItem('wallpaperBlur')
     const savedMask = localStorage.getItem('wallpaperMask')
 
+    console.log('加载壁纸设置:', {
+      savedWallpaper,
+      savedBlur,
+      savedMask
+    })
+
     // 加载自定义壁纸（如果有的话）
     if (savedWallpaper) {
       customWallpaper.value = savedWallpaper
+    } else {
+      customWallpaper.value = ''
     }
 
     // 始终加载模糊和遮罩设置，即使没有自定义壁纸
     wallpaperBlur.value = savedBlur ? parseInt(savedBlur) : 5
     wallpaperMask.value = savedMask ? parseInt(savedMask) : 30
+
+    console.log('壁纸设置已更新:', {
+      customWallpaper: customWallpaper.value,
+      wallpaperBlur: wallpaperBlur.value,
+      wallpaperMask: wallpaperMask.value
+    })
   }
 }
 
 // 监听壁纸变化事件
-const handleWallpaperChange = () => {
+const handleWallpaperChange = async () => {
+  console.log('收到壁纸变化事件')
   loadWallpaperSettings()
+
+  // 强制重新渲染
+  await nextTick()
 }
 
 onMounted(() => {
   loadWallpaperSettings()
 
   // 监听自定义事件，当壁纸设置改变时更新
-  window.addEventListener('wallpaperChanged', handleWallpaperChange)
+  if (process.client) {
+    window.addEventListener('wallpaperChanged', handleWallpaperChange)
+  }
 })
 
 onUnmounted(() => {
@@ -71,6 +91,23 @@ onUnmounted(() => {
 </script>
 <template>
   <div class="layout-container" :style="{ ...backgroundStyle, ...cssVars }">
+    <!-- 动态背景层 -->
+    <div
+      class="dynamic-background"
+      :style="{
+        backgroundImage: `url(${backgroundImageUrl})`,
+        filter: `blur(${wallpaperBlur}px)`
+      }"
+    ></div>
+
+    <!-- 动态遮罩层 -->
+    <div
+      class="dynamic-mask"
+      :style="{
+        backgroundColor: `rgba(0, 0, 0, ${wallpaperMask / 100})`
+      }"
+    ></div>
+
     <Sidebar class="sidebar-component" />
 
     <div class="content-container">
@@ -95,40 +132,38 @@ onUnmounted(() => {
   overflow: hidden;
 }
 
-/* 背景图片伪元素 - 始终显示 */
-.layout-container::before {
-  content: '';
+/* 动态背景层 */
+.dynamic-background {
   position: fixed;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
-  background-image: var(--bg-image);
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
   background-attachment: fixed;
-  filter: blur(var(--bg-blur));
   z-index: -2;
   /* 扩展背景以避免模糊边缘 */
   transform: scale(1.1);
+  transition: all 0.3s ease;
 }
 
-/* 背景遮罩伪元素 - 始终显示 */
-.layout-container::after {
-  content: '';
+/* 动态遮罩层 */
+.dynamic-mask {
   position: fixed;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
-  background-color: rgba(0, 0, 0, var(--bg-mask));
   z-index: -1;
   pointer-events: none;
+  transition: all 0.3s ease;
 }
 
 /* 确保内容在背景之上 */
-.layout-container > * {
+.layout-container > .sidebar-component,
+.layout-container > .content-container {
   position: relative;
   z-index: 1;
 }
