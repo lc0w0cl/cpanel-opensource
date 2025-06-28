@@ -1,112 +1,130 @@
 <template>
   <div class="wallpaper-manager">
-    <!-- 主要内容区域 - 左右分栏布局 -->
+    <!-- 主要内容区域 - 上下排列布局 -->
     <div class="main-content">
-      <!-- 左侧：当前壁纸预览和控制 -->
-      <div class="left-panel">
-        <!-- 当前壁纸预览 -->
-        <div class="current-wallpaper-section">
-          <h3 class="section-title">
-            <Icon icon="mdi:image" class="section-icon" />
-            当前壁纸
-          </h3>
-          <div class="current-wallpaper-preview">
-            <div class="preview-container" @click="previewWallpaper">
-              <!-- 背景图片层 -->
-              <div class="background-layer" :style="{
-                backgroundImage: `url(${getWallpaperDisplayUrl()})`,
-                filter: `blur(${wallpaperBlur}px)`
-              }"></div>
-              <!-- 遮罩层 -->
-              <div class="preview-mask" :style="{
-                backgroundColor: `rgba(0, 0, 0, ${wallpaperMask / 100})`
-              }"></div>
-              <!-- 预览按钮 -->
-              <div class="preview-overlay">
-                <button class="preview-btn">
-                  <Icon icon="mdi:eye" class="btn-icon" />
-                  全屏预览
-                </button>
-              </div>
-            </div>
-            <div class="preview-info">
-              <div class="info-item">
-                <Icon icon="mdi:check-circle" class="info-icon" />
-                <span class="wallpaper-status">{{ currentWallpaper ? '自定义壁纸' : '默认壁纸' }}</span>
-              </div>
-              <div class="info-item">
-                <Icon icon="mdi:blur" class="info-icon" />
-                <span class="blur-value">模糊度: {{ wallpaperBlur }}px</span>
-              </div>
-              <div class="info-item">
-                <Icon icon="mdi:opacity" class="info-icon" />
-                <span class="mask-value">遮罩: {{ wallpaperMask }}%</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- 控制面板 -->
-        <div class="controls-section">
-          <h3 class="section-title">
-            <Icon icon="mdi:tune" class="section-icon" />
-            效果调整
-          </h3>
-
-          <!-- 模糊度调整 -->
-          <div class="control-group">
-            <label class="control-label">
-              <Icon icon="mdi:blur" class="control-icon" />
-              模糊度
-            </label>
-            <div class="slider-container">
-              <input
-                type="range"
-                min="0"
-                max="20"
-                step="1"
-                v-model="wallpaperBlur"
-                class="control-slider blur-slider"
-                @input="updateWallpaperBlur"
-              />
-              <div class="slider-labels">
-                <span>清晰</span>
-                <span class="current-value">{{ wallpaperBlur }}px</span>
-                <span>模糊</span>
+      <!-- 上部：当前壁纸预览和控制 -->
+      <div class="top-section">
+        <!-- 当前壁纸预览和控制面板 - 左右分栏 -->
+        <div class="current-wallpaper-controls">
+          <!-- 左侧：当前壁纸预览图片 -->
+          <div class="current-wallpaper-section">
+            <h3 class="section-title">
+              <Icon icon="mdi:image" class="section-icon" />
+              当前壁纸
+            </h3>
+            <div class="wallpaper-preview-image">
+              <div class="preview-image-container" @click="previewWallpaper">
+                <!-- 背景图片层（应用模糊效果） -->
+                <div
+                  class="wallpaper-background"
+                  :style="{
+                    backgroundImage: `url(${getWallpaperDisplayUrl()})`,
+                    filter: `blur(${wallpaperBlur}px)`
+                  }"
+                ></div>
+                <!-- 遮罩层 -->
+                <div
+                  class="wallpaper-mask"
+                  :style="{
+                    backgroundColor: `rgba(0, 0, 0, ${wallpaperMask / 100})`
+                  }"
+                ></div>
+                <!-- 预览按钮覆盖层 -->
+                <div class="preview-overlay">
+                  <button class="preview-btn">
+                    <Icon icon="mdi:eye" class="btn-icon" />
+                    全屏预览
+                  </button>
+                </div>
               </div>
             </div>
           </div>
 
-          <!-- 遮罩调整 -->
-          <div class="control-group">
-            <label class="control-label">
-              <Icon icon="mdi:opacity" class="control-icon" />
-              遮罩透明度
-            </label>
-            <div class="slider-container">
-              <input
-                type="range"
-                min="0"
-                max="80"
-                step="5"
-                v-model="wallpaperMask"
-                class="control-slider mask-slider"
-                @input="updateWallpaperMask"
-              />
-              <div class="slider-labels">
-                <span>透明</span>
-                <span class="current-value">{{ wallpaperMask }}%</span>
-                <span>不透明</span>
+          <!-- 右侧：当前设置和控制面板 -->
+          <div class="settings-and-controls">
+            <!-- 当前设置显示 -->
+            <div class="current-settings">
+              <h3 class="section-title">
+                <Icon icon="mdi:cog" class="section-icon" />
+                当前设置
+              </h3>
+              <div class="settings-info">
+                <div class="info-item">
+                  <Icon icon="mdi:check-circle" class="info-icon" />
+                  <span class="wallpaper-status">{{ currentWallpaper ? '自定义壁纸' : '默认壁纸' }}</span>
+                </div>
+                <div class="info-item">
+                  <Icon icon="mdi:blur" class="info-icon" />
+                  <span class="blur-value">模糊度: {{ wallpaperBlur }}px</span>
+                </div>
+                <div class="info-item">
+                  <Icon icon="mdi:opacity" class="info-icon" />
+                  <span class="mask-value">遮罩透明度: {{ wallpaperMask }}%</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- 效果调整控制面板 -->
+            <div class="controls-section">
+              <h3 class="section-title">
+                <Icon icon="mdi:tune" class="section-icon" />
+                效果调整
+              </h3>
+
+              <!-- 模糊度调整 -->
+              <div class="control-group">
+                <label class="control-label">
+                  <Icon icon="mdi:blur" class="control-icon" />
+                  模糊度
+                </label>
+                <div class="slider-container">
+                  <input
+                    type="range"
+                    min="0"
+                    max="20"
+                    step="1"
+                    v-model="wallpaperBlur"
+                    class="control-slider blur-slider"
+                    @input="updateWallpaperBlur"
+                  />
+                  <div class="slider-labels">
+                    <span>清晰</span>
+                    <span class="current-value">{{ wallpaperBlur }}px</span>
+                    <span>模糊</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 遮罩调整 -->
+              <div class="control-group">
+                <label class="control-label">
+                  <Icon icon="mdi:opacity" class="control-icon" />
+                  遮罩透明度
+                </label>
+                <div class="slider-container">
+                  <input
+                    type="range"
+                    min="0"
+                    max="80"
+                    step="5"
+                    v-model="wallpaperMask"
+                    class="control-slider mask-slider"
+                    @input="updateWallpaperMask"
+                  />
+                  <div class="slider-labels">
+                    <span>透明</span>
+                    <span class="current-value">{{ wallpaperMask }}%</span>
+                    <span>不透明</span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- 右侧：壁纸库 -->
-      <div class="right-panel">
-
-        <!-- 壁纸库 -->
+      <!-- 下部：壁纸库 -->
+      <div class="bottom-section">
         <div class="wallpaper-gallery-section">
           <div class="gallery-header">
             <h3 class="section-title">
@@ -484,30 +502,109 @@ onMounted(() => {
   max-width: none;
 }
 
-/* 主要内容区域 - 左右分栏 */
+/* 主要内容区域 - 上下排列 */
 .main-content {
-  display: grid;
-  grid-template-columns: 1fr 1.5fr;
-  gap: 3rem;
+  display: flex;
+  flex-direction: column;
+  gap: 2.5rem;
   margin-bottom: 2rem;
 }
 
-/* 左侧面板 */
-.left-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 2rem;
+/* 上部区域 */
+.top-section {
+  width: 100%;
 }
 
-/* 右侧面板 */
-.right-panel {
-  display: flex;
-  flex-direction: column;
+/* 当前壁纸和控制面板 - 左右分栏 */
+.current-wallpaper-controls {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2.5rem;
+  align-items: start;
+}
+
+/* 下部区域 */
+.bottom-section {
+  width: 100%;
 }
 
 /* 当前壁纸预览 */
 .current-wallpaper-section {
   margin-bottom: 0;
+}
+
+/* 壁纸预览图片容器 */
+.wallpaper-preview-image {
+  margin-top: 1rem;
+}
+
+.preview-image-container {
+  position: relative;
+  width: 100%;
+  /* 16:9 aspect ratio */
+  aspect-ratio: 16 / 9;
+  border-radius: 1rem;
+  overflow: hidden;
+  cursor: pointer;
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+}
+
+.preview-image-container:hover {
+  border-color: rgba(59, 130, 246, 0.4);
+  transform: translateY(-3px);
+  box-shadow: 0 12px 35px rgba(0, 0, 0, 0.4);
+}
+
+/* 壁纸背景层 */
+.wallpaper-background {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  transform: scale(1.05); /* 轻微放大避免边缘空白 */
+}
+
+/* 壁纸遮罩层 */
+.wallpaper-mask {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+}
+
+/* 右侧设置和控制区域 */
+.settings-and-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  height: 100%;
+  justify-content: space-between;
+}
+
+/* 当前设置显示 */
+.current-settings {
+  background: linear-gradient(135deg,
+    rgba(255, 255, 255, 0.06) 0%,
+    rgba(255, 255, 255, 0.03) 100%
+  );
+  border-radius: 1rem;
+  padding: 1.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.settings-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 1rem;
 }
 
 .section-title {
@@ -532,48 +629,7 @@ onMounted(() => {
   font-weight: 400;
 }
 
-.current-wallpaper-preview {
-  margin-bottom: 0;
-}
-
-.preview-container {
-  width: 100%;
-  height: 200px;
-  border-radius: 1rem;
-  overflow: hidden;
-  position: relative;
-  cursor: pointer;
-  border: 2px solid rgba(255, 255, 255, 0.1);
-  transition: all 0.3s ease;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
-}
-
-.preview-container:hover {
-  border-color: rgba(59, 130, 246, 0.4);
-  transform: translateY(-3px);
-  box-shadow: 0 12px 35px rgba(0, 0, 0, 0.4);
-}
-
-.background-layer {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
-  transform: scale(1.1);
-}
-
-.preview-mask {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  z-index: 1;
-}
+/* 旧的预览容器样式已移除，使用新的图片显示方式 */
 
 .preview-overlay {
   position: absolute;
@@ -584,12 +640,14 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 2;
+  z-index: 3; /* 确保在遮罩层之上 */
   opacity: 0;
   transition: opacity 0.3s ease;
+  background: rgba(0, 0, 0, 0.2);
+  backdrop-filter: blur(2px);
 }
 
-.preview-container:hover .preview-overlay {
+.preview-image-container:hover .preview-overlay {
   opacity: 1;
 }
 
@@ -616,19 +674,7 @@ onMounted(() => {
   transform: scale(1.05);
 }
 
-.preview-info {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  margin-top: 1rem;
-  padding: 1rem;
-  background: linear-gradient(135deg,
-    rgba(255, 255, 255, 0.08) 0%,
-    rgba(255, 255, 255, 0.04) 100%
-  );
-  border-radius: 0.75rem;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-}
+/* 预览信息样式已移至右侧设置区域 */
 
 .info-item {
   display: flex;
@@ -755,7 +801,7 @@ onMounted(() => {
 
 /* 壁纸库 */
 .wallpaper-gallery-section {
-  margin-top: 1rem;
+  width: 100%;
 }
 
 .gallery-header {
@@ -790,9 +836,41 @@ onMounted(() => {
 
 .wallpaper-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   gap: 1.25rem;
   margin-top: 1rem;
+  /* 设置合适的高度用于滚动 */
+  max-height: 400px;
+  overflow-y: auto;
+  /* 自定义滚动条样式 */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(59, 130, 246, 0.5) rgba(255, 255, 255, 0.1);
+}
+
+/* Webkit 浏览器滚动条样式 */
+.wallpaper-grid::-webkit-scrollbar {
+  width: 8px;
+}
+
+.wallpaper-grid::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+}
+
+.wallpaper-grid::-webkit-scrollbar-thumb {
+  background: linear-gradient(135deg,
+    rgba(59, 130, 246, 0.6) 0%,
+    rgba(59, 130, 246, 0.4) 100%
+  );
+  border-radius: 4px;
+  transition: background 0.3s ease;
+}
+
+.wallpaper-grid::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(135deg,
+    rgba(59, 130, 246, 0.8) 0%,
+    rgba(59, 130, 246, 0.6) 100%
+  );
 }
 
 .wallpaper-item {
@@ -920,9 +998,14 @@ onMounted(() => {
 
 /* 空状态 */
 .empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   text-align: center;
   padding: 3rem 1rem;
   color: rgba(255, 255, 255, 0.5);
+  min-height: 200px;
 }
 
 .empty-icon {
@@ -1012,17 +1095,9 @@ onMounted(() => {
 
 /* 响应式设计 */
 @media (max-width: 1200px) {
-  .main-content {
+  .current-wallpaper-controls {
     grid-template-columns: 1fr;
     gap: 2rem;
-  }
-
-  .left-panel {
-    order: 1;
-  }
-
-  .right-panel {
-    order: 2;
   }
 }
 
@@ -1031,8 +1106,14 @@ onMounted(() => {
     gap: 1.5rem;
   }
 
-  .preview-container {
-    height: 160px;
+  .current-wallpaper-controls {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+
+  .preview-image-container {
+    /* 在移动端保持16:9比例 */
+    aspect-ratio: 16 / 9;
   }
 
   .controls-section {
@@ -1044,8 +1125,9 @@ onMounted(() => {
   }
 
   .wallpaper-grid {
-    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
     gap: 1rem;
+    max-height: 300px;
   }
 
   .action-buttons {
@@ -1070,13 +1152,15 @@ onMounted(() => {
 }
 
 @media (max-width: 480px) {
-  .preview-container {
-    height: 140px;
+  .preview-image-container {
+    /* 在小屏幕设备上保持16:9比例 */
+    aspect-ratio: 16 / 9;
   }
 
   .wallpaper-grid {
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
     gap: 0.75rem;
+    max-height: 250px;
   }
 
   .action-buttons .action-btn {
