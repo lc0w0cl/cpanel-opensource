@@ -22,11 +22,11 @@
                       :translate-z="100"
                       class="mt-4 w-full"
                     >
-                      <div class="preview-image-container">
+                      <div class="preview-image-container" @click="clearSelection">
                         <!-- 直接使用 img 标签显示图片 -->
                         <img
                           :src="getWallpaperDisplayUrl()"
-                          :alt="currentWallpaper ? '自定义壁纸' : '默认壁纸'"
+                          :alt="selectedWallpaper ? '选中壁纸预览' : (currentWallpaper ? '自定义壁纸' : '默认壁纸')"
                           class="wallpaper-image  w-full rounded-xl object-cover group-hover/card:shadow-xl"
                           :style="{
                             filter: `blur(${wallpaperBlur}px)`
@@ -51,7 +51,9 @@
               <div class="settings-info">
                 <div class="info-item">
                   <Icon icon="mdi:check-circle" class="info-icon" />
-                  <span class="wallpaper-status">{{ currentWallpaper ? '自定义壁纸' : '默认壁纸' }}</span>
+                  <span class="wallpaper-status" :class="{ 'preview-status': selectedWallpaper }">
+                    {{ selectedWallpaper ? '预览中 (未应用)' : (currentWallpaper ? '自定义壁纸' : '默认壁纸') }}
+                  </span>
                 </div>
                 <div class="info-item">
                   <Icon icon="mdi:blur" class="info-icon" />
@@ -253,6 +255,7 @@ const wallpaperHistory = ref<any[]>([])
 const fileInput = ref<HTMLInputElement | null>(null)
 const saving = ref(false)
 const resetting = ref(false)
+const selectedWallpaper = ref<string>('') // 当前选中但未应用的壁纸
 
 // 计算属性
 const currentWallpaper = computed({
@@ -319,6 +322,7 @@ const uploadWallpaper = async (file: File) => {
       await loadWallpaperHistory()
       // 更新当前壁纸
       currentWallpaper.value = result.data.wallpaperUrl
+      selectedWallpaper.value = '' // 清除选中状态
       emit('wallpaperChanged', result.data)
     }
   } catch (error) {
@@ -327,7 +331,8 @@ const uploadWallpaper = async (file: File) => {
 }
 
 const selectWallpaper = (wallpaper: any) => {
-  currentWallpaper.value = wallpaper.url
+  // 只更新选中状态，不影响当前应用的壁纸
+  selectedWallpaper.value = wallpaper.url
 }
 
 const applyWallpaper = async (wallpaper: any) => {
@@ -340,6 +345,7 @@ const applyWallpaper = async (wallpaper: any) => {
 
     if (result.success) {
       currentWallpaper.value = wallpaper.url
+      selectedWallpaper.value = '' // 清除选中状态
       await loadWallpaperHistory()
       emit('wallpaperChanged', result.data)
     }
@@ -372,12 +378,17 @@ const deleteWallpaper = async (wallpaper: any) => {
   }
 }
 
+// 获取实际应用的壁纸URL（用于背景预览，不受选中状态影响）
+const getAppliedWallpaperUrl = () => {
+  return currentWallpaper.value
+}
+
 const updateWallpaperBlur = () => {
-  // 实时预览
+  // 实时预览 - 使用实际应用的壁纸，不受选中状态影响
   if (process.client) {
     window.dispatchEvent(new CustomEvent('wallpaperPreviewChange', {
       detail: {
-        wallpaperUrl: currentWallpaper.value,
+        wallpaperUrl: getAppliedWallpaperUrl(), // 使用实际应用的壁纸
         wallpaperBlur: wallpaperBlur.value,
         wallpaperMask: wallpaperMask.value,
         isPreview: true
@@ -387,11 +398,11 @@ const updateWallpaperBlur = () => {
 }
 
 const updateWallpaperMask = () => {
-  // 实时预览
+  // 实时预览 - 使用实际应用的壁纸，不受选中状态影响
   if (process.client) {
     window.dispatchEvent(new CustomEvent('wallpaperPreviewChange', {
       detail: {
-        wallpaperUrl: currentWallpaper.value,
+        wallpaperUrl: getAppliedWallpaperUrl(), // 使用实际应用的壁纸
         wallpaperBlur: wallpaperBlur.value,
         wallpaperMask: wallpaperMask.value,
         isPreview: true
@@ -419,6 +430,7 @@ const saveSettings = async () => {
     const result = await response.json()
 
     if (result.success) {
+      selectedWallpaper.value = '' // 清除选中状态
       emit('wallpaperChanged', {
         wallpaperUrl: currentWallpaper.value,
         wallpaperBlur: wallpaperBlur.value,
@@ -443,6 +455,7 @@ const resetToDefault = async () => {
 
     if (result.success) {
       currentWallpaper.value = ''
+      selectedWallpaper.value = '' // 清除选中状态
       wallpaperBlur.value = 5
       wallpaperMask.value = 30
       await loadWallpaperHistory()
@@ -460,12 +473,13 @@ const resetToDefault = async () => {
 }
 
 const getWallpaperDisplayUrl = () => {
-  let wallpaperUrl = currentWallpaper.value || '/background/机甲.png'
-  
+  // 优先显示选中的壁纸，如果没有选中则显示当前应用的壁纸
+  let wallpaperUrl = selectedWallpaper.value || currentWallpaper.value || '/background/机甲.png'
+
   if (wallpaperUrl.startsWith('http') || wallpaperUrl.startsWith('data:') || wallpaperUrl.startsWith('/background/')) {
     return wallpaperUrl
   }
-  
+
   return `${config.public.apiBaseUrl}${wallpaperUrl}`
 }
 
@@ -487,6 +501,11 @@ const formatFileSize = (bytes: number) => {
   const sizes = ['B', 'KB', 'MB', 'GB']
   const i = Math.floor(Math.log(bytes) / Math.log(k))
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
+}
+
+// 清除选中状态
+const clearSelection = () => {
+  selectedWallpaper.value = ''
 }
 
 // 生命周期
@@ -685,6 +704,11 @@ onMounted(() => {
 .wallpaper-status {
   color: rgba(34, 197, 94, 0.9);
   font-weight: 500;
+}
+
+/* 预览状态样式 */
+.wallpaper-status.preview-status {
+  color: rgba(249, 115, 22, 0.9);
 }
 
 .blur-value,
