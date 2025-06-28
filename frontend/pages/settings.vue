@@ -69,9 +69,7 @@ const showPasswordForm = ref(false)
 const currentWallpaper = ref('')
 const wallpaperBlur = ref(5)
 const wallpaperMask = ref(30)
-const wallpaperApplying = ref(false)
 const wallpaperResetting = ref(false)
-const fileInput = ref<HTMLInputElement | null>(null)
 
 // API配置
 const config = useRuntimeConfig()
@@ -363,94 +361,9 @@ const allSectionsCollapsed = computed(() => {
          isSystemInfoCollapsed.value
 })
 
-// 壁纸相关方法
-const triggerFileUpload = () => {
-  fileInput.value?.click()
-}
+// 壁纸相关方法（保留预览功能）
 
-const handleFileSelect = (event: Event) => {
-  const target = event.target as HTMLInputElement
-  const file = target.files?.[0]
-  if (file) {
-    handleWallpaperFile(file)
-  }
-}
 
-const handleFileDrop = (event: DragEvent) => {
-  const file = event.dataTransfer?.files[0]
-  if (file) {
-    handleWallpaperFile(file)
-  }
-}
-
-const handleWallpaperFile = async (file: File) => {
-  // 验证文件类型
-  const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png']
-  if (!allowedTypes.includes(file.type)) {
-    console.error('不支持的文件格式，请选择 JPG 或 PNG 格式的图片')
-    return
-  }
-
-  // 验证文件大小 (限制为 10MB)
-  const maxSize = 10 * 1024 * 1024
-  if (file.size > maxSize) {
-    console.error('文件大小不能超过 10MB')
-    return
-  }
-
-  // 创建预览
-  const reader = new FileReader()
-  reader.onload = (e) => {
-    currentWallpaper.value = e.target?.result as string
-
-    // 发送实时预览事件到 dashboard.vue
-    if (process.client) {
-      window.dispatchEvent(new CustomEvent('wallpaperPreviewChange', {
-        detail: {
-          wallpaperUrl: currentWallpaper.value,
-          wallpaperBlur: wallpaperBlur.value,
-          wallpaperMask: wallpaperMask.value,
-          isPreview: true // 标记为预览状态，不保存
-        }
-      }))
-    }
-  }
-  reader.readAsDataURL(file)
-}
-
-const updateWallpaperBlur = () => {
-  // 实时更新模糊效果到 dashboard.vue，但不保存到数据库
-  console.log('模糊度更新为:', wallpaperBlur.value)
-
-  // 发送实时预览事件到 dashboard.vue
-  if (process.client) {
-    window.dispatchEvent(new CustomEvent('wallpaperPreviewChange', {
-      detail: {
-        wallpaperUrl: currentWallpaper.value,
-        wallpaperBlur: wallpaperBlur.value,
-        wallpaperMask: wallpaperMask.value,
-        isPreview: true // 标记为预览状态，不保存
-      }
-    }))
-  }
-}
-
-const updateWallpaperMask = () => {
-  // 实时更新遮罩效果到 dashboard.vue，但不保存到数据库
-  console.log('遮罩透明度更新为:', wallpaperMask.value)
-
-  // 发送实时预览事件到 dashboard.vue
-  if (process.client) {
-    window.dispatchEvent(new CustomEvent('wallpaperPreviewChange', {
-      detail: {
-        wallpaperUrl: currentWallpaper.value,
-        wallpaperBlur: wallpaperBlur.value,
-        wallpaperMask: wallpaperMask.value,
-        isPreview: true // 标记为预览状态，不保存
-      }
-    }))
-  }
-}
 
 const previewWallpaper = () => {
   let wallpaperUrl = currentWallpaper.value || '/background/机甲.png'
@@ -539,119 +452,7 @@ const previewWallpaper = () => {
   }, 3000)
 }
 
-const applyWallpaper = async () => {
-  wallpaperApplying.value = true
-  try {
-    // 检查是否有新上传的文件需要上传到服务器
-    if (currentWallpaper.value && currentWallpaper.value.startsWith('data:')) {
-      // 如果是base64数据，说明是新上传的文件，需要上传到服务器
-      await uploadWallpaperToServer()
-    } else {
-      // 如果没有新文件，只更新设置
-      await updateWallpaperSettings()
-    }
 
-    console.log('壁纸设置应用成功')
-  } catch (error) {
-    console.error('壁纸设置应用失败:', error)
-  } finally {
-    wallpaperApplying.value = false
-  }
-}
-
-// 上传壁纸文件到服务器
-const uploadWallpaperToServer = async () => {
-  try {
-    // 将base64转换为File对象
-    const response = await fetch(currentWallpaper.value)
-    const blob = await response.blob()
-    const file = new File([blob], 'wallpaper.png', { type: 'image/png' })
-
-    // 创建FormData
-    const formData = new FormData()
-    formData.append('file', file)
-    formData.append('blur', wallpaperBlur.value.toString())
-    formData.append('mask', wallpaperMask.value.toString())
-
-    // 上传到服务器
-    const uploadResponse = await apiRequest(`${API_BASE_URL}/system-config/wallpaper/upload`, {
-      method: 'POST',
-      body: formData
-    })
-
-    const result = await uploadResponse.json()
-
-    if (result.success) {
-      // 更新壁纸URL（这是新上传的文件URL，必须使用后端返回的URL）
-      currentWallpaper.value = result.data.wallpaperUrl
-
-      // 保存到localStorage作为缓存
-      localStorage.setItem('customWallpaper', result.data.wallpaperUrl)
-      localStorage.setItem('wallpaperBlur', wallpaperBlur.value.toString())
-      localStorage.setItem('wallpaperMask', wallpaperMask.value.toString())
-
-      // 触发布局更新（应用壁纸，保存到数据库）
-      if (process.client) {
-        window.dispatchEvent(new CustomEvent('wallpaperChanged', {
-          detail: {
-            wallpaperUrl: result.data.wallpaperUrl,
-            wallpaperBlur: wallpaperBlur.value,
-            wallpaperMask: wallpaperMask.value,
-            isPreview: false // 标记为已保存状态
-          }
-        }))
-      }
-    } else {
-      throw new Error(result.message)
-    }
-  } catch (error) {
-    console.error('上传壁纸失败:', error)
-    throw error
-  }
-}
-
-// 更新壁纸设置（不上传新文件）
-const updateWallpaperSettings = async () => {
-  try {
-    const response = await apiRequest(`${API_BASE_URL}/system-config/wallpaper/settings`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        wallpaperUrl: currentWallpaper.value || null,
-        wallpaperBlur: wallpaperBlur.value,
-        wallpaperMask: wallpaperMask.value
-      })
-    })
-
-    const result = await response.json()
-
-    if (result.success) {
-      // 保存到localStorage作为缓存（使用当前的值，不是后端返回的值）
-      localStorage.setItem('customWallpaper', currentWallpaper.value)
-      localStorage.setItem('wallpaperBlur', wallpaperBlur.value.toString())
-      localStorage.setItem('wallpaperMask', wallpaperMask.value.toString())
-
-      // 触发布局更新（应用壁纸，保存到数据库）
-      if (process.client) {
-        window.dispatchEvent(new CustomEvent('wallpaperChanged', {
-          detail: {
-            wallpaperUrl: currentWallpaper.value,
-            wallpaperBlur: wallpaperBlur.value,
-            wallpaperMask: wallpaperMask.value,
-            isPreview: false // 标记为已保存状态
-          }
-        }))
-      }
-    } else {
-      throw new Error(result.message)
-    }
-  } catch (error) {
-    console.error('更新壁纸设置失败:', error)
-    throw error
-  }
-}
 
 const resetWallpaper = async () => {
   wallpaperResetting.value = true
@@ -697,6 +498,30 @@ const resetWallpaper = async () => {
     console.error('壁纸还原失败:', error)
   } finally {
     wallpaperResetting.value = false
+  }
+}
+
+// 处理壁纸变更事件
+const handleWallpaperChanged = (wallpaperData: any) => {
+  // 保存到localStorage作为缓存
+  if (wallpaperData.wallpaperUrl) {
+    localStorage.setItem('customWallpaper', wallpaperData.wallpaperUrl)
+  } else {
+    localStorage.removeItem('customWallpaper')
+  }
+  localStorage.setItem('wallpaperBlur', wallpaperData.wallpaperBlur.toString())
+  localStorage.setItem('wallpaperMask', wallpaperData.wallpaperMask.toString())
+
+  // 触发布局更新
+  if (process.client) {
+    window.dispatchEvent(new CustomEvent('wallpaperChanged', {
+      detail: {
+        wallpaperUrl: wallpaperData.wallpaperUrl,
+        wallpaperBlur: wallpaperData.wallpaperBlur,
+        wallpaperMask: wallpaperData.wallpaperMask,
+        isPreview: false // 标记为已保存状态
+      }
+    }))
   }
 }
 
@@ -1131,141 +956,14 @@ onMounted(async () => {
               </div>
 
               <div v-if="!isThemeSettingsCollapsed" class="item-content">
-                <!-- 壁纸设置 -->
-                <div class="wallpaper-settings">
-                  <div class="setting-section">
-                    <h3 class="section-title">
-                      <Icon icon="mdi:image" class="section-icon" />
-                      自定义壁纸
-                    </h3>
-                    <p class="section-description">上传自定义背景图片，支持 JPG、PNG 格式</p>
-
-                    <!-- 壁纸预览和上传区域 -->
-                    <div class="wallpaper-upload-preview">
-                      <div class="upload-preview-container"
-                           @click="triggerFileUpload"
-                           @dragover.prevent
-                           @drop.prevent="handleFileDrop">
-                        <!-- 隐藏的文件输入 -->
-                        <input
-                          ref="fileInput"
-                          type="file"
-                          accept="image/jpeg,image/jpg,image/png"
-                          @change="handleFileSelect"
-                          style="display: none"
-                        />
-
-                        <!-- 背景图片层（带模糊） -->
-                        <div class="background-layer" :style="{
-                          backgroundImage: `url(${getWallpaperDisplayUrl()})`,
-                          filter: `blur(${wallpaperBlur}px)`
-                        }"></div>
-
-                        <!-- 遮罩层 -->
-                        <div class="preview-mask" :style="{
-                          backgroundColor: `rgba(0, 0, 0, ${wallpaperMask / 100})`
-                        }"></div>
-
-                        <!-- 上传提示层 -->
-                        <div class="upload-overlay">
-                          <div v-if="!currentWallpaper" class="no-wallpaper-upload">
-                            <Icon icon="mdi:cloud-upload" class="upload-icon" />
-                            <p class="upload-text">点击上传或拖拽图片到此处</p>
-                            <p class="upload-hint">支持 JPG、PNG 格式，建议尺寸 1920x1080</p>
-                          </div>
-
-                          <div v-else class="has-wallpaper-upload">
-                            <div class="wallpaper-actions-overlay">
-                              <button class="overlay-btn change-btn" @click.stop="triggerFileUpload">
-                                <Icon icon="mdi:image-edit" class="btn-icon" />
-                                更换壁纸
-                              </button>
-                              <button class="overlay-btn preview-btn" @click.stop="previewWallpaper">
-                                <Icon icon="mdi:eye" class="btn-icon" />
-                                预览
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      <!-- 预览信息 -->
-                      <div class="preview-info">
-                        <span class="wallpaper-status">{{ currentWallpaper ? '自定义壁纸' : '默认壁纸' }}</span>
-                        <span class="blur-value">模糊度: {{ wallpaperBlur }}px</span>
-                        <span class="mask-value">遮罩: {{ wallpaperMask }}%</span>
-                      </div>
-                    </div>
-
-                    <!-- 模糊度调整 -->
-                    <div class="blur-control">
-                      <label class="control-label">
-                        <Icon icon="mdi:blur" class="control-icon" />
-                        模糊程度
-                      </label>
-                      <div class="slider-container">
-                        <input
-                          type="range"
-                          min="0"
-                          max="20"
-                          step="1"
-                          v-model="wallpaperBlur"
-                          class="blur-slider"
-                          @input="updateWallpaperBlur"
-                        />
-                        <div class="slider-labels">
-                          <span>清晰</span>
-                          <span>模糊</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <!-- 遮罩调整 -->
-                    <div class="mask-control">
-                      <label class="control-label">
-                        <Icon icon="mdi:opacity" class="control-icon" />
-                        背景遮罩
-                      </label>
-                      <div class="slider-container">
-                        <input
-                          type="range"
-                          min="0"
-                          max="80"
-                          step="5"
-                          v-model="wallpaperMask"
-                          class="mask-slider"
-                          @input="updateWallpaperMask"
-                        />
-                        <div class="slider-labels">
-                          <span>透明</span>
-                          <span>不透明</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <!-- 操作按钮 -->
-                    <div class="wallpaper-actions">
-                      <button
-                        class="action-btn apply-btn"
-                        @click="applyWallpaper"
-                        :disabled="wallpaperApplying"
-                      >
-                        <Icon v-if="wallpaperApplying" icon="mdi:loading" class="spin btn-icon" />
-                        <Icon v-else icon="mdi:check" class="btn-icon" />
-                        {{ wallpaperApplying ? '应用中...' : '应用壁纸' }}
-                      </button>
-                      <button
-                        class="action-btn reset-btn"
-                        @click="resetWallpaper"
-                        :disabled="wallpaperResetting"
-                      >
-                        <Icon v-if="wallpaperResetting" icon="mdi:loading" class="spin btn-icon" />
-                        <Icon v-else icon="mdi:restore" class="btn-icon" />
-                        {{ wallpaperResetting ? '还原中...' : '还原默认' }}
-                      </button>
-                    </div>
-                  </div>
-                </div>
+                <!-- 壁纸管理器 -->
+                <WallpaperManager
+                  v-model:currentWallpaper="currentWallpaper"
+                  v-model:wallpaperBlur="wallpaperBlur"
+                  v-model:wallpaperMask="wallpaperMask"
+                  @wallpaperChanged="handleWallpaperChanged"
+                  @previewWallpaper="previewWallpaper"
+                />
               </div>
 
               <BorderBeam
@@ -2408,39 +2106,10 @@ onMounted(async () => {
   font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
 }
 
-/* 壁纸设置样式 */
-.wallpaper-settings {
-  padding: 0;
-}
+/* 主题设置样式已移至 WallpaperManager 组件 */
 
-.setting-section {
-  margin-bottom: 2rem;
-}
 
-.section-title {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  font-size: 1rem;
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.9);
-  margin: 0 0 0.5rem 0;
-}
 
-.section-icon {
-  width: 1.25rem;
-  height: 1.25rem;
-  color: rgba(249, 115, 22, 0.8);
-}
-
-.section-description {
-  font-size: 0.875rem;
-  color: rgba(255, 255, 255, 0.6);
-  margin: 0 0 1.5rem 0;
-  line-height: 1.4;
-}
-
-/* 壁纸预览和上传区域 */
 .wallpaper-upload-preview {
   margin-bottom: 1.5rem;
 }

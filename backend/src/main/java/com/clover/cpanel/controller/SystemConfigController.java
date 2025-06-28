@@ -9,12 +9,16 @@ import com.clover.cpanel.service.FileUploadService;
 import com.clover.cpanel.service.SystemConfigService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * 系统配置控制器
@@ -29,6 +33,10 @@ public class SystemConfigController {
 
     @Autowired
     private FileUploadService fileUploadService;
+
+    // 上传目录配置
+    @Value("${file.upload.path:uploads}")
+    private String uploadPath;
 
     // 壁纸配置相关的键名常量
     private static final String WALLPAPER_URL_KEY = "wallpaper_url";
@@ -313,6 +321,137 @@ public class SystemConfigController {
         } catch (Exception e) {
             log.error("保存边距配置失败", e);
             return false;
+        }
+    }
+
+    /**
+     * 获取历史壁纸列表
+     * @return 壁纸列表
+     */
+    @GetMapping("/wallpaper/history")
+    public ApiResponse<List<Map<String, Object>>> getWallpaperHistory() {
+        try {
+            List<Map<String, Object>> wallpapers = new ArrayList<>();
+
+            // 获取backgrounds目录
+            File backgroundsDir = new File(uploadPath, "backgrounds");
+            if (!backgroundsDir.exists() || !backgroundsDir.isDirectory()) {
+                return ApiResponse.success(wallpapers);
+            }
+
+            // 获取当前使用的壁纸URL
+            String currentWallpaperUrl = systemConfigService.getConfigValue(WALLPAPER_URL_KEY);
+
+            // 遍历backgrounds目录中的所有图片文件
+            File[] files = backgroundsDir.listFiles((dir, name) -> {
+                String lowerName = name.toLowerCase();
+                return lowerName.endsWith(".jpg") || lowerName.endsWith(".jpeg") ||
+                       lowerName.endsWith(".png") || lowerName.endsWith(".gif") ||
+                       lowerName.endsWith(".bmp") || lowerName.endsWith(".webp");
+            });
+
+            if (files != null) {
+                for (File file : files) {
+                    Map<String, Object> wallpaper = new HashMap<>();
+                    String fileName = file.getName();
+                    String fileUrl = "/uploads/backgrounds/" + fileName;
+
+                    wallpaper.put("id", fileName);
+                    wallpaper.put("name", fileName);
+                    wallpaper.put("url", fileUrl);
+                    wallpaper.put("size", file.length());
+                    wallpaper.put("lastModified", file.lastModified());
+                    wallpaper.put("isCurrent", fileUrl.equals(currentWallpaperUrl));
+
+                    wallpapers.add(wallpaper);
+                }
+
+                // 按最后修改时间倒序排列
+                wallpapers.sort((a, b) -> Long.compare(
+                    (Long) b.get("lastModified"),
+                    (Long) a.get("lastModified")
+                ));
+            }
+
+            return ApiResponse.success(wallpapers);
+        } catch (Exception e) {
+            log.error("获取历史壁纸列表失败", e);
+            return ApiResponse.error("获取历史壁纸列表失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * 删除指定壁纸
+     * @param wallpaperId 壁纸ID（文件名）
+     * @return 操作结果
+     */
+    @DeleteMapping("/wallpaper/{wallpaperId}")
+    public ApiResponse<String> deleteWallpaper(@PathVariable String wallpaperId) {
+        try {
+            // 构建文件路径
+            String fileUrl = "/uploads/backgrounds/" + wallpaperId;
+
+            // 检查是否为当前使用的壁纸
+            String currentWallpaperUrl = systemConfigService.getConfigValue(WALLPAPER_URL_KEY);
+            if (fileUrl.equals(currentWallpaperUrl)) {
+                return ApiResponse.error("无法删除当前正在使用的壁纸");
+            }
+
+            // 删除文件
+            boolean deleted = fileUploadService.deleteFile(fileUrl);
+
+            if (deleted) {
+                log.info("壁纸删除成功: {}", fileUrl);
+                return ApiResponse.success("壁纸删除成功");
+            } else {
+                return ApiResponse.error("壁纸删除失败");
+            }
+        } catch (Exception e) {
+            log.error("删除壁纸失败", e);
+            return ApiResponse.error("删除壁纸失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * 设置指定壁纸为当前壁纸
+     * @param wallpaperId 壁纸ID（文件名）
+     * @return 操作结果
+     */
+    @PostMapping("/wallpaper/{wallpaperId}/apply")
+    public ApiResponse<Map<String, Object>> applyWallpaper(@PathVariable String wallpaperId) {
+        try {
+            String fileUrl = "/uploads/backgrounds/" + wallpaperId;
+
+            // 检查文件是否存在
+            File file = new File(uploadPath, "backgrounds/" + wallpaperId);
+            if (!file.exists()) {
+                return ApiResponse.error("壁纸文件不存在");
+            }
+
+            // 获取当前的模糊度和遮罩设置
+            String blurStr = systemConfigService.getConfigValue(WALLPAPER_BLUR_KEY);
+            String maskStr = systemConfigService.getConfigValue(WALLPAPER_MASK_KEY);
+
+            int blur = blurStr != null ? Integer.parseInt(blurStr) : 5;
+            int mask = maskStr != null ? Integer.parseInt(maskStr) : 30;
+
+            // 保存壁纸配置
+            boolean success = saveWallpaperConfig(fileUrl, blur, mask);
+
+            if (success) {
+                Map<String, Object> result = new HashMap<>();
+                result.put("wallpaperUrl", fileUrl);
+                result.put("wallpaperBlur", blur);
+                result.put("wallpaperMask", mask);
+
+                log.info("壁纸应用成功: {}", fileUrl);
+                return ApiResponse.success(result);
+            } else {
+                return ApiResponse.error("壁纸应用失败");
+            }
+        } catch (Exception e) {
+            log.error("应用壁纸失败", e);
+            return ApiResponse.error("应用壁纸失败：" + e.getMessage());
         }
     }
 }
