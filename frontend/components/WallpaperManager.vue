@@ -13,30 +13,30 @@
               当前壁纸
             </h3>
             <div class="wallpaper-preview-image">
-              <div class="preview-image-container" @click="previewWallpaper">
-                <!-- 背景图片层（应用模糊效果） -->
-                <div
-                  class="wallpaper-background"
-                  :style="{
-                    backgroundImage: `url(${getWallpaperDisplayUrl()})`,
-                    filter: `blur(${wallpaperBlur}px)`
-                  }"
-                ></div>
-                <!-- 遮罩层 -->
-                <div
-                  class="wallpaper-mask"
-                  :style="{
-                    backgroundColor: `rgba(0, 0, 0, ${wallpaperMask / 100})`
-                  }"
-                ></div>
-                <!-- 预览按钮覆盖层 -->
-                <div class="preview-overlay">
-                  <button class="preview-btn">
-                    <Icon icon="mdi:eye" class="btn-icon" />
-                    全屏预览
-                  </button>
-                </div>
-              </div>
+              <ClientOnly>
+                <CardContainer>
+                  <CardBody
+                    class="group/card relative size-auto rounded-xl border border-black/[0.1]  p-6 dark:border-white/[0.2] dark:bg-black dark:hover:shadow-2xl dark:hover:shadow-emerald-500/[0.1]"
+                  >
+                    <CardItem
+                      :translate-z="100"
+                      class="mt-4 w-full"
+                    >
+                      <div class="preview-image-container">
+                        <!-- 直接使用 img 标签显示图片 -->
+                        <img
+                          :src="getWallpaperDisplayUrl()"
+                          :alt="currentWallpaper ? '自定义壁纸' : '默认壁纸'"
+                          class="wallpaper-image  w-full rounded-xl object-cover group-hover/card:shadow-xl"
+                          :style="{
+                            filter: `blur(${wallpaperBlur}px)`
+                          }"
+                        />
+                      </div>
+                    </CardItem>
+                  </CardBody>
+                </CardContainer>
+              </ClientOnly>
             </div>
           </div>
 
@@ -223,6 +223,7 @@
 import { ref, onMounted } from 'vue'
 import { Icon } from '@iconify/vue'
 import {apiRequest} from "~/composables/useJwt";
+import CardContainer from "~/components/inspira/CardContainer.vue";
 
 // Props
 interface Props {
@@ -398,9 +399,6 @@ const updateWallpaperMask = () => {
   }
 }
 
-const previewWallpaper = () => {
-  emit('previewWallpaper')
-}
 
 const saveSettings = async () => {
   saving.value = true
@@ -546,28 +544,20 @@ onMounted(() => {
   border-radius: 1rem;
   overflow: hidden;
   cursor: pointer;
-  border: 2px solid rgba(255, 255, 255, 0.1);
   transition: all 0.3s ease;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
 }
 
 .preview-image-container:hover {
-  border-color: rgba(59, 130, 246, 0.4);
   transform: translateY(-3px);
-  box-shadow: 0 12px 35px rgba(0, 0, 0, 0.4);
 }
 
-/* 壁纸背景层 */
-.wallpaper-background {
-  position: absolute;
-  top: 0;
-  left: 0;
+/* 壁纸图片 */
+.wallpaper-image {
   width: 100%;
   height: 100%;
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
-  transform: scale(1.05); /* 轻微放大避免边缘空白 */
+  object-fit: cover;
+  border-radius: 1rem;
+  transition: all 0.3s ease;
 }
 
 /* 壁纸遮罩层 */
@@ -578,6 +568,7 @@ onMounted(() => {
   width: 100%;
   height: 100%;
   z-index: 1;
+  border-radius: 1rem;
 }
 
 /* 右侧设置和控制区域 */
