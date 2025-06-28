@@ -2,11 +2,14 @@ package com.clover.cpanel.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.clover.cpanel.constant.ConfigType;
 import com.clover.cpanel.entity.SystemConfig;
 import com.clover.cpanel.mapper.SystemConfigMapper;
 import com.clover.cpanel.service.SystemConfigService;
 import org.springframework.stereotype.Service;
 import org.springframework.util.DigestUtils;
+
+import java.util.List;
 
 /**
  * 系统配置服务实现类
@@ -23,6 +26,12 @@ public class SystemConfigServiceImpl extends ServiceImpl<SystemConfigMapper, Sys
 
     @Override
     public boolean setConfigValue(String configKey, String configValue, String description) {
+        // 默认使用 system 类型
+        return setConfigValue(configKey, configValue, description, ConfigType.SYSTEM);
+    }
+
+    @Override
+    public boolean setConfigValue(String configKey, String configValue, String description, String configType) {
         try {
             QueryWrapper<SystemConfig> queryWrapper = new QueryWrapper<>();
             queryWrapper.eq("config_key", configKey);
@@ -32,6 +41,7 @@ public class SystemConfigServiceImpl extends ServiceImpl<SystemConfigMapper, Sys
                 // 更新现有配置
                 existingConfig.setConfigValue(configValue);
                 existingConfig.setDescription(description);
+                existingConfig.setConfigType(configType);
                 return updateById(existingConfig);
             } else {
                 // 创建新配置
@@ -39,6 +49,7 @@ public class SystemConfigServiceImpl extends ServiceImpl<SystemConfigMapper, Sys
                 newConfig.setConfigKey(configKey);
                 newConfig.setConfigValue(configValue);
                 newConfig.setDescription(description);
+                newConfig.setConfigType(configType);
                 return save(newConfig);
             }
         } catch (Exception e) {
@@ -69,13 +80,20 @@ public class SystemConfigServiceImpl extends ServiceImpl<SystemConfigMapper, Sys
         }
 
         String passwordHash = hashPassword(password.trim());
-        return setConfigValue(LOGIN_PASSWORD_KEY, passwordHash, "面板登录密码");
+        return setConfigValue(LOGIN_PASSWORD_KEY, passwordHash, "面板登录密码", ConfigType.AUTH);
     }
 
     @Override
     public boolean hasLoginPassword() {
         String storedPasswordHash = getConfigValue(LOGIN_PASSWORD_KEY);
         return storedPasswordHash != null;
+    }
+
+    @Override
+    public List<SystemConfig> getConfigsByType(String configType) {
+        QueryWrapper<SystemConfig> queryWrapper = new QueryWrapper<>();
+        queryWrapper.eq("config_type", configType);
+        return list(queryWrapper);
     }
 
     /**

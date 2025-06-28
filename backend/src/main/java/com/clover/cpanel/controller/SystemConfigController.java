@@ -1,7 +1,9 @@
 package com.clover.cpanel.controller;
 
 import com.clover.cpanel.common.ApiResponse;
+import com.clover.cpanel.constant.ConfigType;
 import com.clover.cpanel.dto.WallpaperConfigRequest;
+import com.clover.cpanel.entity.SystemConfig;
 import com.clover.cpanel.service.FileUploadService;
 import com.clover.cpanel.service.SystemConfigService;
 import lombok.extern.slf4j.Slf4j;
@@ -10,6 +12,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -174,13 +177,13 @@ public class SystemConfigController {
      */
     private boolean saveWallpaperConfig(String wallpaperUrl, Integer blur, Integer mask) {
         try {
-            boolean success1 = systemConfigService.setConfigValue(WALLPAPER_URL_KEY, 
-                wallpaperUrl != null ? wallpaperUrl : "", "自定义壁纸URL");
-            boolean success2 = systemConfigService.setConfigValue(WALLPAPER_BLUR_KEY, 
-                blur.toString(), "壁纸模糊度");
-            boolean success3 = systemConfigService.setConfigValue(WALLPAPER_MASK_KEY, 
-                mask.toString(), "壁纸遮罩透明度");
-            
+            boolean success1 = systemConfigService.setConfigValue(WALLPAPER_URL_KEY,
+                wallpaperUrl != null ? wallpaperUrl : "", "自定义壁纸URL", ConfigType.THEME);
+            boolean success2 = systemConfigService.setConfigValue(WALLPAPER_BLUR_KEY,
+                blur.toString(), "壁纸模糊度", ConfigType.THEME);
+            boolean success3 = systemConfigService.setConfigValue(WALLPAPER_MASK_KEY,
+                mask.toString(), "壁纸遮罩透明度", ConfigType.THEME);
+
             return success1 && success2 && success3;
         } catch (Exception e) {
             log.error("保存壁纸配置失败", e);
@@ -209,15 +212,17 @@ public class SystemConfigController {
      * @param key 配置键名
      * @param value 配置值
      * @param description 配置描述
+     * @param type 配置类型
      * @return 操作结果
      */
     @PostMapping("/config/{key}")
     public ApiResponse<String> setConfigValue(
             @PathVariable String key,
             @RequestParam String value,
-            @RequestParam(required = false) String description) {
+            @RequestParam(required = false) String description,
+            @RequestParam(required = false, defaultValue = "system") String type) {
         try {
-            boolean success = systemConfigService.setConfigValue(key, value, description);
+            boolean success = systemConfigService.setConfigValue(key, value, description, type);
             if (success) {
                 return ApiResponse.success("配置保存成功");
             } else {
@@ -226,6 +231,22 @@ public class SystemConfigController {
         } catch (Exception e) {
             log.error("设置配置值失败", e);
             return ApiResponse.error("设置配置值失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * 根据配置类型获取配置列表
+     * @param type 配置类型
+     * @return 配置列表
+     */
+    @GetMapping("/configs/type/{type}")
+    public ApiResponse<List<SystemConfig>> getConfigsByType(@PathVariable String type) {
+        try {
+            List<SystemConfig> configs = systemConfigService.getConfigsByType(type);
+            return ApiResponse.success(configs);
+        } catch (Exception e) {
+            log.error("获取配置列表失败", e);
+            return ApiResponse.error("获取配置列表失败：" + e.getMessage());
         }
     }
 }

@@ -55,7 +55,9 @@ CREATE TABLE IF NOT EXISTS panel_system_config (
   config_key VARCHAR(100) NOT NULL UNIQUE COMMENT '配置键名',
   config_value TEXT COMMENT '配置值',
   description VARCHAR(255) COMMENT '配置描述',
+  config_type VARCHAR(50) NOT NULL DEFAULT 'system' COMMENT '配置类型：auth(认证配置)、theme(主题配置)、system(系统配置)',
   created_at VARCHAR(19) COMMENT '创建时间，格式：yyyy-MM-dd HH:mm:ss',
   updated_at VARCHAR(19) COMMENT '更新时间，格式：yyyy-MM-dd HH:mm:ss',
-  INDEX idx_config_key (config_key)
+  INDEX idx_config_key (config_key),
+  INDEX idx_config_type (config_type)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='系统配置表';

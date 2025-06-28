@@ -38,6 +38,12 @@ public class SystemConfig {
     private String description;
 
     /**
+     * 配置类型：auth(认证配置)、theme(主题配置)、system(系统配置)
+     */
+    @TableField("config_type")
+    private String configType;
+
+    /**
      * 创建时间，格式：yyyy-MM-dd HH:mm:ss
      */
     @TableField(value = "created_at", fill = FieldFill.INSERT)
