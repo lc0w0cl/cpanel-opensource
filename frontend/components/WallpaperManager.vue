@@ -224,6 +224,8 @@ import { ref, onMounted } from 'vue'
 import { Icon } from '@iconify/vue'
 import {apiRequest} from "~/composables/useJwt";
 import CardContainer from "~/components/inspira/CardContainer.vue";
+import CardBody from "~/components/inspira/CardBody.vue";
+import CardItem from "~/components/inspira/CardItem.vue";
 
 // Props
 interface Props {
@@ -244,7 +246,6 @@ const emit = defineEmits<{
   'update:wallpaperBlur': [value: number]
   'update:wallpaperMask': [value: number]
   'wallpaperChanged': [wallpaper: any]
-  'previewWallpaper': []
 }>()
 
 // 响应式数据

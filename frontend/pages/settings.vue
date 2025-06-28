@@ -878,7 +878,6 @@ onMounted(async () => {
                   v-model:wallpaperBlur="wallpaperBlur"
                   v-model:wallpaperMask="wallpaperMask"
                   @wallpaperChanged="handleWallpaperChanged"
-                  @previewWallpaper="previewWallpaper"
                 />
               </div>
               </Transition>
