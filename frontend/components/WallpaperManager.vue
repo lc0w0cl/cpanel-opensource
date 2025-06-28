@@ -1,152 +1,183 @@
 <template>
   <div class="wallpaper-manager">
-    <!-- 当前壁纸预览 -->
-    <div class="current-wallpaper-section">
-      <h3 class="section-title">
-        <Icon icon="mdi:image" class="section-icon" />
-        当前壁纸
-      </h3>
-      <div class="current-wallpaper-preview">
-        <div class="preview-container" @click="previewWallpaper">
-          <!-- 背景图片层 -->
-          <div class="background-layer" :style="{
-            backgroundImage: `url(${getWallpaperDisplayUrl()})`,
-            filter: `blur(${wallpaperBlur}px)`
-          }"></div>
-          <!-- 遮罩层 -->
-          <div class="preview-mask" :style="{
-            backgroundColor: `rgba(0, 0, 0, ${wallpaperMask / 100})`
-          }"></div>
-          <!-- 预览按钮 -->
-          <div class="preview-overlay">
-            <button class="preview-btn">
-              <Icon icon="mdi:eye" class="btn-icon" />
-              预览
-            </button>
-          </div>
-        </div>
-        <div class="preview-info">
-          <span class="wallpaper-status">{{ currentWallpaper ? '自定义壁纸' : '默认壁纸' }}</span>
-          <span class="blur-value">模糊度: {{ wallpaperBlur }}px</span>
-          <span class="mask-value">遮罩: {{ wallpaperMask }}%</span>
-        </div>
-      </div>
-    </div>
-
-    <!-- 控制面板 -->
-    <div class="controls-section">
-      <!-- 模糊度调整 -->
-      <div class="control-group">
-        <label class="control-label">
-          <Icon icon="mdi:blur" class="control-icon" />
-          模糊度
-        </label>
-        <div class="slider-container">
-          <input
-            type="range"
-            min="0"
-            max="20"
-            step="1"
-            v-model="wallpaperBlur"
-            class="control-slider blur-slider"
-            @input="updateWallpaperBlur"
-          />
-          <div class="slider-labels">
-            <span>清晰</span>
-            <span>{{ wallpaperBlur }}px</span>
-            <span>模糊</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- 遮罩调整 -->
-      <div class="control-group">
-        <label class="control-label">
-          <Icon icon="mdi:opacity" class="control-icon" />
-          遮罩透明度
-        </label>
-        <div class="slider-container">
-          <input
-            type="range"
-            min="0"
-            max="80"
-            step="5"
-            v-model="wallpaperMask"
-            class="control-slider mask-slider"
-            @input="updateWallpaperMask"
-          />
-          <div class="slider-labels">
-            <span>透明</span>
-            <span>{{ wallpaperMask }}%</span>
-            <span>不透明</span>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- 壁纸库 -->
-    <div class="wallpaper-gallery-section">
-      <div class="gallery-header">
-        <h3 class="section-title">
-          <Icon icon="mdi:folder-image" class="section-icon" />
-          壁纸库
-        </h3>
-        <button class="upload-btn" @click="triggerFileUpload">
-          <Icon icon="mdi:plus" class="btn-icon" />
-          添加壁纸
-        </button>
-      </div>
-
-      <!-- 隐藏的文件输入 -->
-      <input
-        ref="fileInput"
-        type="file"
-        accept="image/*"
-        @change="handleFileSelect"
-        style="display: none"
-      />
-
-      <!-- 壁纸网格 -->
-      <div class="wallpaper-grid" v-if="wallpaperHistory.length > 0">
-        <div
-          v-for="wallpaper in wallpaperHistory"
-          :key="wallpaper.id"
-          class="wallpaper-item"
-          :class="{ active: wallpaper.isCurrent }"
-        >
-          <div class="wallpaper-thumbnail" @click="selectWallpaper(wallpaper)">
-            <img :src="getImageUrl(wallpaper.url)" :alt="wallpaper.name" />
-            <div class="thumbnail-overlay">
-              <div class="overlay-actions">
-                <button class="action-btn apply-btn" @click.stop="applyWallpaper(wallpaper)">
-                  <Icon icon="mdi:check" />
-                </button>
-                <button class="action-btn delete-btn" @click.stop="deleteWallpaper(wallpaper)" :disabled="wallpaper.isCurrent">
-                  <Icon icon="mdi:delete" />
+    <!-- 主要内容区域 - 左右分栏布局 -->
+    <div class="main-content">
+      <!-- 左侧：当前壁纸预览和控制 -->
+      <div class="left-panel">
+        <!-- 当前壁纸预览 -->
+        <div class="current-wallpaper-section">
+          <h3 class="section-title">
+            <Icon icon="mdi:image" class="section-icon" />
+            当前壁纸
+          </h3>
+          <div class="current-wallpaper-preview">
+            <div class="preview-container" @click="previewWallpaper">
+              <!-- 背景图片层 -->
+              <div class="background-layer" :style="{
+                backgroundImage: `url(${getWallpaperDisplayUrl()})`,
+                filter: `blur(${wallpaperBlur}px)`
+              }"></div>
+              <!-- 遮罩层 -->
+              <div class="preview-mask" :style="{
+                backgroundColor: `rgba(0, 0, 0, ${wallpaperMask / 100})`
+              }"></div>
+              <!-- 预览按钮 -->
+              <div class="preview-overlay">
+                <button class="preview-btn">
+                  <Icon icon="mdi:eye" class="btn-icon" />
+                  全屏预览
                 </button>
               </div>
             </div>
-            <div v-if="wallpaper.isCurrent" class="current-badge">
-              <Icon icon="mdi:check-circle" />
-              当前
+            <div class="preview-info">
+              <div class="info-item">
+                <Icon icon="mdi:check-circle" class="info-icon" />
+                <span class="wallpaper-status">{{ currentWallpaper ? '自定义壁纸' : '默认壁纸' }}</span>
+              </div>
+              <div class="info-item">
+                <Icon icon="mdi:blur" class="info-icon" />
+                <span class="blur-value">模糊度: {{ wallpaperBlur }}px</span>
+              </div>
+              <div class="info-item">
+                <Icon icon="mdi:opacity" class="info-icon" />
+                <span class="mask-value">遮罩: {{ wallpaperMask }}%</span>
+              </div>
             </div>
           </div>
-          <div class="wallpaper-info">
-            <span class="wallpaper-name">{{ formatWallpaperName(wallpaper.name) }}</span>
-            <span class="wallpaper-size">{{ formatFileSize(wallpaper.size) }}</span>
+        </div>
+
+        <!-- 控制面板 -->
+        <div class="controls-section">
+          <h3 class="section-title">
+            <Icon icon="mdi:tune" class="section-icon" />
+            效果调整
+          </h3>
+
+          <!-- 模糊度调整 -->
+          <div class="control-group">
+            <label class="control-label">
+              <Icon icon="mdi:blur" class="control-icon" />
+              模糊度
+            </label>
+            <div class="slider-container">
+              <input
+                type="range"
+                min="0"
+                max="20"
+                step="1"
+                v-model="wallpaperBlur"
+                class="control-slider blur-slider"
+                @input="updateWallpaperBlur"
+              />
+              <div class="slider-labels">
+                <span>清晰</span>
+                <span class="current-value">{{ wallpaperBlur }}px</span>
+                <span>模糊</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 遮罩调整 -->
+          <div class="control-group">
+            <label class="control-label">
+              <Icon icon="mdi:opacity" class="control-icon" />
+              遮罩透明度
+            </label>
+            <div class="slider-container">
+              <input
+                type="range"
+                min="0"
+                max="80"
+                step="5"
+                v-model="wallpaperMask"
+                class="control-slider mask-slider"
+                @input="updateWallpaperMask"
+              />
+              <div class="slider-labels">
+                <span>透明</span>
+                <span class="current-value">{{ wallpaperMask }}%</span>
+                <span>不透明</span>
+              </div>
+            </div>
           </div>
         </div>
       </div>
 
-      <!-- 空状态 -->
-      <div v-else class="empty-state">
-        <Icon icon="mdi:image-off" class="empty-icon" />
-        <p class="empty-text">暂无历史壁纸</p>
-        <p class="empty-hint">点击"添加壁纸"上传您的第一张壁纸</p>
+      <!-- 右侧：壁纸库 -->
+      <div class="right-panel">
+
+        <!-- 壁纸库 -->
+        <div class="wallpaper-gallery-section">
+          <div class="gallery-header">
+            <h3 class="section-title">
+              <Icon icon="mdi:folder-image" class="section-icon" />
+              壁纸库
+              <span class="wallpaper-count" v-if="wallpaperHistory.length > 0">
+                ({{ wallpaperHistory.length }})
+              </span>
+            </h3>
+            <button class="upload-btn" @click="triggerFileUpload">
+              <Icon icon="mdi:plus" class="btn-icon" />
+              添加壁纸
+            </button>
+          </div>
+
+          <!-- 隐藏的文件输入 -->
+          <input
+            ref="fileInput"
+            type="file"
+            accept="image/*"
+            @change="handleFileSelect"
+            style="display: none"
+          />
+
+          <!-- 壁纸网格 -->
+          <div class="wallpaper-grid" v-if="wallpaperHistory.length > 0">
+            <div
+              v-for="wallpaper in wallpaperHistory"
+              :key="wallpaper.id"
+              class="wallpaper-item"
+              :class="{ active: wallpaper.isCurrent }"
+              @click="selectWallpaper(wallpaper)"
+            >
+              <img :src="getImageUrl(wallpaper.url)" :alt="wallpaper.name" />
+              <div class="thumbnail-overlay">
+                <div class="overlay-actions">
+                  <button
+                    class="action-btn apply-btn"
+                    @click.stop="applyWallpaper(wallpaper)"
+                    :title="wallpaper.isCurrent ? '当前壁纸' : '应用此壁纸'"
+                  >
+                    <Icon :icon="wallpaper.isCurrent ? 'mdi:check-circle' : 'mdi:check'" />
+                  </button>
+                  <button
+                    class="action-btn delete-btn"
+                    @click.stop="deleteWallpaper(wallpaper)"
+                    :disabled="wallpaper.isCurrent"
+                    :title="wallpaper.isCurrent ? '无法删除当前壁纸' : '删除此壁纸'"
+                  >
+                    <Icon icon="mdi:delete" />
+                  </button>
+                </div>
+              </div>
+              <div v-if="wallpaper.isCurrent" class="current-badge">
+                <Icon icon="mdi:check-circle" />
+                当前使用
+              </div>
+            </div>
+          </div>
+
+          <!-- 空状态 -->
+          <div v-else class="empty-state">
+            <Icon icon="mdi:image-off" class="empty-icon" />
+            <p class="empty-text">暂无历史壁纸</p>
+            <p class="empty-hint">点击"添加壁纸"上传您的第一张壁纸</p>
+          </div>
+        </div>
       </div>
     </div>
 
-    <!-- 操作按钮 -->
+    <!-- 底部操作按钮 -->
     <div class="action-buttons">
       <button
         class="action-btn primary-btn"
@@ -449,51 +480,78 @@ onMounted(() => {
 
 <style scoped>
 .wallpaper-manager {
+  width: 100%;
+  max-width: none;
+}
+
+/* 主要内容区域 - 左右分栏 */
+.main-content {
+  display: grid;
+  grid-template-columns: 1fr 1.5fr;
+  gap: 3rem;
+  margin-bottom: 2rem;
+}
+
+/* 左侧面板 */
+.left-panel {
   display: flex;
   flex-direction: column;
   gap: 2rem;
 }
 
+/* 右侧面板 */
+.right-panel {
+  display: flex;
+  flex-direction: column;
+}
+
 /* 当前壁纸预览 */
 .current-wallpaper-section {
-  margin-bottom: 1.5rem;
+  margin-bottom: 0;
 }
 
 .section-title {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  font-size: 1rem;
+  gap: 0.75rem;
+  font-size: 1.1rem;
   font-weight: 600;
   color: rgba(255, 255, 255, 0.9);
-  margin-bottom: 1rem;
+  margin-bottom: 1.25rem;
 }
 
 .section-icon {
-  width: 1.25rem;
-  height: 1.25rem;
+  width: 1.5rem;
+  height: 1.5rem;
   color: rgba(59, 130, 246, 0.8);
 }
 
+.wallpaper-count {
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.6);
+  font-weight: 400;
+}
+
 .current-wallpaper-preview {
-  margin-bottom: 1.5rem;
+  margin-bottom: 0;
 }
 
 .preview-container {
   width: 100%;
-  height: 120px;
-  border-radius: 0.75rem;
+  height: 200px;
+  border-radius: 1rem;
   overflow: hidden;
   position: relative;
   cursor: pointer;
   border: 2px solid rgba(255, 255, 255, 0.1);
   transition: all 0.3s ease;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
 }
 
 .preview-container:hover {
-  border-color: rgba(59, 130, 246, 0.3);
-  transform: translateY(-2px);
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+  border-color: rgba(59, 130, 246, 0.4);
+  transform: translateY(-3px);
+  box-shadow: 0 12px 35px rgba(0, 0, 0, 0.4);
 }
 
 .background-layer {
@@ -560,58 +618,79 @@ onMounted(() => {
 
 .preview-info {
   display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 1rem;
+  padding: 1rem;
+  background: linear-gradient(135deg,
+    rgba(255, 255, 255, 0.08) 0%,
+    rgba(255, 255, 255, 0.04) 100%
+  );
+  border-radius: 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.info-item {
+  display: flex;
   align-items: center;
-  justify-content: space-between;
-  margin-top: 0.75rem;
-  padding: 0 0.5rem;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  font-size: 0.75rem;
+  gap: 0.75rem;
+  font-size: 0.875rem;
+}
+
+.info-icon {
+  width: 1.125rem;
+  height: 1.125rem;
+  color: rgba(59, 130, 246, 0.7);
+  flex-shrink: 0;
 }
 
 .wallpaper-status {
-  color: rgba(249, 115, 22, 0.8);
-  font-weight: 600;
-  padding: 0.25rem 0.5rem;
-  background: linear-gradient(135deg,
-    rgba(249, 115, 22, 0.1) 0%,
-    rgba(249, 115, 22, 0.05) 100%
-  );
-  border-radius: 0.375rem;
-  border: 1px solid rgba(249, 115, 22, 0.2);
+  color: rgba(34, 197, 94, 0.9);
+  font-weight: 500;
 }
 
 .blur-value,
 .mask-value {
-  color: rgba(255, 255, 255, 0.6);
+  color: rgba(255, 255, 255, 0.8);
+  font-weight: 500;
 }
 
 /* 控制面板 */
 .controls-section {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1.5rem;
+  background: linear-gradient(135deg,
+    rgba(255, 255, 255, 0.06) 0%,
+    rgba(255, 255, 255, 0.03) 100%
+  );
+  border-radius: 1rem;
+  padding: 1.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .control-group {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.control-group:last-child {
+  margin-bottom: 0;
 }
 
 .control-label {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: rgba(255, 255, 255, 0.8);
+  gap: 0.75rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+  margin-bottom: 0.5rem;
 }
 
 .control-icon {
-  width: 1rem;
-  height: 1rem;
-  color: rgba(59, 130, 246, 0.7);
+  width: 1.125rem;
+  height: 1.125rem;
+  color: rgba(59, 130, 246, 0.8);
 }
 
 .slider-container {
@@ -656,9 +735,22 @@ onMounted(() => {
 .slider-labels {
   display: flex;
   justify-content: space-between;
-  margin-top: 0.5rem;
-  font-size: 0.75rem;
-  color: rgba(255, 255, 255, 0.5);
+  align-items: center;
+  margin-top: 0.75rem;
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.current-value {
+  background: linear-gradient(135deg,
+    rgba(59, 130, 246, 0.2) 0%,
+    rgba(59, 130, 246, 0.1) 100%
+  );
+  color: rgba(59, 130, 246, 0.9);
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.375rem;
+  font-weight: 600;
+  border: 1px solid rgba(59, 130, 246, 0.2);
 }
 
 /* 壁纸库 */
@@ -699,47 +791,41 @@ onMounted(() => {
 .wallpaper-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 1rem;
+  gap: 1.25rem;
+  margin-top: 1rem;
 }
 
 .wallpaper-item {
-  border-radius: 0.75rem;
+  position: relative;
+  border-radius: 0.875rem;
   overflow: hidden;
-  background: linear-gradient(135deg,
-    rgba(255, 255, 255, 0.1) 0%,
-    rgba(255, 255, 255, 0.05) 100%
-  );
   border: 2px solid rgba(255, 255, 255, 0.1);
-  transition: all 0.3s ease;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
+  cursor: pointer;
+  /* 16:9 aspect ratio (1920:1080) */
+  aspect-ratio: 16 / 9;
 }
 
 .wallpaper-item:hover {
-  border-color: rgba(59, 130, 246, 0.3);
-  transform: translateY(-2px);
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+  border-color: rgba(59, 130, 246, 0.4);
+  transform: translateY(-4px);
+  box-shadow: 0 12px 35px rgba(0, 0, 0, 0.25);
 }
 
 .wallpaper-item.active {
-  border-color: rgba(34, 197, 94, 0.5);
-  box-shadow: 0 0 20px rgba(34, 197, 94, 0.3);
+  border-color: rgba(34, 197, 94, 0.6);
+  box-shadow: 0 0 25px rgba(34, 197, 94, 0.4);
 }
 
-.wallpaper-thumbnail {
-  position: relative;
-  width: 100%;
-  height: 120px;
-  cursor: pointer;
-  overflow: hidden;
-}
-
-.wallpaper-thumbnail img {
+.wallpaper-item img {
   width: 100%;
   height: 100%;
   object-fit: cover;
   transition: transform 0.3s ease;
 }
 
-.wallpaper-item:hover .wallpaper-thumbnail img {
+.wallpaper-item:hover img {
   transform: scale(1.05);
 }
 
@@ -812,42 +898,25 @@ onMounted(() => {
 
 .current-badge {
   position: absolute;
-  top: 0.5rem;
-  right: 0.5rem;
+  top: 0.75rem;
+  right: 0.75rem;
   background: linear-gradient(135deg,
-    rgba(34, 197, 94, 0.9) 0%,
-    rgba(34, 197, 94, 0.7) 100%
+    rgba(34, 197, 94, 0.95) 0%,
+    rgba(34, 197, 94, 0.8) 100%
   );
   color: white;
-  padding: 0.25rem 0.5rem;
-  border-radius: 0.375rem;
+  padding: 0.375rem 0.75rem;
+  border-radius: 0.5rem;
   font-size: 0.75rem;
-  font-weight: 500;
+  font-weight: 600;
   display: flex;
   align-items: center;
-  gap: 0.25rem;
+  gap: 0.375rem;
+  box-shadow: 0 2px 8px rgba(34, 197, 94, 0.3);
+  backdrop-filter: blur(10px);
 }
 
-.wallpaper-info {
-  padding: 0.75rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
 
-.wallpaper-name {
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: rgba(255, 255, 255, 0.9);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.wallpaper-size {
-  font-size: 0.75rem;
-  color: rgba(255, 255, 255, 0.5);
-}
 
 /* 空状态 */
 .empty-state {
@@ -874,11 +943,13 @@ onMounted(() => {
   opacity: 0.7;
 }
 
-/* 操作按钮 */
+/* 底部操作按钮 */
 .action-buttons {
   display: flex;
-  gap: 1rem;
-  margin-top: 1.5rem;
+  gap: 1.5rem;
+  margin-top: 2rem;
+  padding-top: 2rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .primary-btn {
@@ -900,22 +971,23 @@ onMounted(() => {
 
 .action-buttons .action-btn {
   flex: 1;
-  padding: 0.75rem 1.5rem;
+  padding: 1rem 2rem;
   border: none;
-  border-radius: 0.5rem;
-  font-size: 0.875rem;
-  font-weight: 500;
+  border-radius: 0.75rem;
+  font-size: 0.95rem;
+  font-weight: 600;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0.5rem;
-  transition: all 0.3s ease;
+  gap: 0.75rem;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
 }
 
 .action-buttons .action-btn:hover:not(:disabled) {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
 }
 
 .action-buttons .action-btn:disabled {
@@ -939,29 +1011,77 @@ onMounted(() => {
 }
 
 /* 响应式设计 */
-@media (max-width: 768px) {
-  .controls-section {
+@media (max-width: 1200px) {
+  .main-content {
     grid-template-columns: 1fr;
-    gap: 1rem;
+    gap: 2rem;
+  }
+
+  .left-panel {
+    order: 1;
+  }
+
+  .right-panel {
+    order: 2;
+  }
+}
+
+@media (max-width: 768px) {
+  .main-content {
+    gap: 1.5rem;
+  }
+
+  .preview-container {
+    height: 160px;
+  }
+
+  .controls-section {
+    padding: 1rem;
+  }
+
+  .control-group {
+    margin-bottom: 1rem;
   }
 
   .wallpaper-grid {
-    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-    gap: 0.75rem;
-  }
-
-  .wallpaper-thumbnail {
-    height: 100px;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 1rem;
   }
 
   .action-buttons {
     flex-direction: column;
+    gap: 1rem;
   }
 
   .gallery-header {
     flex-direction: column;
     gap: 1rem;
     align-items: stretch;
+  }
+
+  .section-title {
+    font-size: 1rem;
+  }
+
+  .section-icon {
+    width: 1.25rem;
+    height: 1.25rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .preview-container {
+    height: 140px;
+  }
+
+  .wallpaper-grid {
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 0.75rem;
+  }
+
+  .action-buttons .action-btn {
+    padding: 0.875rem 1.5rem;
+    font-size: 0.875rem;
   }
 }
 </style>

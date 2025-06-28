@@ -1203,10 +1203,23 @@ onMounted(async () => {
 .password-settings-item,
 .group-management-item,
 .system-config-item,
-.theme-settings-item,
 .backup-restore-item,
 .system-info-item {
   position: relative;
+}
+
+/* 主题设置项 - 扩大宽度 */
+.theme-settings-item {
+  position: relative;
+  grid-column: 1 / -1; /* 占据整行 */
+}
+
+.theme-settings-item .settings-wrapper {
+  max-width: none; /* 移除最大宽度限制 */
+}
+
+.theme-settings-item .item-content {
+  padding: 2rem; /* 增加内边距 */
 }
 
 .password-settings-wrapper,
