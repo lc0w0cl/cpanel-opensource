@@ -647,7 +647,8 @@ onMounted(async () => {
                 </div>
               </div>
 
-          <div v-if="!isGroupManagementCollapsed" class="item-content">
+          <Transition name="expand" mode="out-in">
+            <div v-if="!isGroupManagementCollapsed" class="item-content">
             <!-- 新增分组表单 -->
             <div v-if="showAddCategoryForm" class="add-category-form">
               <div class="form-header">
@@ -780,6 +781,7 @@ onMounted(async () => {
               </div>
             </VueDraggable>
               </div>
+          </Transition>
 
               <BorderBeam
                   v-if="!isGroupManagementCollapsed"
@@ -821,7 +823,8 @@ onMounted(async () => {
                 </div>
               </div>
 
-              <div v-if="!isPasswordSettingsCollapsed" class="item-content">
+              <Transition name="expand" mode="out-in">
+                <div v-if="!isPasswordSettingsCollapsed" class="item-content">
                 <div v-if="!showPasswordForm" class="password-info">
                   <div class="info-item">
                     <Icon icon="mdi:information" class="info-icon" />
@@ -883,6 +886,7 @@ onMounted(async () => {
                   </div>
                 </div>
               </div>
+              </Transition>
 
               <BorderBeam
                   v-if="!isPasswordSettingsCollapsed"
@@ -916,12 +920,14 @@ onMounted(async () => {
                 </div>
               </div>
 
-              <div v-if="!isSystemConfigCollapsed" class="item-content">
+              <Transition name="expand" mode="out-in">
+                <div v-if="!isSystemConfigCollapsed" class="item-content">
                 <div class="coming-soon">
                   <Icon icon="mdi:wrench" class="coming-soon-icon" />
                   <p>更多设置功能即将推出...</p>
                 </div>
               </div>
+              </Transition>
 
               <BorderBeam
                   v-if="!isSystemConfigCollapsed"
@@ -955,7 +961,8 @@ onMounted(async () => {
                 </div>
               </div>
 
-              <div v-if="!isThemeSettingsCollapsed" class="item-content">
+              <Transition name="expand" mode="out-in">
+                <div v-if="!isThemeSettingsCollapsed" class="item-content">
                 <!-- 壁纸管理器 -->
                 <WallpaperManager
                   v-model:currentWallpaper="currentWallpaper"
@@ -965,6 +972,7 @@ onMounted(async () => {
                   @previewWallpaper="previewWallpaper"
                 />
               </div>
+              </Transition>
 
               <BorderBeam
                   v-if="!isThemeSettingsCollapsed"
@@ -998,12 +1006,14 @@ onMounted(async () => {
                 </div>
               </div>
 
-              <div v-if="!isBackupRestoreCollapsed" class="item-content">
+              <Transition name="expand" mode="out-in">
+                <div v-if="!isBackupRestoreCollapsed" class="item-content">
                 <div class="coming-soon">
                   <Icon icon="mdi:database" class="coming-soon-icon" />
                   <p>备份恢复功能即将推出...</p>
                 </div>
               </div>
+              </Transition>
 
               <BorderBeam
                   v-if="!isBackupRestoreCollapsed"
@@ -1037,7 +1047,8 @@ onMounted(async () => {
                 </div>
               </div>
 
-              <div v-if="!isSystemInfoCollapsed" class="item-content">
+              <Transition name="expand" mode="out-in">
+                <div v-if="!isSystemInfoCollapsed" class="item-content">
                 <div class="system-info">
                   <div class="info-row">
                     <span class="info-label">版本号</span>
@@ -1053,6 +1064,7 @@ onMounted(async () => {
                   </div>
                 </div>
               </div>
+              </Transition>
 
               <BorderBeam
                   v-if="!isSystemInfoCollapsed"
@@ -1301,6 +1313,9 @@ onMounted(async () => {
 
 .item-content {
   padding: 0 1.5rem 1.5rem 1.5rem;
+  overflow: hidden;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  transform-origin: top;
 }
 
 /* 折叠按钮样式 */
@@ -1331,6 +1346,37 @@ onMounted(async () => {
 
 .collapse-btn.collapsed .collapse-icon {
   transform: rotate(-90deg);
+}
+
+/* 展开/收起动画 */
+.expand-enter-active,
+.expand-leave-active {
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+}
+
+.expand-enter-from {
+  opacity: 0;
+  max-height: 0;
+  transform: translateY(-10px);
+}
+
+.expand-enter-to {
+  opacity: 1;
+  max-height: 1000px;
+  transform: translateY(0);
+}
+
+.expand-leave-from {
+  opacity: 1;
+  max-height: 1000px;
+  transform: translateY(0);
+}
+
+.expand-leave-to {
+  opacity: 0;
+  max-height: 0;
+  transform: translateY(-10px);
 }
 
 /* 加载和空状态 */
