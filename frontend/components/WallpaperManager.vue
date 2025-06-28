@@ -790,7 +790,7 @@ onMounted(() => {
 
 .wallpaper-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
   gap: 1.25rem;
   margin-top: 1rem;
 }
@@ -1044,7 +1044,7 @@ onMounted(() => {
   }
 
   .wallpaper-grid {
-    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
     gap: 1rem;
   }
 
@@ -1075,7 +1075,7 @@ onMounted(() => {
   }
 
   .wallpaper-grid {
-    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
     gap: 0.75rem;
   }
 
