@@ -383,7 +383,7 @@ const handleFileDrop = (event: DragEvent) => {
   }
 }
 
-const handleWallpaperFile = (file: File) => {
+const handleWallpaperFile = async (file: File) => {
   // 验证文件类型
   const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png']
   if (!allowedTypes.includes(file.type)) {
@@ -417,7 +417,13 @@ const updateWallpaperMask = () => {
 }
 
 const previewWallpaper = () => {
-  const wallpaperUrl = currentWallpaper.value || '/background/机甲.png'
+  let wallpaperUrl = currentWallpaper.value || '/background/机甲.png'
+
+  // 处理相对路径URL
+  if (wallpaperUrl && !wallpaperUrl.startsWith('http') && !wallpaperUrl.startsWith('data:') && !wallpaperUrl.startsWith('/background/')) {
+    const config = useRuntimeConfig()
+    wallpaperUrl = `${config.public.apiBaseUrl}${wallpaperUrl}`
+  }
 
   // 创建全屏预览容器
   const previewContainer = document.createElement('div')
@@ -498,25 +504,15 @@ const previewWallpaper = () => {
 }
 
 const applyWallpaper = async () => {
-  // 可以应用自定义壁纸或默认壁纸的设置
-
   wallpaperApplying.value = true
   try {
-    // 保存到localStorage
-    if (currentWallpaper.value) {
-      localStorage.setItem('customWallpaper', currentWallpaper.value)
+    // 检查是否有新上传的文件需要上传到服务器
+    if (currentWallpaper.value && currentWallpaper.value.startsWith('data:')) {
+      // 如果是base64数据，说明是新上传的文件，需要上传到服务器
+      await uploadWallpaperToServer()
     } else {
-      // 如果没有自定义壁纸，确保清除自定义壁纸设置
-      localStorage.removeItem('customWallpaper')
-    }
-
-    // 始终保存模糊和遮罩设置
-    localStorage.setItem('wallpaperBlur', wallpaperBlur.value.toString())
-    localStorage.setItem('wallpaperMask', wallpaperMask.value.toString())
-
-    // 触发自定义事件通知布局更新
-    if (process.client) {
-      window.dispatchEvent(new CustomEvent('wallpaperChanged'))
+      // 如果没有新文件，只更新设置
+      await updateWallpaperSettings()
     }
 
     console.log('壁纸设置应用成功')
@@ -527,25 +523,121 @@ const applyWallpaper = async () => {
   }
 }
 
+// 上传壁纸文件到服务器
+const uploadWallpaperToServer = async () => {
+  try {
+    // 将base64转换为File对象
+    const response = await fetch(currentWallpaper.value)
+    const blob = await response.blob()
+    const file = new File([blob], 'wallpaper.png', { type: 'image/png' })
+
+    // 创建FormData
+    const formData = new FormData()
+    formData.append('file', file)
+    formData.append('blur', wallpaperBlur.value.toString())
+    formData.append('mask', wallpaperMask.value.toString())
+
+    // 上传到服务器
+    const uploadResponse = await apiRequest(`${API_BASE_URL}/system-config/wallpaper/upload`, {
+      method: 'POST',
+      body: formData
+    })
+
+    const result = await uploadResponse.json()
+
+    if (result.success) {
+      // 更新本地状态
+      currentWallpaper.value = result.data.wallpaperUrl
+      wallpaperBlur.value = result.data.wallpaperBlur
+      wallpaperMask.value = result.data.wallpaperMask
+
+      // 保存到localStorage作为缓存
+      localStorage.setItem('customWallpaper', result.data.wallpaperUrl)
+      localStorage.setItem('wallpaperBlur', result.data.wallpaperBlur.toString())
+      localStorage.setItem('wallpaperMask', result.data.wallpaperMask.toString())
+
+      // 触发布局更新
+      if (process.client) {
+        window.dispatchEvent(new CustomEvent('wallpaperChanged'))
+      }
+    } else {
+      throw new Error(result.message)
+    }
+  } catch (error) {
+    console.error('上传壁纸失败:', error)
+    throw error
+  }
+}
+
+// 更新壁纸设置（不上传新文件）
+const updateWallpaperSettings = async () => {
+  try {
+    const response = await apiRequest(`${API_BASE_URL}/system-config/wallpaper/settings`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        wallpaperUrl: currentWallpaper.value || null,
+        wallpaperBlur: wallpaperBlur.value,
+        wallpaperMask: wallpaperMask.value
+      })
+    })
+
+    const result = await response.json()
+
+    if (result.success) {
+      // 保存到localStorage作为缓存
+      localStorage.setItem('customWallpaper', result.data.wallpaperUrl)
+      localStorage.setItem('wallpaperBlur', result.data.wallpaperBlur.toString())
+      localStorage.setItem('wallpaperMask', result.data.wallpaperMask.toString())
+
+      // 触发布局更新
+      if (process.client) {
+        window.dispatchEvent(new CustomEvent('wallpaperChanged'))
+      }
+    } else {
+      throw new Error(result.message)
+    }
+  } catch (error) {
+    console.error('更新壁纸设置失败:', error)
+    throw error
+  }
+}
+
 const resetWallpaper = async () => {
   wallpaperResetting.value = true
   try {
-    // 清除自定义壁纸
-    currentWallpaper.value = ''
-    wallpaperBlur.value = 5
-    wallpaperMask.value = 30
+    // 调用后端API重置壁纸
+    const response = await apiRequest(`${API_BASE_URL}/system-config/wallpaper/reset`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      }
+    })
 
-    // 清除localStorage
-    localStorage.removeItem('customWallpaper')
-    localStorage.removeItem('wallpaperBlur')
-    localStorage.removeItem('wallpaperMask')
+    const result = await response.json()
 
-    // 触发自定义事件通知布局更新
-    if (process.client) {
-      window.dispatchEvent(new CustomEvent('wallpaperChanged'))
+    if (result.success) {
+      // 更新本地状态
+      currentWallpaper.value = ''
+      wallpaperBlur.value = 5
+      wallpaperMask.value = 30
+
+      // 清除localStorage
+      localStorage.removeItem('customWallpaper')
+      localStorage.removeItem('wallpaperBlur')
+      localStorage.removeItem('wallpaperMask')
+
+      // 触发布局更新
+      if (process.client) {
+        window.dispatchEvent(new CustomEvent('wallpaperChanged'))
+      }
+
+      console.log('壁纸已还原为默认')
+    } else {
+      throw new Error(result.message)
     }
-
-    console.log('壁纸已还原为默认')
   } catch (error) {
     console.error('壁纸还原失败:', error)
   } finally {
@@ -553,7 +645,39 @@ const resetWallpaper = async () => {
   }
 }
 
-const loadSavedWallpaper = () => {
+const loadSavedWallpaper = async () => {
+  try {
+    // 首先尝试从后端加载配置
+    const response = await apiRequest(`${API_BASE_URL}/system-config/wallpaper`)
+    const result = await response.json()
+
+    if (result.success) {
+      // 从后端加载配置
+      currentWallpaper.value = result.data.wallpaperUrl || ''
+      wallpaperBlur.value = result.data.wallpaperBlur || 5
+      wallpaperMask.value = result.data.wallpaperMask || 30
+
+      // 同步到localStorage作为缓存
+      if (result.data.wallpaperUrl) {
+        localStorage.setItem('customWallpaper', result.data.wallpaperUrl)
+      } else {
+        localStorage.removeItem('customWallpaper')
+      }
+      localStorage.setItem('wallpaperBlur', wallpaperBlur.value.toString())
+      localStorage.setItem('wallpaperMask', wallpaperMask.value.toString())
+    } else {
+      // 如果后端加载失败，回退到localStorage
+      loadFromLocalStorage()
+    }
+  } catch (error) {
+    console.error('从后端加载壁纸配置失败，使用本地缓存:', error)
+    // 如果后端请求失败，回退到localStorage
+    loadFromLocalStorage()
+  }
+}
+
+// 从localStorage加载配置的回退方法
+const loadFromLocalStorage = () => {
   const savedWallpaper = localStorage.getItem('customWallpaper')
   const savedBlur = localStorage.getItem('wallpaperBlur')
   const savedMask = localStorage.getItem('wallpaperMask')
@@ -568,10 +692,24 @@ const loadSavedWallpaper = () => {
   wallpaperMask.value = savedMask ? parseInt(savedMask) : 30
 }
 
+// 获取壁纸显示URL（处理相对路径）
+const getWallpaperDisplayUrl = () => {
+  let wallpaperUrl = currentWallpaper.value || '/background/机甲.png'
+
+  // 如果是完整URL（包含http或data:）或默认背景，直接使用
+  if (wallpaperUrl.startsWith('http') || wallpaperUrl.startsWith('data:') || wallpaperUrl.startsWith('/background/')) {
+    return wallpaperUrl
+  }
+
+  // 如果是相对路径，需要拼接API基础URL
+  const config = useRuntimeConfig()
+  return `${config.public.apiBaseUrl}${wallpaperUrl}`
+}
+
 // 页面加载时获取数据
-onMounted(() => {
+onMounted(async () => {
   fetchCategories()
-  loadSavedWallpaper()
+  await loadSavedWallpaper()
 })
 </script>
 
@@ -964,7 +1102,7 @@ onMounted(() => {
 
                         <!-- 背景图片层（带模糊） -->
                         <div class="background-layer" :style="{
-                          backgroundImage: `url(${currentWallpaper || '/background/机甲.png'})`,
+                          backgroundImage: `url(${getWallpaperDisplayUrl()})`,
                           filter: `blur(${wallpaperBlur}px)`
                         }"></div>
 
