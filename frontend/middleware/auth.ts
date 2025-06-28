@@ -1,5 +1,5 @@
 // 导入JWT工具函数
-import { hasTokens, clearTokens, apiRequest, refreshAccessToken } from '~/composables/useJwt'
+import { hasTokens, clearTokens, apiRequest, refreshAccessToken, isTokenExpired, getAccessToken } from '~/composables/useJwt'
 
 export default defineNuxtRouteMiddleware(async (to, from) => {
   // 如果是登录页面或调试页面，直接允许访问
@@ -37,10 +37,36 @@ export default defineNuxtRouteMiddleware(async (to, from) => {
     }
   }
 
-  // 如果没有缓存，进行简单的token验证
-  // 避免在中间件中进行复杂的网络请求，让页面组件自己处理
-  console.log('没有有效的认证缓存，重定向到登录页面')
-  return navigateTo('/login')
+  // 如果没有缓存，检查JWT token是否有效
+  console.log('认证缓存已过期，检查JWT token有效性')
+
+  const accessToken = getAccessToken()
+  if (!accessToken) {
+    console.log('没有访问token，重定向到登录页面')
+    return navigateTo('/login')
+  }
+
+  // 检查token是否过期
+  if (isTokenExpired(accessToken)) {
+    console.log('访问token已过期，尝试刷新')
+    // 尝试刷新token
+    const refreshSuccess = await refreshAccessToken()
+    if (!refreshSuccess) {
+      console.log('Token刷新失败，重定向到登录页面')
+      clearTokens()
+      return navigateTo('/login')
+    }
+  }
+
+  // Token有效，更新认证缓存并允许访问
+  console.log('JWT token有效，更新认证缓存')
+  sessionStorage.setItem('auth_status', JSON.stringify({
+    authenticated: true,
+    timestamp: Date.now()
+  }))
+
+  // 在后台异步验证，不阻塞页面渲染
+  verifyAuthInBackground()
 })
 
 // 后台验证函数
@@ -53,14 +79,25 @@ async function verifyAuthInBackground() {
 
     if (!response.ok) {
       if (response.status === 401) {
+        console.log('后台验证：Token过期，尝试刷新')
         // Token过期，尝试刷新
         const refreshSuccess = await refreshAccessToken()
         if (!refreshSuccess) {
           // 刷新失败，清除缓存并重定向
+          console.log('后台验证：Token刷新失败，清除认证状态')
           clearTokens()
           sessionStorage.removeItem('auth_status')
           await navigateTo('/login')
+        } else {
+          console.log('后台验证：Token刷新成功')
+          // 刷新成功，更新缓存
+          sessionStorage.setItem('auth_status', JSON.stringify({
+            authenticated: true,
+            timestamp: Date.now()
+          }))
         }
+      } else {
+        console.warn('后台验证：服务器响应错误', response.status)
       }
       return
     }
@@ -69,11 +106,13 @@ async function verifyAuthInBackground() {
 
     if (!result.success || !result.data.authenticated) {
       // 认证失败，清除缓存并重定向
+      console.log('后台验证：认证失败，清除认证状态')
       clearTokens()
       sessionStorage.removeItem('auth_status')
       await navigateTo('/login')
     } else {
       // 更新缓存时间戳
+      console.log('后台验证：认证成功，更新缓存')
       sessionStorage.setItem('auth_status', JSON.stringify({
         authenticated: true,
         timestamp: Date.now()
@@ -82,5 +121,13 @@ async function verifyAuthInBackground() {
   } catch (error) {
     console.error('后台认证验证失败:', error)
     // 网络错误时不强制跳转，保持当前状态
+    // 但如果是严重错误（如token完全无效），可能需要清除状态
+    const accessToken = getAccessToken()
+    if (!accessToken || isTokenExpired(accessToken)) {
+      console.log('后台验证：检测到无效token，清除认证状态')
+      clearTokens()
+      sessionStorage.removeItem('auth_status')
+      await navigateTo('/login')
+    }
   }
 }
