@@ -402,18 +402,54 @@ const handleWallpaperFile = async (file: File) => {
   const reader = new FileReader()
   reader.onload = (e) => {
     currentWallpaper.value = e.target?.result as string
+
+    // 发送实时预览事件到 dashboard.vue
+    if (process.client) {
+      window.dispatchEvent(new CustomEvent('wallpaperPreviewChange', {
+        detail: {
+          wallpaperUrl: currentWallpaper.value,
+          wallpaperBlur: wallpaperBlur.value,
+          wallpaperMask: wallpaperMask.value,
+          isPreview: true // 标记为预览状态，不保存
+        }
+      }))
+    }
   }
   reader.readAsDataURL(file)
 }
 
 const updateWallpaperBlur = () => {
-  // 实时更新模糊效果
+  // 实时更新模糊效果到 dashboard.vue，但不保存到数据库
   console.log('模糊度更新为:', wallpaperBlur.value)
+
+  // 发送实时预览事件到 dashboard.vue
+  if (process.client) {
+    window.dispatchEvent(new CustomEvent('wallpaperPreviewChange', {
+      detail: {
+        wallpaperUrl: currentWallpaper.value,
+        wallpaperBlur: wallpaperBlur.value,
+        wallpaperMask: wallpaperMask.value,
+        isPreview: true // 标记为预览状态，不保存
+      }
+    }))
+  }
 }
 
 const updateWallpaperMask = () => {
-  // 实时更新遮罩效果
+  // 实时更新遮罩效果到 dashboard.vue，但不保存到数据库
   console.log('遮罩透明度更新为:', wallpaperMask.value)
+
+  // 发送实时预览事件到 dashboard.vue
+  if (process.client) {
+    window.dispatchEvent(new CustomEvent('wallpaperPreviewChange', {
+      detail: {
+        wallpaperUrl: currentWallpaper.value,
+        wallpaperBlur: wallpaperBlur.value,
+        wallpaperMask: wallpaperMask.value,
+        isPreview: true // 标记为预览状态，不保存
+      }
+    }))
+  }
 }
 
 const previewWallpaper = () => {
@@ -546,19 +582,24 @@ const uploadWallpaperToServer = async () => {
     const result = await uploadResponse.json()
 
     if (result.success) {
-      // 更新本地状态
+      // 更新壁纸URL（这是新上传的文件URL，必须使用后端返回的URL）
       currentWallpaper.value = result.data.wallpaperUrl
-      wallpaperBlur.value = result.data.wallpaperBlur
-      wallpaperMask.value = result.data.wallpaperMask
 
       // 保存到localStorage作为缓存
       localStorage.setItem('customWallpaper', result.data.wallpaperUrl)
-      localStorage.setItem('wallpaperBlur', result.data.wallpaperBlur.toString())
-      localStorage.setItem('wallpaperMask', result.data.wallpaperMask.toString())
+      localStorage.setItem('wallpaperBlur', wallpaperBlur.value.toString())
+      localStorage.setItem('wallpaperMask', wallpaperMask.value.toString())
 
-      // 触发布局更新
+      // 触发布局更新（应用壁纸，保存到数据库）
       if (process.client) {
-        window.dispatchEvent(new CustomEvent('wallpaperChanged'))
+        window.dispatchEvent(new CustomEvent('wallpaperChanged', {
+          detail: {
+            wallpaperUrl: result.data.wallpaperUrl,
+            wallpaperBlur: wallpaperBlur.value,
+            wallpaperMask: wallpaperMask.value,
+            isPreview: false // 标记为已保存状态
+          }
+        }))
       }
     } else {
       throw new Error(result.message)
@@ -587,14 +628,21 @@ const updateWallpaperSettings = async () => {
     const result = await response.json()
 
     if (result.success) {
-      // 保存到localStorage作为缓存
-      localStorage.setItem('customWallpaper', result.data.wallpaperUrl)
-      localStorage.setItem('wallpaperBlur', result.data.wallpaperBlur.toString())
-      localStorage.setItem('wallpaperMask', result.data.wallpaperMask.toString())
+      // 保存到localStorage作为缓存（使用当前的值，不是后端返回的值）
+      localStorage.setItem('customWallpaper', currentWallpaper.value)
+      localStorage.setItem('wallpaperBlur', wallpaperBlur.value.toString())
+      localStorage.setItem('wallpaperMask', wallpaperMask.value.toString())
 
-      // 触发布局更新
+      // 触发布局更新（应用壁纸，保存到数据库）
       if (process.client) {
-        window.dispatchEvent(new CustomEvent('wallpaperChanged'))
+        window.dispatchEvent(new CustomEvent('wallpaperChanged', {
+          detail: {
+            wallpaperUrl: currentWallpaper.value,
+            wallpaperBlur: wallpaperBlur.value,
+            wallpaperMask: wallpaperMask.value,
+            isPreview: false // 标记为已保存状态
+          }
+        }))
       }
     } else {
       throw new Error(result.message)
@@ -629,9 +677,16 @@ const resetWallpaper = async () => {
       localStorage.removeItem('wallpaperBlur')
       localStorage.removeItem('wallpaperMask')
 
-      // 触发布局更新
+      // 触发布局更新（重置壁纸，保存到数据库）
       if (process.client) {
-        window.dispatchEvent(new CustomEvent('wallpaperChanged'))
+        window.dispatchEvent(new CustomEvent('wallpaperChanged', {
+          detail: {
+            wallpaperUrl: '',
+            wallpaperBlur: 5,
+            wallpaperMask: 30,
+            isPreview: false // 标记为已保存状态
+          }
+        }))
       }
 
       console.log('壁纸已还原为默认')
@@ -654,8 +709,8 @@ const loadSavedWallpaper = async () => {
     if (result.success) {
       // 从后端加载配置
       currentWallpaper.value = result.data.wallpaperUrl || ''
-      wallpaperBlur.value = result.data.wallpaperBlur || 5
-      wallpaperMask.value = result.data.wallpaperMask || 30
+      wallpaperBlur.value = result.data.wallpaperBlur !== undefined ? result.data.wallpaperBlur : 5
+      wallpaperMask.value = result.data.wallpaperMask !== undefined ? result.data.wallpaperMask : 30
 
       // 同步到localStorage作为缓存
       if (result.data.wallpaperUrl) {
@@ -688,8 +743,8 @@ const loadFromLocalStorage = () => {
   }
 
   // 始终加载模糊和遮罩设置，即使没有自定义壁纸
-  wallpaperBlur.value = savedBlur ? parseInt(savedBlur) : 5
-  wallpaperMask.value = savedMask ? parseInt(savedMask) : 30
+  wallpaperBlur.value = savedBlur !== null ? parseInt(savedBlur) : 5
+  wallpaperMask.value = savedMask !== null ? parseInt(savedMask) : 30
 }
 
 // 获取壁纸显示URL（处理相对路径）

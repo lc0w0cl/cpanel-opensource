@@ -7,6 +7,12 @@ const customWallpaper = ref('')
 const wallpaperBlur = ref(5)
 const wallpaperMask = ref(30)
 
+// 预览状态（用于实时调整，不保存到数据库）
+const previewWallpaper = ref('')
+const previewBlur = ref(5)
+const previewMask = ref(30)
+const isPreviewMode = ref(false)
+
 // 计算背景样式
 const backgroundStyle = computed(() => {
   return {
@@ -17,14 +23,17 @@ const backgroundStyle = computed(() => {
 
 // 计算背景图片样式（用于伪元素）
 const backgroundImageUrl = computed(() => {
-  if (customWallpaper.value) {
+  // 如果是预览模式，使用预览状态
+  const wallpaperUrl = isPreviewMode.value ? previewWallpaper.value : customWallpaper.value
+
+  if (wallpaperUrl) {
     // 如果是完整URL（包含http或data:），直接使用
-    if (customWallpaper.value.startsWith('http') || customWallpaper.value.startsWith('data:')) {
-      return customWallpaper.value
+    if (wallpaperUrl.startsWith('http') || wallpaperUrl.startsWith('data:')) {
+      return wallpaperUrl
     }
     // 如果是相对路径，需要拼接API基础URL
     const config = useRuntimeConfig()
-    return `${config.public.apiBaseUrl}${customWallpaper.value}`
+    return `${config.public.apiBaseUrl}${wallpaperUrl}`
   } else {
     return '/background/机甲.png'
   }
@@ -32,10 +41,14 @@ const backgroundImageUrl = computed(() => {
 
 // 计算CSS变量
 const cssVars = computed(() => {
+  // 如果是预览模式，使用预览状态
+  const blur = isPreviewMode.value ? previewBlur.value : wallpaperBlur.value
+  const mask = isPreviewMode.value ? previewMask.value : wallpaperMask.value
+
   return {
     '--bg-image': `url(${backgroundImageUrl.value})`,
-    '--bg-blur': `${wallpaperBlur.value}px`,
-    '--bg-mask': `${wallpaperMask.value / 100}`
+    '--bg-blur': `${blur}px`,
+    '--bg-mask': `${mask / 100}`
   }
 })
 
@@ -55,8 +68,8 @@ const loadWallpaperSettings = async () => {
 
         // 从后端加载配置
         customWallpaper.value = result.data.wallpaperUrl || ''
-        wallpaperBlur.value = result.data.wallpaperBlur || 5
-        wallpaperMask.value = result.data.wallpaperMask || 30
+        wallpaperBlur.value = result.data.wallpaperBlur !== undefined ? result.data.wallpaperBlur : 5
+        wallpaperMask.value = result.data.wallpaperMask !== undefined ? result.data.wallpaperMask : 30
 
         // 同步到localStorage作为缓存
         if (result.data.wallpaperUrl) {
@@ -104,14 +117,44 @@ const loadFromLocalStorage = () => {
   }
 
   // 始终加载模糊和遮罩设置，即使没有自定义壁纸
-  wallpaperBlur.value = savedBlur ? parseInt(savedBlur) : 5
-  wallpaperMask.value = savedMask ? parseInt(savedMask) : 30
+  wallpaperBlur.value = savedBlur !== null ? parseInt(savedBlur) : 5
+  wallpaperMask.value = savedMask !== null ? parseInt(savedMask) : 30
 }
 
-// 监听壁纸变化事件
-const handleWallpaperChange = async () => {
-  console.log('收到壁纸变化事件')
-  await loadWallpaperSettings()
+// 监听壁纸变化事件（应用壁纸时触发，保存到数据库）
+const handleWallpaperChange = async (event: CustomEvent) => {
+  console.log('收到壁纸变化事件（已保存）')
+
+  // 如果事件包含详细信息，直接使用
+  if (event.detail) {
+    customWallpaper.value = event.detail.wallpaperUrl || ''
+    wallpaperBlur.value = event.detail.wallpaperBlur !== undefined ? event.detail.wallpaperBlur : 5
+    wallpaperMask.value = event.detail.wallpaperMask !== undefined ? event.detail.wallpaperMask : 30
+
+    // 退出预览模式
+    isPreviewMode.value = false
+  } else {
+    // 否则从后端重新加载
+    await loadWallpaperSettings()
+  }
+
+  // 强制重新渲染
+  await nextTick()
+}
+
+// 监听壁纸预览变化事件（实时调整时触发，不保存到数据库）
+const handleWallpaperPreviewChange = async (event: CustomEvent) => {
+  console.log('收到壁纸预览变化事件（未保存）')
+
+  if (event.detail) {
+    // 更新预览状态
+    previewWallpaper.value = event.detail.wallpaperUrl || ''
+    previewBlur.value = event.detail.wallpaperBlur !== undefined ? event.detail.wallpaperBlur : 5
+    previewMask.value = event.detail.wallpaperMask !== undefined ? event.detail.wallpaperMask : 30
+
+    // 进入预览模式
+    isPreviewMode.value = true
+  }
 
   // 强制重新渲染
   await nextTick()
@@ -123,12 +166,14 @@ onMounted(async () => {
   // 监听自定义事件，当壁纸设置改变时更新
   if (process.client) {
     window.addEventListener('wallpaperChanged', handleWallpaperChange)
+    window.addEventListener('wallpaperPreviewChange', handleWallpaperPreviewChange)
   }
 })
 
 onUnmounted(() => {
   if (process.client) {
     window.removeEventListener('wallpaperChanged', handleWallpaperChange)
+    window.removeEventListener('wallpaperPreviewChange', handleWallpaperPreviewChange)
   }
 })
 </script>
@@ -139,7 +184,7 @@ onUnmounted(() => {
       class="dynamic-background"
       :style="{
         backgroundImage: `url(${backgroundImageUrl})`,
-        filter: `blur(${wallpaperBlur}px)`
+        filter: `blur(${isPreviewMode ? previewBlur : wallpaperBlur}px)`
       }"
     ></div>
 
@@ -147,7 +192,7 @@ onUnmounted(() => {
     <div
       class="dynamic-mask"
       :style="{
-        backgroundColor: `rgba(0, 0, 0, ${wallpaperMask / 100})`
+        backgroundColor: `rgba(0, 0, 0, ${(isPreviewMode ? previewMask : wallpaperMask) / 100})`
       }"
     ></div>
 
