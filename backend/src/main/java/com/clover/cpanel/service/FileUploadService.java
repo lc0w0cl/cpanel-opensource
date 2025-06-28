@@ -23,6 +23,15 @@ public interface FileUploadService {
     String uploadFile(MultipartFile file, String navigationName);
 
     /**
+     * 上传文件到指定子目录
+     * @param file 上传的文件
+     * @param subDirectory 子目录名称（如 "backgrounds"）
+     * @param fileName 文件名称（用于命名）
+     * @return 文件访问URL
+     */
+    String uploadFileToSubDirectory(MultipartFile file, String subDirectory, String fileName);
+
+    /**
      * 验证文件类型是否允许
      * @param file 上传的文件
      * @return 是否允许

@@ -77,6 +77,48 @@ public class FileUploadServiceImpl implements FileUploadService {
     }
 
     @Override
+    public String uploadFileToSubDirectory(MultipartFile file, String subDirectory, String fileName) {
+        try {
+            // 验证文件
+            if (!isValidFileType(file)) {
+                throw new RuntimeException("不支持的文件类型");
+            }
+            if (!isValidFileSize(file)) {
+                throw new RuntimeException("文件大小超出限制");
+            }
+
+            // 确保主上传目录存在
+            File uploadDir = new File(uploadPath);
+            if (!uploadDir.exists()) {
+                uploadDir.mkdirs();
+            }
+
+            // 确保子目录存在
+            File subDir = new File(uploadDir, subDirectory);
+            if (!subDir.exists()) {
+                subDir.mkdirs();
+                log.info("创建子目录: {}", subDir.getAbsolutePath());
+            }
+
+            // 生成唯一文件名
+            String uniqueFileName = generateUniqueFileName(file.getOriginalFilename(), fileName);
+
+            // 保存文件到子目录
+            Path filePath = Paths.get(subDir.getAbsolutePath(), uniqueFileName);
+            Files.copy(file.getInputStream(), filePath);
+
+            // 返回访问URL（包含子目录路径）
+            String fileUrl = urlPrefix + subDirectory + "/" + uniqueFileName;
+            log.info("文件上传到子目录成功: {}", fileUrl);
+            return fileUrl;
+
+        } catch (IOException e) {
+            log.error("文件上传到子目录失败: {}", e.getMessage(), e);
+            throw new RuntimeException("文件上传失败: " + e.getMessage());
+        }
+    }
+
+    @Override
     public boolean isValidFileType(MultipartFile file) {
         if (file == null || file.isEmpty()) {
             return false;
@@ -141,10 +183,10 @@ public class FileUploadServiceImpl implements FileUploadService {
                 return false;
             }
 
-            // 提取文件名
-            String fileName = fileUrl.substring(urlPrefix.length());
-            Path filePath = Paths.get(uploadPath, fileName);
-            
+            // 提取相对路径（可能包含子目录）
+            String relativePath = fileUrl.substring(urlPrefix.length());
+            Path filePath = Paths.get(uploadPath, relativePath);
+
             // 删除文件
             boolean deleted = Files.deleteIfExists(filePath);
             if (deleted) {

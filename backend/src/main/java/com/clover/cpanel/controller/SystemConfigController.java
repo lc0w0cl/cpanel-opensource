@@ -90,8 +90,8 @@ public class SystemConfigController {
                 return ApiResponse.error("文件大小超出限制");
             }
 
-            // 上传文件
-            String wallpaperUrl = fileUploadService.uploadFile(file, "wallpaper");
+            // 上传文件到backgrounds子目录
+            String wallpaperUrl = fileUploadService.uploadFileToSubDirectory(file, "backgrounds", "wallpaper");
             log.info("壁纸文件上传成功: {}", wallpaperUrl);
 
             // 保存配置到数据库
