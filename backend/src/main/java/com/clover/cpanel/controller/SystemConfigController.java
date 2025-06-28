@@ -2,6 +2,7 @@ package com.clover.cpanel.controller;
 
 import com.clover.cpanel.common.ApiResponse;
 import com.clover.cpanel.constant.ConfigType;
+import com.clover.cpanel.dto.MarginConfigRequest;
 import com.clover.cpanel.dto.WallpaperConfigRequest;
 import com.clover.cpanel.entity.SystemConfig;
 import com.clover.cpanel.service.FileUploadService;
@@ -33,6 +34,9 @@ public class SystemConfigController {
     private static final String WALLPAPER_URL_KEY = "wallpaper_url";
     private static final String WALLPAPER_BLUR_KEY = "wallpaper_blur";
     private static final String WALLPAPER_MASK_KEY = "wallpaper_mask";
+
+    // 边距配置相关常量
+    private static final String MARGIN_KEY = "content_margin";
 
     /**
      * 获取壁纸配置
@@ -247,6 +251,68 @@ public class SystemConfigController {
         } catch (Exception e) {
             log.error("获取配置列表失败", e);
             return ApiResponse.error("获取配置列表失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * 保存边距设置
+     * @param request 边距配置请求
+     * @return 操作结果
+     */
+    @PostMapping("/margin")
+    public ApiResponse<Map<String, Object>> saveMarginSettings(@RequestBody MarginConfigRequest request) {
+        try {
+            log.info("保存边距设置: 边距={}", request.getMargin());
+
+            // 保存配置到数据库
+            boolean success = saveMarginConfig(request.getMargin());
+
+            if (success) {
+                Map<String, Object> result = new HashMap<>();
+                result.put("margin", request.getMargin());
+
+                return ApiResponse.success(result);
+            } else {
+                return ApiResponse.error("保存边距配置失败");
+            }
+        } catch (Exception e) {
+            log.error("保存边距设置失败", e);
+            return ApiResponse.error("保存边距设置失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * 获取边距设置
+     * @return 边距配置
+     */
+    @GetMapping("/margin")
+    public ApiResponse<Map<String, Object>> getMarginSettings() {
+        try {
+            String marginStr = systemConfigService.getConfigValue(MARGIN_KEY);
+            Double margin = marginStr != null ? Double.parseDouble(marginStr) : 0.0;
+
+            Map<String, Object> result = new HashMap<>();
+            result.put("margin", margin);
+
+            return ApiResponse.success(result);
+        } catch (Exception e) {
+            log.error("获取边距设置失败", e);
+            return ApiResponse.error("获取边距设置失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * 保存边距配置到数据库
+     * @param margin 边距值
+     * @return 是否保存成功
+     */
+    private boolean saveMarginConfig(Double margin) {
+        try {
+            return systemConfigService.setConfigValue(MARGIN_KEY,
+                margin.toString(), "内容左右边距", ConfigType.THEME);
+        } catch (Exception e) {
+            log.error("保存边距配置失败", e);
+            return false;
         }
     }
 }

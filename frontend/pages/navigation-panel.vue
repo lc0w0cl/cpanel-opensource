@@ -85,6 +85,14 @@ const searchInputRef = ref<HTMLInputElement>()
 // 内外网切换状态
 const isInternalNetwork = ref(false)
 
+// 边距设置状态
+const marginDialog = ref({
+  visible: false
+})
+
+// 边距设置值
+const contentMargin = ref(0)
+
 // API配置
 const config = useRuntimeConfig()
 const API_BASE_URL = `${config.public.apiBaseUrl}/api`
@@ -290,6 +298,90 @@ const toggleNetwork = () => {
   isInternalNetwork.value = !isInternalNetwork.value
   const networkType = isInternalNetwork.value ? '内网' : '外网'
   showNotification(`切换到${networkType}环境`, 'info')
+}
+
+// 显示边距设置弹窗
+const showMarginDialog = () => {
+  marginDialog.value.visible = true
+}
+
+// 隐藏边距设置弹窗
+const hideMarginDialog = () => {
+  marginDialog.value.visible = false
+}
+
+// 更新边距
+const updateMargin = () => {
+  applyMarginSettings()
+  saveMarginSettings()
+}
+
+// 应用边距设置到CSS
+const applyMarginSettings = () => {
+  if (process.client) {
+    const contentWrapper = document.querySelector('.content-wrapper') as HTMLElement
+    if (contentWrapper) {
+      contentWrapper.style.paddingLeft = `${contentMargin.value}rem`
+      contentWrapper.style.paddingRight = `${contentMargin.value}rem`
+    }
+  }
+}
+
+// 保存边距设置
+const saveMarginSettings = async () => {
+  if (process.client) {
+    // 保存到localStorage
+    localStorage.setItem('contentMargin', contentMargin.value.toString())
+
+    // 保存到后端
+    try {
+      const response = await apiRequest(`${API_BASE_URL}/system-config/margin`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          margin: contentMargin.value
+        })
+      })
+
+      const result = await response.json()
+      if (result.success) {
+        console.log('边距设置已保存到后端')
+      }
+    } catch (error) {
+      console.error('保存边距设置到后端失败:', error)
+    }
+  }
+}
+
+// 加载边距设置
+const loadMarginSettings = async () => {
+  if (process.client) {
+    try {
+      // 首先尝试从后端加载
+      const response = await apiRequest(`${API_BASE_URL}/system-config/margin`)
+      const result = await response.json()
+
+      if (result.success && result.data) {
+        contentMargin.value = result.data.margin || 0
+      } else {
+        // 从localStorage加载
+        const savedMargin = localStorage.getItem('contentMargin')
+        contentMargin.value = savedMargin ? parseFloat(savedMargin) : 0
+      }
+
+      // 应用设置
+      applyMarginSettings()
+    } catch (error) {
+      console.error('加载边距设置失败:', error)
+      // 从localStorage加载
+      const savedMargin = localStorage.getItem('contentMargin')
+      contentMargin.value = savedMargin ? parseFloat(savedMargin) : 0
+
+      applyMarginSettings()
+    }
+  }
 }
 
 // 获取导航项的实际URL
@@ -716,6 +808,9 @@ onMounted(async () => {
 
   // 页面加载完成后自动聚焦搜索框
   focusSearchInput()
+
+  // 加载边距设置
+  await loadMarginSettings()
 })
 
 onUnmounted(() => {
@@ -776,6 +871,20 @@ onUnmounted(() => {
                 <path d="M3 12c1 0 3-1 3-3s-2-3-3-3-3 1-3 3 2 3 3 3"></path>
                 <path d="M12 21c0-1-1-3-3-3s-3 2-3 3 1 3 3 3 3-2 3-3"></path>
                 <path d="M12 3c0 1-1 3-3 3s-3-2-3-3 1-3 3-3 3 2 3 3"></path>
+              </svg>
+            </button>
+
+            <!-- 边距设置按钮 -->
+            <button
+              class="margin-settings-btn"
+              @click="showMarginDialog"
+              title="调整左右边距"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <circle cx="12" cy="12" r="3"></circle>
+                <path d="M12 1v6m0 6v6"></path>
+                <path d="m21 12-6-6m6 6-6 6"></path>
+                <path d="m3 12 6-6m-6 6 6 6"></path>
               </svg>
             </button>
           </div>
@@ -1049,6 +1158,57 @@ onUnmounted(() => {
         :item="itemDialog.item"
         @confirm="handleDialogConfirm"
       />
+
+      <!-- 边距设置弹窗 -->
+      <div
+        v-if="marginDialog.visible"
+        class="margin-dialog-overlay"
+        @click="hideMarginDialog"
+      >
+        <div class="margin-dialog" @click.stop>
+          <div class="dialog-header">
+            <svg class="settings-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+              <circle cx="12" cy="12" r="3"></circle>
+              <path d="M12 1v6m0 6v6"></path>
+              <path d="m21 12-6-6m6 6-6 6"></path>
+              <path d="m3 12 6-6m-6 6 6 6"></path>
+            </svg>
+            <h3>边距设置</h3>
+          </div>
+          <div class="dialog-content">
+            <!-- 边距控制 -->
+            <div class="margin-control">
+              <label class="control-label">
+                <svg class="control-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <path d="M3 12h18"></path>
+                  <path d="M3 6h18"></path>
+                  <path d="M3 18h18"></path>
+                </svg>
+                左右边距
+              </label>
+              <div class="slider-container">
+                <input
+                  type="range"
+                  min="0"
+                  max="10"
+                  step="0.5"
+                  v-model="contentMargin"
+                  class="margin-slider"
+                  @input="updateMargin"
+                />
+                <div class="slider-labels">
+                  <span>0rem</span>
+                  <span>{{ contentMargin }}rem</span>
+                  <span>10rem</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="dialog-actions">
+            <button class="btn-close" @click="hideMarginDialog">关闭</button>
+          </div>
+        </div>
+      </div>
     </section>
   </NuxtLayout>
 </template>

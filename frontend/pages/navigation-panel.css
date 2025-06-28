@@ -1161,19 +1161,270 @@
   stroke-width: 2;
 }
 
+/* 边距设置按钮样式 */
+.margin-settings-btn {
+  width: 3.7rem;
+  height: 3.7rem;
+  border: none;
+  border-radius: 0.75rem;
+  background: linear-gradient(135deg,
+    rgba(255, 255, 255, 0.1) 0%,
+    rgba(255, 255, 255, 0.05) 100%
+  );
+  color: rgba(255, 255, 255, 0.8);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  flex-shrink: 0;
+}
+
+.margin-settings-btn:hover {
+  background: linear-gradient(135deg,
+    rgba(249, 115, 22, 0.3) 0%,
+    rgba(249, 115, 22, 0.15) 100%
+  );
+  color: rgba(249, 115, 22, 1);
+  transform: translateY(-1px) scale(1.05);
+  box-shadow: 0 4px 12px rgba(249, 115, 22, 0.3);
+}
+
+.margin-settings-btn svg {
+  width: 1.25rem;
+  height: 1.25rem;
+  stroke-width: 2;
+}
+
+/* 边距设置弹窗样式 */
+.margin-dialog-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: overlayFadeIn 0.3s ease;
+}
+
+.margin-dialog {
+  min-width: 400px;
+  max-width: 500px;
+  border-radius: 1rem;
+  overflow: hidden;
+
+  /* 液态玻璃效果 */
+  background: linear-gradient(135deg,
+    rgba(255, 255, 255, 0.15) 0%,
+    rgba(255, 255, 255, 0.08) 50%,
+    rgba(255, 255, 255, 0.05) 100%
+  );
+  backdrop-filter: blur(20px) saturate(150%);
+  -webkit-backdrop-filter: blur(20px) saturate(150%);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+
+  /* 阴影效果 */
+  box-shadow:
+    0 20px 40px rgba(0, 0, 0, 0.3),
+    0 8px 16px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.1);
+
+  animation: dialogSlideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.margin-dialog .dialog-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.margin-dialog .settings-icon {
+  width: 2rem;
+  height: 2rem;
+  color: rgba(249, 115, 22, 0.9);
+}
+
+.margin-dialog .dialog-header h3 {
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+  margin: 0;
+}
+
+.margin-dialog .dialog-content {
+  padding: 1.5rem;
+}
+
+.margin-control {
+  margin-bottom: 1.5rem;
+}
+
+.margin-control:last-child {
+  margin-bottom: 0;
+}
+
+.control-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.8);
+  margin-bottom: 1rem;
+}
+
+.control-icon {
+  width: 1rem;
+  height: 1rem;
+  color: rgba(249, 115, 22, 0.7);
+}
+
+.slider-container {
+  position: relative;
+}
+
+.margin-slider {
+  width: 100%;
+  height: 6px;
+  border-radius: 3px;
+  outline: none;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+  background: linear-gradient(to right,
+    rgba(255, 255, 255, 0.1) 0%,
+    rgba(249, 115, 22, 0.3) 100%
+  );
+}
+
+.margin-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: linear-gradient(135deg,
+    rgba(249, 115, 22, 0.9) 0%,
+    rgba(249, 115, 22, 0.7) 100%
+  );
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(249, 115, 22, 0.3);
+}
+
+.margin-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.1);
+  box-shadow: 0 4px 12px rgba(249, 115, 22, 0.4);
+}
+
+.margin-slider::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: linear-gradient(135deg,
+    rgba(249, 115, 22, 0.9) 0%,
+    rgba(249, 115, 22, 0.7) 100%
+  );
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.slider-labels {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 0.5rem;
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.margin-dialog .dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding: 1.5rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.btn-close {
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: 0.5rem;
+  background: linear-gradient(135deg,
+    rgba(255, 255, 255, 0.1) 0%,
+    rgba(255, 255, 255, 0.05) 100%
+  );
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.btn-close:hover {
+  background: linear-gradient(135deg,
+    rgba(255, 255, 255, 0.15) 0%,
+    rgba(255, 255, 255, 0.08) 100%
+  );
+  color: rgba(255, 255, 255, 1);
+  transform: translateY(-1px);
+}
+
 /* 移动端样式调整 */
 @media (max-width: 768px) {
   .search-container {
     gap: 0.75rem;
   }
 
-  .network-switch-btn {
+  .network-switch-btn,
+  .margin-settings-btn {
     width: 2.25rem;
     height: 2.25rem;
   }
 
-  .network-switch-btn svg {
+  .network-switch-btn svg,
+  .margin-settings-btn svg {
     width: 1.125rem;
     height: 1.125rem;
+  }
+
+  .margin-dialog {
+    min-width: 320px;
+    max-width: 90vw;
+    margin: 1rem;
+  }
+}
+
+/* 动画效果 */
+@keyframes overlayFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes dialogSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
   }
 }
