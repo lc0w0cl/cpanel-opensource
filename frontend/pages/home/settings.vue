@@ -588,6 +588,41 @@ const loadLogoConfig = async () => {
   }
 }
 
+// 动画事件处理函数
+const onEnter = (el: HTMLElement) => {
+  // 获取元素的实际高度
+  el.style.height = 'auto'
+  const height = el.offsetHeight
+  el.style.height = '0'
+
+  // 强制重绘
+  el.offsetHeight
+
+  // 设置目标高度
+  el.style.height = height + 'px'
+}
+
+const onAfterEnter = (el: HTMLElement) => {
+  // 动画完成后设置为auto，允许内容动态调整
+  el.style.height = 'auto'
+}
+
+const onLeave = (el: HTMLElement) => {
+  // 设置当前高度
+  el.style.height = el.offsetHeight + 'px'
+
+  // 强制重绘
+  el.offsetHeight
+
+  // 设置目标高度为0
+  el.style.height = '0'
+}
+
+const onAfterLeave = (el: HTMLElement) => {
+  // 清理样式
+  el.style.height = ''
+}
+
 // 页面加载时获取数据
 onMounted(async () => {
   fetchCategories()
@@ -650,7 +685,14 @@ onMounted(async () => {
                 </div>
               </div>
 
-          <Transition name="expand" mode="out-in">
+          <Transition
+            name="expand"
+            mode="out-in"
+            @enter="onEnter"
+            @after-enter="onAfterEnter"
+            @leave="onLeave"
+            @after-leave="onAfterLeave"
+          >
             <div v-if="!isGroupManagementCollapsed" class="item-content">
             <!-- 新增分组表单 -->
             <div v-if="showAddCategoryForm" class="add-category-form">
@@ -826,7 +868,14 @@ onMounted(async () => {
                 </div>
               </div>
 
-              <Transition name="expand" mode="out-in">
+              <Transition
+                name="expand"
+                mode="out-in"
+                @enter="onEnter"
+                @after-enter="onAfterEnter"
+                @leave="onLeave"
+                @after-leave="onAfterLeave"
+              >
                 <div v-if="!isPasswordSettingsCollapsed" class="item-content">
                 <div v-if="!showPasswordForm" class="password-info">
                   <div class="info-item">
@@ -923,7 +972,14 @@ onMounted(async () => {
                 </div>
               </div>
 
-              <Transition name="expand" mode="out-in">
+              <Transition
+                name="expand"
+                mode="out-in"
+                @enter="onEnter"
+                @after-enter="onAfterEnter"
+                @leave="onLeave"
+                @after-leave="onAfterLeave"
+              >
                 <div v-if="!isSystemConfigCollapsed" class="item-content">
                   <!-- Logo设置 -->
                   <div class="config-section">
@@ -1024,7 +1080,14 @@ onMounted(async () => {
                 </div>
               </div>
 
-              <Transition name="expand" mode="out-in">
+              <Transition
+                name="expand"
+                mode="out-in"
+                @enter="onEnter"
+                @after-enter="onAfterEnter"
+                @leave="onLeave"
+                @after-leave="onAfterLeave"
+              >
                 <div v-if="!isThemeSettingsCollapsed" class="item-content">
                 <!-- 壁纸管理器 -->
                 <WallpaperManager
@@ -1068,7 +1131,14 @@ onMounted(async () => {
                 </div>
               </div>
 
-              <Transition name="expand" mode="out-in">
+              <Transition
+                name="expand"
+                mode="out-in"
+                @enter="onEnter"
+                @after-enter="onAfterEnter"
+                @leave="onLeave"
+                @after-leave="onAfterLeave"
+              >
                 <div v-if="!isBackupRestoreCollapsed" class="item-content">
                 <div class="coming-soon">
                   <Icon icon="mdi:database" class="coming-soon-icon" />
@@ -1109,7 +1179,14 @@ onMounted(async () => {
                 </div>
               </div>
 
-              <Transition name="expand" mode="out-in">
+              <Transition
+                name="expand"
+                mode="out-in"
+                @enter="onEnter"
+                @after-enter="onAfterEnter"
+                @leave="onLeave"
+                @after-leave="onAfterLeave"
+              >
                 <div v-if="!isSystemInfoCollapsed" class="item-content">
                 <div class="system-info">
                   <div class="info-row">
@@ -1188,6 +1265,8 @@ onMounted(async () => {
   min-height: 100vh;
   padding: 2rem;
   max-width: 100%;
+  /* 优化渲染性能 */
+  contain: layout style paint;
 }
 
 /* 页面标题 */
@@ -1265,8 +1344,12 @@ onMounted(async () => {
   border-radius: 0.75rem;
   border: 1px solid rgba(255, 255, 255, 0.1);
   overflow: hidden;
-  transition: all 0.3s ease;
+  transition: border-color 0.3s ease, transform 0.2s ease;
   height: fit-content;
+  /* 性能优化 */
+  contain: layout style;
+  transform: translateZ(0);
+  backface-visibility: hidden;
 }
 
 .settings-item:hover {
@@ -1376,8 +1459,11 @@ onMounted(async () => {
 .item-content {
   padding: 0 1.5rem 1.5rem 1.5rem;
   overflow: hidden;
-  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   transform-origin: top;
+  /* 启用硬件加速 */
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  perspective: 1000px;
 }
 
 /* 折叠按钮样式 */
@@ -1410,35 +1496,43 @@ onMounted(async () => {
   transform: rotate(-90deg);
 }
 
-/* 展开/收起动画 */
-.expand-enter-active,
-.expand-leave-active {
-  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+/* 展开/收起动画 - 高性能版本 */
+.expand-enter-active {
+  transition: height 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+              opacity 0.25s ease-out 0.1s,
+              transform 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94);
   overflow: hidden;
+  will-change: height, opacity, transform;
+  transform: translateZ(0); /* 启用硬件加速 */
+}
+
+.expand-leave-active {
+  transition: height 0.3s cubic-bezier(0.55, 0.06, 0.68, 0.19),
+              opacity 0.2s ease-in,
+              transform 0.3s cubic-bezier(0.55, 0.06, 0.68, 0.19);
+  overflow: hidden;
+  will-change: height, opacity, transform;
+  transform: translateZ(0); /* 启用硬件加速 */
 }
 
 .expand-enter-from {
   opacity: 0;
-  max-height: 0;
-  transform: translateY(-10px);
+  transform: translateY(-6px) scale(0.99);
 }
 
 .expand-enter-to {
   opacity: 1;
-  max-height: 1000px;
-  transform: translateY(0);
+  transform: translateY(0) scale(1);
 }
 
 .expand-leave-from {
   opacity: 1;
-  max-height: 1000px;
-  transform: translateY(0);
+  transform: translateY(0) scale(1);
 }
 
 .expand-leave-to {
   opacity: 0;
-  max-height: 0;
-  transform: translateY(-10px);
+  transform: translateY(-6px) scale(0.99);
 }
 
 /* 加载和空状态 */
