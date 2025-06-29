@@ -430,7 +430,7 @@ const saveSettings = async () => {
     const result = await response.json()
 
     if (result.success) {
-      selectedWallpaper.value = '' // 清除选中状态
+      // selectedWallpaper.value = '' // 清除选中状态
       emit('wallpaperChanged', {
         wallpaperUrl: currentWallpaper.value,
         wallpaperBlur: wallpaperBlur.value,
