@@ -2,6 +2,13 @@
 import tailwindcss from "@tailwindcss/vite";
 
 export default defineNuxtConfig({
+  app:{
+    head:{
+      link: [
+        { rel: 'icon', type: 'image/png', href: '/favicon.svg' }
+      ]
+    }
+  },
   compatibilityDate: '2025-05-15',
   devtools: { enabled: true },
   modules: ['motion-v/nuxt'],
