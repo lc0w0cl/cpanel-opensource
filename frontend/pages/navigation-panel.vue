@@ -9,7 +9,8 @@ import './navigation-panel.css'
 // 应用认证中间件
 definePageMeta({
   middleware: 'auth',
-  layout: 'dashboard'
+  layout: 'dashboard',
+  pageTransition: { name: 'page'}
 })
 
 
