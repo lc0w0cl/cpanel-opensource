@@ -4,6 +4,9 @@ import { onMounted, onUnmounted } from 'vue'
 // 使用favicon composable
 const { initFavicon, cleanupFavicon } = useFavicon()
 
+// 使用壁纸composable
+const { cleanupWallpaper } = useWallpaper()
+
 onMounted(() => {
   // 初始化favicon功能
   initFavicon()
@@ -12,6 +15,9 @@ onMounted(() => {
 onUnmounted(() => {
   // 清理favicon功能
   cleanupFavicon()
+
+  // 清理壁纸功能
+  cleanupWallpaper()
 })
 </script>
 
