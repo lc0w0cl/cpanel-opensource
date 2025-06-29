@@ -3,14 +3,22 @@
     <!-- Logo区域 -->
     <div class="logo-section">
       <div class="logo-container">
-<!--        <img-->
-<!--          v-if="currentLogo"-->
-<!--          :src="getLogoUrl(currentLogo)"-->
-<!--          alt="Logo"-->
-<!--          class="logo-image"-->
-<!--        />-->
-        <LiquidLogo :image-url="getLogoUrl(currentLogo)" />
-
+        <!-- 加载状态 -->
+        <div v-if="!logoLoaded" class="logo-loading">
+          <Icon icon="mdi:loading" class="loading-icon animate-spin" />
+        </div>
+        <!-- Logo加载完成后显示 -->
+        <template v-else>
+          <LiquidLogo
+            v-if="currentLogo && !logoError"
+            :image-url="getLogoUrl(currentLogo)"
+            :show-processing="false"
+            @error="logoError = true"
+          />
+          <div v-else class="default-logo">
+            <Icon icon="mdi:view-dashboard" class="default-logo-icon" />
+          </div>
+        </template>
       </div>
     </div>
 
@@ -47,13 +55,15 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted, nextTick } from 'vue'
 import { HomeIcon, Squares2X2Icon, InformationCircleIcon, ArrowRightOnRectangleIcon } from '@heroicons/vue/24/outline'
 import { Icon } from '@iconify/vue'
 import LiquidLogo from "~/components/inspira/liquid_logo/LiquidLogo.vue";
 
 const isLoggingOut = ref(false)
 const currentLogo = ref('')
+const logoLoaded = ref(false) // 添加logo加载状态
+const logoError = ref(false) // 添加logo错误状态
 
 // 获取logo URL的辅助函数
 const getLogoUrl = (logoPath) => {
@@ -72,6 +82,9 @@ const getLogoUrl = (logoPath) => {
 // 加载logo配置
 const loadLogo = async () => {
   try {
+    // 重置错误状态
+    logoError.value = false
+
     const config = useRuntimeConfig()
     const API_BASE_URL = `${config.public.apiBaseUrl}/api`
 
@@ -83,16 +96,26 @@ const loadLogo = async () => {
     }
   } catch (error) {
     console.error('加载Logo失败:', error)
+  } finally {
+    // 无论成功还是失败，都标记为已加载
+    logoLoaded.value = true
   }
 }
 
 // 监听logo变更事件
 const handleLogoChanged = (event) => {
   currentLogo.value = event.detail.logoUrl || ''
+  // 重置错误状态
+  logoError.value = false
+  // 确保logo已加载状态为true，这样新logo能立即显示
+  logoLoaded.value = true
 }
 
-onMounted(() => {
-  loadLogo()
+onMounted(async () => {
+  // 等待组件完全挂载后再加载logo
+  await nextTick()
+  await loadLogo()
+
   if (process.client) {
     window.addEventListener('logoChanged', handleLogoChanged)
   }
@@ -192,6 +215,35 @@ const handleLogout = async () => {
   width: 2rem;
   height: 2rem;
   color: rgba(255, 255, 255, 0.8);
+}
+
+/* Logo加载状态样式 */
+.logo-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+
+.loading-icon {
+  width: 1.5rem;
+  height: 1.5rem;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+/* 旋转动画 */
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .sidebar-buttons {
