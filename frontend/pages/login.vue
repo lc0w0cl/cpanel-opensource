@@ -1,11 +1,47 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { Icon } from '@iconify/vue'
+import IconCloud from '~/components/inspira/IconCloud.vue';
 
 // 定义页面元数据，使用空白布局
 definePageMeta({
   layout: 'blank'
 })
+
+const slugs = [
+  "typescript",
+  "javascript",
+  "dart",
+  "java",
+  "react",
+  "flutter",
+  "android",
+  "html5",
+  "css3",
+  "nodedotjs",
+  "express",
+  "nextdotjs",
+  "prisma",
+  "amazonaws",
+  "postgresql",
+  "firebase",
+  "nginx",
+  "vercel",
+  "testinglibrary",
+  "jest",
+  "cypress",
+  "docker",
+  "git",
+  "jira",
+  "github",
+  "gitlab",
+  "visualstudiocode",
+  "androidstudio",
+  "sonarqube",
+  "figma",
+];
+
+const imageUrls = slugs.map((slug) => `https://cdn.simpleicons.org/${slug}/${slug}`);
 
 // 添加关键CSS到头部，防止布局跳动
 useHead({
@@ -142,11 +178,10 @@ const handleKeydown = (event: KeyboardEvent) => {
       <div class="login-card">
         <!-- 标题区域 -->
         <div class="login-header">
-          <div class="login-icon">
-            <Icon icon="mdi:shield-key" class="icon" />
+
+          <div class="grid place-content-center">
+            <IconCloud :images="imageUrls" />
           </div>
-          <h1 class="login-title">面板登录</h1>
-          <p class="login-subtitle">请输入访问密码</p>
         </div>
 
         <!-- 表单区域 -->
