@@ -3,15 +3,14 @@
     <!-- Logo区域 -->
     <div class="logo-section">
       <div class="logo-container">
-        <img
-          v-if="currentLogo"
-          :src="getLogoUrl(currentLogo)"
-          alt="Logo"
-          class="logo-image"
-        />
-        <div v-else class="default-logo">
-          <Icon icon="mdi:view-dashboard" class="default-logo-icon" />
-        </div>
+<!--        <img-->
+<!--          v-if="currentLogo"-->
+<!--          :src="getLogoUrl(currentLogo)"-->
+<!--          alt="Logo"-->
+<!--          class="logo-image"-->
+<!--        />-->
+        <LiquidLogo :image-url="getLogoUrl(currentLogo)" />
+
       </div>
     </div>
 
@@ -51,6 +50,7 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 import { HomeIcon, Squares2X2Icon, InformationCircleIcon, ArrowRightOnRectangleIcon } from '@heroicons/vue/24/outline'
 import { Icon } from '@iconify/vue'
+import LiquidLogo from "~/components/inspira/liquid_logo/LiquidLogo.vue";
 
 const isLoggingOut = ref(false)
 const currentLogo = ref('')
