@@ -121,6 +121,28 @@
                 </div>
               </div>
             </div>
+
+            <!-- 操作按钮区域 -->
+            <div class="action-buttons-section">
+              <button
+                class="action-btn primary-btn"
+                @click="saveSettings"
+                :disabled="saving"
+              >
+                <Icon v-if="saving" icon="mdi:loading" class="spin btn-icon" />
+                <Icon v-else icon="mdi:content-save" class="btn-icon" />
+                {{ saving ? '保存中...' : '保存设置' }}
+              </button>
+              <button
+                class="action-btn secondary-btn"
+                @click="resetToDefault"
+                :disabled="resetting"
+              >
+                <Icon v-if="resetting" icon="mdi:loading" class="spin btn-icon" />
+                <Icon v-else icon="mdi:restore" class="btn-icon" />
+                {{ resetting ? '重置中...' : '重置默认' }}
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -195,28 +217,6 @@
           </div>
         </div>
       </div>
-    </div>
-
-    <!-- 底部操作按钮 -->
-    <div class="action-buttons">
-      <button
-        class="action-btn primary-btn"
-        @click="saveSettings"
-        :disabled="saving"
-      >
-        <Icon v-if="saving" icon="mdi:loading" class="spin btn-icon" />
-        <Icon v-else icon="mdi:content-save" class="btn-icon" />
-        {{ saving ? '保存中...' : '保存设置' }}
-      </button>
-      <button
-        class="action-btn secondary-btn"
-        @click="resetToDefault"
-        :disabled="resetting"
-      >
-        <Icon v-if="resetting" icon="mdi:loading" class="spin btn-icon" />
-        <Icon v-else icon="mdi:restore" class="btn-icon" />
-        {{ resetting ? '重置中...' : '重置默认' }}
-      </button>
     </div>
   </div>
 </template>
@@ -1042,13 +1042,17 @@ onMounted(() => {
   opacity: 0.7;
 }
 
-/* 底部操作按钮 */
-.action-buttons {
+/* 操作按钮区域 */
+.action-buttons-section {
+  background: linear-gradient(135deg,
+    rgba(255, 255, 255, 0.06) 0%,
+    rgba(255, 255, 255, 0.03) 100%
+  );
+  border-radius: 1rem;
+  padding: 1.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
   display: flex;
-  gap: 1.5rem;
-  margin-top: 2rem;
-  padding-top: 2rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  gap: 1rem;
 }
 
 .primary-btn {
@@ -1068,28 +1072,28 @@ onMounted(() => {
   border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-.action-buttons .action-btn {
+.action-buttons-section .action-btn {
   flex: 1;
-  padding: 1rem 2rem;
+  padding: 0.875rem 1.5rem;
   border: none;
   border-radius: 0.75rem;
-  font-size: 0.95rem;
+  font-size: 0.875rem;
   font-weight: 600;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0.75rem;
+  gap: 0.5rem;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
-.action-buttons .action-btn:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+.action-buttons-section .action-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
-.action-buttons .action-btn:disabled {
+.action-buttons-section .action-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
   transform: none;
@@ -1146,7 +1150,7 @@ onMounted(() => {
     max-height: 300px;
   }
 
-  .action-buttons {
+  .action-buttons-section {
     flex-direction: column;
     gap: 1rem;
   }
@@ -1179,9 +1183,9 @@ onMounted(() => {
     max-height: 250px;
   }
 
-  .action-buttons .action-btn {
-    padding: 0.875rem 1.5rem;
-    font-size: 0.875rem;
+  .action-buttons-section .action-btn {
+    padding: 0.75rem 1.25rem;
+    font-size: 0.8rem;
   }
 }
 </style>
