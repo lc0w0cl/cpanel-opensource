@@ -1,8 +1,23 @@
+<script setup>
+import { onMounted, onUnmounted } from 'vue'
+
+// 使用favicon composable
+const { initFavicon, cleanupFavicon } = useFavicon()
+
+onMounted(() => {
+  // 初始化favicon功能
+  initFavicon()
+})
+
+onUnmounted(() => {
+  // 清理favicon功能
+  cleanupFavicon()
+})
+</script>
+
 <template>
   <div>
-
-      <NuxtPage />
-   
+    <NuxtPage />
   </div>
 </template>
 <style>

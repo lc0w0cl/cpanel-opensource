@@ -57,6 +57,11 @@ const isThemeSettingsCollapsed = ref(true)
 const isBackupRestoreCollapsed = ref(true)
 const isSystemInfoCollapsed = ref(true)
 
+// Logo设置相关
+const currentLogo = ref('')
+const logoUploading = ref(false)
+const logoResetting = ref(false)
+
 // 密码设置相关
 const passwordForm = ref({
   currentPassword: '',
@@ -496,10 +501,103 @@ const getWallpaperDisplayUrl = () => {
   return `${config.public.apiBaseUrl}${wallpaperUrl}`
 }
 
+// Logo相关函数
+const uploadLogo = async (event) => {
+  const target = event.target
+  const file = target.files?.[0]
+
+  if (!file) return
+
+  logoUploading.value = true
+
+  try {
+    const formData = new FormData()
+    formData.append('file', file)
+
+    const response = await apiRequest(`${API_BASE_URL}/system-config/logo/upload`, {
+      method: 'POST',
+      body: formData
+    })
+
+    const result = await response.json()
+
+    if (result.success) {
+      currentLogo.value = result.data.logoUrl
+
+      // 触发logo更新事件
+      if (process.client) {
+        window.dispatchEvent(new CustomEvent('logoChanged', {
+          detail: { logoUrl: result.data.logoUrl }
+        }))
+      }
+
+      console.log('Logo上传成功')
+    } else {
+      throw new Error(result.message)
+    }
+  } catch (error) {
+    console.error('Logo上传失败:', error)
+  } finally {
+    logoUploading.value = false
+    // 清空input值，允许重复选择同一文件
+    target.value = ''
+  }
+}
+
+const resetLogo = async () => {
+  logoResetting.value = true
+
+  try {
+    const response = await apiRequest(`${API_BASE_URL}/system-config/logo/reset`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      }
+    })
+
+    const result = await response.json()
+
+    if (result.success) {
+      currentLogo.value = ''
+
+      // 触发logo更新事件
+      if (process.client) {
+        window.dispatchEvent(new CustomEvent('logoChanged', {
+          detail: { logoUrl: '' }
+        }))
+      }
+
+      console.log('Logo已重置为默认')
+    } else {
+      throw new Error(result.message)
+    }
+  } catch (error) {
+    console.error('Logo重置失败:', error)
+  } finally {
+    logoResetting.value = false
+  }
+}
+
+const loadLogoConfig = async () => {
+  try {
+    const response = await apiRequest(`${API_BASE_URL}/system-config/logo`)
+    const result = await response.json()
+
+    if (result.success) {
+      currentLogo.value = result.data.logoUrl || ''
+    } else {
+      console.error('加载Logo配置失败:', result.message)
+    }
+  } catch (error) {
+    console.error('加载Logo配置失败:', error)
+  }
+}
+
 // 页面加载时获取数据
 onMounted(async () => {
   fetchCategories()
   await loadSavedWallpaper()
+  await loadLogoConfig()
 })
 </script>
 
@@ -832,11 +930,71 @@ onMounted(async () => {
 
               <Transition name="expand" mode="out-in">
                 <div v-if="!isSystemConfigCollapsed" class="item-content">
-                <div class="coming-soon">
-                  <Icon icon="mdi:wrench" class="coming-soon-icon" />
-                  <p>更多设置功能即将推出...</p>
+                  <!-- Logo设置 -->
+                  <div class="config-section">
+                    <div class="section-header">
+                      <Icon icon="mdi:image" class="section-icon" />
+                      <h3 class="section-title">Logo设置</h3>
+                    </div>
+
+                    <div class="logo-settings">
+                      <!-- Logo预览 -->
+                      <div class="logo-preview">
+                        <div class="preview-container">
+                          <img
+                            v-if="currentLogo"
+                            :src="currentLogo.startsWith('http') ? currentLogo : `${config.public.apiBaseUrl}${currentLogo}`"
+                            alt="当前Logo"
+                            class="logo-image"
+                          />
+                          <div v-else class="default-logo">
+                            <Icon icon="mdi:image-outline" class="default-icon" />
+                            <span>默认Logo</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <!-- Logo操作按钮 -->
+                      <div class="logo-actions">
+                        <label class="upload-btn" :class="{ disabled: logoUploading }">
+                          <Icon
+                            :icon="logoUploading ? 'mdi:loading' : 'mdi:upload'"
+                            :class="['btn-icon', { 'animate-spin': logoUploading }]"
+                          />
+                          {{ logoUploading ? '上传中...' : '上传Logo' }}
+                          <input
+                            type="file"
+                            accept="image/png,image/jpeg,image/jpg,image/svg+xml"
+                            @change="uploadLogo"
+                            :disabled="logoUploading"
+                            style="display: none;"
+                          />
+                        </label>
+
+                        <button
+                          class="reset-btn"
+                          @click="resetLogo"
+                          :disabled="logoResetting || !currentLogo"
+                        >
+                          <Icon
+                            :icon="logoResetting ? 'mdi:loading' : 'mdi:restore'"
+                            :class="['btn-icon', { 'animate-spin': logoResetting }]"
+                          />
+                          {{ logoResetting ? '重置中...' : '重置默认' }}
+                        </button>
+                      </div>
+
+                      <div class="logo-tips">
+                        <p>支持 PNG、JPG、SVG 格式，建议尺寸 64x64 像素</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="coming-soon">
+                    <Icon icon="mdi:wrench" class="coming-soon-icon" />
+                    <p>更多设置功能即将推出...</p>
+                  </div>
                 </div>
-              </div>
               </Transition>
 
               <BorderBeam
@@ -2479,6 +2637,153 @@ onMounted(async () => {
   opacity: 0.5;
   cursor: not-allowed;
   transform: none;
+}
+
+/* 配置区域样式 */
+.config-section {
+  margin-bottom: 2rem;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.section-icon {
+  width: 1.25rem;
+  height: 1.25rem;
+  color: rgba(59, 130, 246, 0.8);
+}
+
+.section-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+  margin: 0;
+}
+
+/* Logo设置样式 */
+.logo-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.logo-preview {
+  display: flex;
+  justify-content: center;
+}
+
+.preview-container {
+  width: 80px;
+  height: 80px;
+  border-radius: 0.75rem;
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.05);
+  overflow: hidden;
+}
+
+.logo-image {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.default-logo {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.default-icon {
+  width: 2rem;
+  height: 2rem;
+}
+
+.default-logo span {
+  font-size: 0.75rem;
+}
+
+.logo-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+}
+
+.upload-btn, .reset-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.upload-btn {
+  background: linear-gradient(135deg,
+    rgba(34, 197, 94, 0.2) 0%,
+    rgba(34, 197, 94, 0.1) 100%
+  );
+  color: rgba(34, 197, 94, 0.9);
+  border-color: rgba(34, 197, 94, 0.3);
+}
+
+.upload-btn:hover:not(.disabled) {
+  background: linear-gradient(135deg,
+    rgba(34, 197, 94, 0.3) 0%,
+    rgba(34, 197, 94, 0.15) 100%
+  );
+  border-color: rgba(34, 197, 94, 0.5);
+  transform: translateY(-1px);
+}
+
+.reset-btn {
+  background: linear-gradient(135deg,
+    rgba(239, 68, 68, 0.2) 0%,
+    rgba(239, 68, 68, 0.1) 100%
+  );
+  color: rgba(239, 68, 68, 0.9);
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+.reset-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg,
+    rgba(239, 68, 68, 0.3) 0%,
+    rgba(239, 68, 68, 0.15) 100%
+  );
+  border-color: rgba(239, 68, 68, 0.5);
+  transform: translateY(-1px);
+}
+
+.upload-btn.disabled,
+.reset-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.logo-tips {
+  text-align: center;
+}
+
+.logo-tips p {
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.6);
+  margin: 0;
 }
 
 /* 响应式设计 */

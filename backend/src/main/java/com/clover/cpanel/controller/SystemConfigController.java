@@ -46,6 +46,9 @@ public class SystemConfigController {
     // 边距配置相关常量
     private static final String MARGIN_KEY = "content_margin";
 
+    // Logo配置相关常量
+    private static final String LOGO_URL_KEY = "logo_url";
+
     /**
      * 获取壁纸配置
      * @return 壁纸配置信息
@@ -243,6 +246,103 @@ public class SystemConfigController {
         } catch (Exception e) {
             log.error("设置配置值失败", e);
             return ApiResponse.error("设置配置值失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * 上传并设置Logo
+     * @param file Logo文件
+     * @return 操作结果
+     */
+    @PostMapping("/logo/upload")
+    public ApiResponse<Map<String, Object>> uploadLogo(@RequestParam("file") MultipartFile file) {
+        try {
+            // 验证文件
+            if (file.isEmpty()) {
+                return ApiResponse.error("请选择要上传的文件");
+            }
+
+            // 验证文件类型
+            if (!fileUploadService.isValidFileType(file)) {
+                return ApiResponse.error("不支持的文件类型，请选择 PNG、JPG、SVG 格式的图片");
+            }
+
+            // 验证文件大小
+            if (!fileUploadService.isValidFileSize(file)) {
+                return ApiResponse.error("文件大小超出限制");
+            }
+
+            // 上传文件到logos子目录
+            String logoUrl = fileUploadService.uploadFileToSubDirectory(file, "logos", "logo");
+            log.info("Logo文件上传成功: {}", logoUrl);
+
+            // 保存配置到数据库
+            boolean success = systemConfigService.setConfigValue(
+                LOGO_URL_KEY,
+                logoUrl,
+                "自定义Logo图片",
+                ConfigType.THEME
+            );
+
+            if (success) {
+                Map<String, Object> result = new HashMap<>();
+                result.put("logoUrl", logoUrl);
+
+                return ApiResponse.success(result);
+            } else {
+                return ApiResponse.error("保存Logo配置失败");
+            }
+        } catch (Exception e) {
+            log.error("上传Logo失败", e);
+            return ApiResponse.error("上传Logo失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * 获取当前Logo配置
+     * @return Logo配置信息
+     */
+    @GetMapping("/logo")
+    public ApiResponse<Map<String, Object>> getLogoConfig() {
+        try {
+            String logoUrl = systemConfigService.getConfigValue(LOGO_URL_KEY);
+
+            Map<String, Object> result = new HashMap<>();
+            result.put("logoUrl", logoUrl != null ? logoUrl : "");
+
+            return ApiResponse.success(result);
+        } catch (Exception e) {
+            log.error("获取Logo配置失败", e);
+            return ApiResponse.error("获取Logo配置失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * 重置Logo为默认
+     * @return 操作结果
+     */
+    @PostMapping("/logo/reset")
+    public ApiResponse<Map<String, Object>> resetLogo() {
+        try {
+            // 删除Logo配置，恢复默认
+            boolean success = systemConfigService.setConfigValue(
+                LOGO_URL_KEY,
+                "",
+                "重置为默认Logo",
+                ConfigType.THEME
+            );
+
+            if (success) {
+                Map<String, Object> result = new HashMap<>();
+                result.put("logoUrl", "");
+
+                return ApiResponse.success(result);
+            } else {
+                return ApiResponse.error("重置Logo失败");
+            }
+        } catch (Exception e) {
+            log.error("重置Logo失败", e);
+            return ApiResponse.error("重置Logo失败：" + e.getMessage());
         }
     }
 

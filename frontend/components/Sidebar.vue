@@ -1,5 +1,20 @@
 <template>
   <div class="sidebar-container">
+    <!-- Logo区域 -->
+    <div class="logo-section">
+      <div class="logo-container">
+        <img
+          v-if="currentLogo"
+          :src="getLogoUrl(currentLogo)"
+          alt="Logo"
+          class="logo-image"
+        />
+        <div v-else class="default-logo">
+          <Icon icon="mdi:view-dashboard" class="default-logo-icon" />
+        </div>
+      </div>
+    </div>
+
     <div class="sidebar-buttons">
       <NuxtLink to="/" class="nav-button">
         <HomeIcon class="icon" />
@@ -33,10 +48,61 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { HomeIcon, Squares2X2Icon, InformationCircleIcon, ArrowRightOnRectangleIcon } from '@heroicons/vue/24/outline'
+import { Icon } from '@iconify/vue'
 
 const isLoggingOut = ref(false)
+const currentLogo = ref('')
+
+// 获取logo URL的辅助函数
+const getLogoUrl = (logoPath) => {
+  if (!logoPath) return ''
+
+  // 如果是完整URL，直接返回
+  if (logoPath.startsWith('http') || logoPath.startsWith('data:')) {
+    return logoPath
+  }
+
+  // 如果是相对路径，需要拼接API基础URL
+  const config = useRuntimeConfig()
+  return `${config.public.apiBaseUrl}${logoPath}`
+}
+
+// 加载logo配置
+const loadLogo = async () => {
+  try {
+    const config = useRuntimeConfig()
+    const API_BASE_URL = `${config.public.apiBaseUrl}/api`
+
+    const response = await apiRequest(`${API_BASE_URL}/system-config/logo`)
+    const result = await response.json()
+
+    if (result.success) {
+      currentLogo.value = result.data.logoUrl || ''
+    }
+  } catch (error) {
+    console.error('加载Logo失败:', error)
+  }
+}
+
+// 监听logo变更事件
+const handleLogoChanged = (event) => {
+  currentLogo.value = event.detail.logoUrl || ''
+}
+
+onMounted(() => {
+  loadLogo()
+  if (process.client) {
+    window.addEventListener('logoChanged', handleLogoChanged)
+  }
+})
+
+onUnmounted(() => {
+  if (process.client) {
+    window.removeEventListener('logoChanged', handleLogoChanged)
+  }
+})
 
 // 登出处理函数
 const handleLogout = async () => {
@@ -67,7 +133,65 @@ const handleLogout = async () => {
   padding: 1.5rem;
   height: 100%;
   display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* Logo区域样式 */
+.logo-section {
+  margin-bottom: 2rem;
+}
+
+.logo-container {
+  width: 4rem;
+  height: 4rem;
+  border-radius: 1rem;
+  display: flex;
+  align-items: center;
   justify-content: center;
+  background: linear-gradient(135deg,
+    rgba(255, 255, 255, 0.15) 0%,
+    rgba(255, 255, 255, 0.08) 50%,
+    rgba(255, 255, 255, 0.05) 100%
+  );
+  backdrop-filter: blur(10px) saturate(120%);
+  -webkit-backdrop-filter: blur(10px) saturate(120%);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow:
+    0 4px 15px rgba(0, 0, 0, 0.1),
+    0 1px 4px rgba(0, 0, 0, 0.05),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+}
+
+.logo-container:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 6px 20px rgba(0, 0, 0, 0.15),
+    0 2px 6px rgba(0, 0, 0, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+
+.logo-image {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border-radius: 0.75rem;
+}
+
+.default-logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+
+.default-logo-icon {
+  width: 2rem;
+  height: 2rem;
+  color: rgba(255, 255, 255, 0.8);
 }
 
 .sidebar-buttons {
