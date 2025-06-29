@@ -158,6 +158,8 @@ const handleLogout = async () => {
   display: flex;
   flex-direction: column;
   align-items: center;
+  /* 移除背景，让壁纸透过 */
+  background: transparent;
 }
 
 /* Logo区域样式 */

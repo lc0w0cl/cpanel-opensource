@@ -13,6 +13,9 @@ const previewBlur = ref(5)
 const previewMask = ref(30)
 const isPreviewMode = ref(false)
 
+// 内容边距设置
+const contentPadding = ref(0)
+
 // 计算背景样式
 const backgroundStyle = computed(() => {
   return {
@@ -48,7 +51,8 @@ const cssVars = computed(() => {
   return {
     '--bg-image': `url(${backgroundImageUrl.value})`,
     '--bg-blur': `${blur}px`,
-    '--bg-mask': `${mask / 100}`
+    '--bg-mask': `${mask / 100}`,
+    '--content-padding': `${contentPadding.value}px`
   }
 })
 
@@ -94,6 +98,25 @@ const loadWallpaperSettings = async () => {
       wallpaperBlur: wallpaperBlur.value,
       wallpaperMask: wallpaperMask.value
     })
+  }
+}
+
+// 加载内容边距设置
+const loadContentPaddingSettings = async () => {
+  if (process.client) {
+    try {
+      const config = useRuntimeConfig()
+      const API_BASE_URL = `${config.public.apiBaseUrl}/api`
+
+      const response = await apiRequest(`${API_BASE_URL}/system-config/content-padding`)
+      const result = await response.json()
+
+      if (result.success && result.data) {
+        contentPadding.value = result.data.padding || 0
+      }
+    } catch (error) {
+      console.error('加载内容边距设置失败:', error)
+    }
   }
 }
 
@@ -160,13 +183,20 @@ const handleWallpaperPreviewChange = async (event: CustomEvent) => {
   await nextTick()
 }
 
+// 监听内容边距变更事件
+const handleContentPaddingChanged = (event) => {
+  contentPadding.value = event.detail.padding || 0
+}
+
 onMounted(async () => {
   await loadWallpaperSettings()
+  await loadContentPaddingSettings()
 
   // 监听自定义事件，当壁纸设置改变时更新
   if (process.client) {
     window.addEventListener('wallpaperChanged', handleWallpaperChange)
     window.addEventListener('wallpaperPreviewChange', handleWallpaperPreviewChange)
+    window.addEventListener('content-padding-changed', handleContentPaddingChanged)
   }
 })
 
@@ -174,6 +204,7 @@ onUnmounted(() => {
   if (process.client) {
     window.removeEventListener('wallpaperChanged', handleWallpaperChange)
     window.removeEventListener('wallpaperPreviewChange', handleWallpaperPreviewChange)
+    window.removeEventListener('content-padding-changed', handleContentPaddingChanged)
   }
 })
 </script>
@@ -196,6 +227,10 @@ onUnmounted(() => {
       }"
     ></div>
 
+    <!-- 侧边栏 -->
+    <Sidebar class="sidebar-component" />
+
+    <!-- 主内容区域 -->
     <div class="content-container">
       <div class="content-glass-panel">
         <div class="glow-border-container">
@@ -204,7 +239,7 @@ onUnmounted(() => {
               :border-radius="10"
           />
         </div>
-        <div class="content-wrapper">
+        <div class="content-wrapper" :style="{ padding: `calc(2rem + ${contentPadding}px)` }">
           <slot /> <!-- 渲染页面内容 -->
         </div>
       </div>
