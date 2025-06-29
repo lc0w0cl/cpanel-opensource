@@ -23,19 +23,19 @@
     </div>
 
     <div class="sidebar-buttons">
-      <NuxtLink to="/" class="nav-button">
+      <NuxtLink to="/home" class="nav-button">
         <HomeIcon class="icon" />
         <span class="button-text">首页</span>
       </NuxtLink>
-      <NuxtLink to="/navigation-panel" class="nav-button">
+      <NuxtLink to="/home/navigation-panel" class="nav-button">
         <Squares2X2Icon class="icon" />
         <span class="button-text">导航</span>
       </NuxtLink>
-      <NuxtLink to="/settings" class="nav-button">
+      <NuxtLink to="/home/settings" class="nav-button">
         <Squares2X2Icon class="icon" />
         <span class="button-text">设置</span>
       </NuxtLink>
-      <NuxtLink to="/about" class="nav-button">
+      <NuxtLink to="/home/about" class="nav-button">
         <InformationCircleIcon class="icon" />
         <span class="button-text">关于</span>
       </NuxtLink>

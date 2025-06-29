@@ -3,12 +3,7 @@ import { ref, onMounted } from 'vue'
 import { VueDraggable } from 'vue-draggable-plus'
 import { Icon } from '@iconify/vue'
 
-// 应用认证中间件
-definePageMeta({
-  middleware: 'auth',
-  layout: 'dashboard',
-  pageTransition: { name: 'page'}
-})
+// 子页面不需要定义 layout 和 middleware，由父页面处理
 
 // 类型定义
 interface Category {

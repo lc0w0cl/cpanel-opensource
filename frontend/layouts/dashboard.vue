@@ -196,8 +196,6 @@ onUnmounted(() => {
       }"
     ></div>
 
-    <Sidebar class="sidebar-component" />
-
     <div class="content-container">
       <div class="content-glass-panel">
         <div class="glow-border-container">

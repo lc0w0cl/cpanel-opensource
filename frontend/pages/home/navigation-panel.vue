@@ -6,12 +6,7 @@ import NavigationItemDialog from '~/components/NavigationItemDialog.vue'
 import { getImageUrl } from '~/lib/utils'
 import './navigation-panel.css'
 
-// 应用认证中间件
-definePageMeta({
-  middleware: 'auth',
-  layout: 'dashboard',
-  pageTransition: { name: 'page'}
-})
+// 子页面不需要定义 layout 和 middleware，由父页面处理
 
 
 // 类型定义
