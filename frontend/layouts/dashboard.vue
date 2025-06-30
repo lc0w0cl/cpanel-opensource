@@ -52,9 +52,6 @@ onUnmounted(() => {
       }"
     ></div>
 
-    <!-- 侧边栏 -->
-    <Sidebar class="sidebar-component" />
-
     <!-- 主内容区域 -->
     <div class="content-container">
       <div class="content-glass-panel">
@@ -108,7 +105,6 @@ onUnmounted(() => {
 }
 
 /* 确保内容在背景之上 */
-.layout-container > .sidebar-component,
 .layout-container > .content-container {
   position: relative;
   z-index: 1;
@@ -118,23 +114,13 @@ onUnmounted(() => {
 <style scoped>
 .layout-container {
   position: relative;
-  display: flex;
   width: 100%;
   min-height: 100vh;
 }
 
-.sidebar-component {
-  height: 100vh;
-  position: sticky;
-  top: 0;
-}
-
-
-
 .content-container {
-  flex: 1;
   padding: 1.5rem;
-  max-width: 100%;
+  width: 100%;
   max-height: 100vh; /* 限制最大高度为视口高度 */
   display: flex; /* 使子元素能够填充高度 */
 }
@@ -281,14 +267,8 @@ onUnmounted(() => {
 
 /* 响应式布局 */
 @media (max-width: 768px) {
-  .layout-container {
-    flex-direction: column;
-  }
-
-  .sidebar-component {
-    height: auto;
-    position: relative;
-    width: 100%;
+  .content-container {
+    padding: 1rem;
   }
 }
 </style>
