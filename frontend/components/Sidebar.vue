@@ -24,19 +24,19 @@
 
     <div class="sidebar-buttons">
       <NuxtLink to="/home" class="nav-button">
-        <HomeIcon class="icon" />
+        <Icon icon="material-symbols:home-outline" class="icon" />
         <span class="button-text">首页</span>
       </NuxtLink>
       <NuxtLink to="/home/navigation-panel" class="nav-button">
-        <Squares2X2Icon class="icon" />
+        <Icon icon="material-symbols:dashboard-outline" class="icon" />
         <span class="button-text">导航</span>
       </NuxtLink>
       <NuxtLink to="/home/settings" class="nav-button">
-        <Squares2X2Icon class="icon" />
+        <Icon icon="material-symbols:settings-outline" class="icon" />
         <span class="button-text">设置</span>
       </NuxtLink>
       <NuxtLink to="/home/about" class="nav-button">
-        <InformationCircleIcon class="icon" />
+        <Icon icon="material-symbols:info-outline" class="icon" />
         <span class="button-text">关于</span>
       </NuxtLink>
 
@@ -46,7 +46,7 @@
         class="nav-button logout-button"
         :disabled="isLoggingOut"
       >
-        <ArrowRightOnRectangleIcon v-if="!isLoggingOut" class="icon" />
+        <Icon v-if="!isLoggingOut" icon="material-symbols:logout" class="icon" />
         <div v-else class="loading-spinner"></div>
         <span class="button-text">{{ isLoggingOut ? '登出中...' : '登出' }}</span>
       </button>
@@ -56,7 +56,6 @@
 
 <script setup>
 import { ref, onMounted, onUnmounted, nextTick } from 'vue'
-import { HomeIcon, Squares2X2Icon, InformationCircleIcon, ArrowRightOnRectangleIcon } from '@heroicons/vue/24/outline'
 import { Icon } from '@iconify/vue'
 import LiquidLogo from "~/components/inspira/liquid_logo/LiquidLogo.vue";
 
