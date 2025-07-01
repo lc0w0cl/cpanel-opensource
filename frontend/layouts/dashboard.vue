@@ -61,7 +61,12 @@ onUnmounted(() => {
               :border-radius="10"
           />
         </div>
-        <div class="content-wrapper" :style="{ padding: `calc(2rem + ${contentPadding}px)` }">
+        <div class="content-wrapper" :style="{
+          paddingTop: '2rem',
+          paddingBottom: '2rem',
+          paddingLeft: `calc(2rem + ${contentPadding}px)`,
+          paddingRight: `calc(2rem + ${contentPadding}px)`
+        }">
           <slot /> <!-- 渲染页面内容 -->
         </div>
       </div>
@@ -207,7 +212,6 @@ onUnmounted(() => {
 .content-wrapper {
   position: relative;
   height: 100%; /* 填满父容器高度 */
-  padding: 2rem;
   z-index: 2;
   overflow-y: auto; /* 在内容包装器中处理滚动 */
 }

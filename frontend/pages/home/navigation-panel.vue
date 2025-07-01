@@ -89,6 +89,9 @@ const marginDialog = ref({
 // 边距设置值
 const contentMargin = ref(0)
 
+// 使用壁纸系统的内容边距
+const { contentPadding } = useWallpaper()
+
 // API配置
 const config = useRuntimeConfig()
 const API_BASE_URL = `${config.public.apiBaseUrl}/api`
@@ -308,18 +311,12 @@ const hideMarginDialog = () => {
 
 // 更新边距
 const updateMargin = () => {
-  applyMarginSettings()
   saveMarginSettings()
-}
-
-// 应用边距设置到CSS
-const applyMarginSettings = () => {
+  // 触发全局内容边距更新事件
   if (process.client) {
-    const contentWrapper = document.querySelector('.content-wrapper') as HTMLElement
-    if (contentWrapper) {
-      contentWrapper.style.paddingLeft = `${contentMargin.value}rem`
-      contentWrapper.style.paddingRight = `${contentMargin.value}rem`
-    }
+    window.dispatchEvent(new CustomEvent('content-padding-changed', {
+      detail: { padding: contentMargin.value * 16 } // 转换rem到px (1rem = 16px)
+    }))
   }
 }
 
@@ -329,24 +326,25 @@ const saveMarginSettings = async () => {
     // 保存到localStorage
     localStorage.setItem('contentMargin', contentMargin.value.toString())
 
-    // 保存到后端
+    // 保存到后端 - 使用内容边距API而不是边距API
     try {
-      const response = await apiRequest(`${API_BASE_URL}/system-config/margin`, {
+      const paddingValue = contentMargin.value * 16 // 转换rem到px
+      const response = await apiRequest(`${API_BASE_URL}/system-config/content-padding`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          margin: contentMargin.value
+          padding: paddingValue
         })
       })
 
       const result = await response.json()
       if (result.success) {
-        console.log('边距设置已保存到后端')
+        console.log('内容边距设置已保存到后端')
       }
     } catch (error) {
-      console.error('保存边距设置到后端失败:', error)
+      console.error('保存内容边距设置到后端失败:', error)
     }
   }
 }
@@ -355,27 +353,23 @@ const saveMarginSettings = async () => {
 const loadMarginSettings = async () => {
   if (process.client) {
     try {
-      // 首先尝试从后端加载
-      const response = await apiRequest(`${API_BASE_URL}/system-config/margin`)
+      // 首先尝试从后端加载内容边距设置
+      const response = await apiRequest(`${API_BASE_URL}/system-config/content-padding`)
       const result = await response.json()
 
       if (result.success && result.data) {
-        contentMargin.value = result.data.margin || 0
+        // 从px转换为rem (1rem = 16px)
+        contentMargin.value = (result.data.padding || 0) / 16
       } else {
         // 从localStorage加载
         const savedMargin = localStorage.getItem('contentMargin')
         contentMargin.value = savedMargin ? parseFloat(savedMargin) : 0
       }
-
-      // 应用设置
-      applyMarginSettings()
     } catch (error) {
-      console.error('加载边距设置失败:', error)
+      console.error('加载内容边距设置失败:', error)
       // 从localStorage加载
       const savedMargin = localStorage.getItem('contentMargin')
       contentMargin.value = savedMargin ? parseFloat(savedMargin) : 0
-
-      applyMarginSettings()
     }
   }
 }

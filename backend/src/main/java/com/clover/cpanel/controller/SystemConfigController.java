@@ -46,6 +46,9 @@ public class SystemConfigController {
     // 边距配置相关常量
     private static final String MARGIN_KEY = "content_margin";
 
+    // 内容边距配置相关常量
+    private static final String CONTENT_PADDING_KEY = "content_padding";
+
     // Logo配置相关常量
     private static final String LOGO_URL_KEY = "logo_url";
 
@@ -406,6 +409,77 @@ public class SystemConfigController {
         } catch (Exception e) {
             log.error("获取边距设置失败", e);
             return ApiResponse.error("获取边距设置失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * 保存内容边距设置
+     * @param request 内容边距配置请求
+     * @return 操作结果
+     */
+    @PostMapping("/content-padding")
+    public ApiResponse<Map<String, Object>> saveContentPaddingSettings(@RequestBody Map<String, Object> request) {
+        try {
+            Object paddingObj = request.get("padding");
+            Double padding = 0.0;
+
+            if (paddingObj instanceof Number) {
+                padding = ((Number) paddingObj).doubleValue();
+            } else if (paddingObj instanceof String) {
+                padding = Double.parseDouble((String) paddingObj);
+            }
+
+            log.info("保存内容边距设置: 边距={}px", padding);
+
+            // 保存配置到数据库
+            boolean success = saveContentPaddingConfig(padding);
+
+            if (success) {
+                Map<String, Object> result = new HashMap<>();
+                result.put("padding", padding);
+
+                return ApiResponse.success(result);
+            } else {
+                return ApiResponse.error("保存内容边距配置失败");
+            }
+        } catch (Exception e) {
+            log.error("保存内容边距设置失败", e);
+            return ApiResponse.error("保存内容边距设置失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * 获取内容边距设置
+     * @return 内容边距配置
+     */
+    @GetMapping("/content-padding")
+    public ApiResponse<Map<String, Object>> getContentPaddingSettings() {
+        try {
+            String paddingStr = systemConfigService.getConfigValue(CONTENT_PADDING_KEY);
+            Double padding = paddingStr != null ? Double.parseDouble(paddingStr) : 0.0;
+
+            Map<String, Object> result = new HashMap<>();
+            result.put("padding", padding);
+
+            return ApiResponse.success(result);
+        } catch (Exception e) {
+            log.error("获取内容边距设置失败", e);
+            return ApiResponse.error("获取内容边距设置失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * 保存内容边距配置到数据库
+     * @param padding 内容边距值（px）
+     * @return 是否保存成功
+     */
+    private boolean saveContentPaddingConfig(Double padding) {
+        try {
+            return systemConfigService.setConfigValue(CONTENT_PADDING_KEY,
+                padding.toString(), "内容区域左右边距（像素）", ConfigType.THEME);
+        } catch (Exception e) {
+            log.error("保存内容边距配置失败", e);
+            return false;
         }
     }
 
