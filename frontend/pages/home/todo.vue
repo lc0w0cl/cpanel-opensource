@@ -6,18 +6,14 @@ import { VueDraggable } from 'vue-draggable-plus'
 
 // 子页面不需要定义 layout 和 middleware，由父页面处理
 
-// 任务接口定义
-interface Todo {
-  id: number
-  text: string
-  completed: boolean
-  createdAt: string
-  updatedAt: string
-  sortOrder?: number
-}
+// 导入API函数和类型
+import { useTodoApi, type Todo } from '~/composables/useTodoApi'
 
 // 筛选类型
 type FilterType = 'all' | 'active' | 'completed'
+
+// 初始化API
+const todoApi = useTodoApi()
 
 
 
@@ -72,52 +68,50 @@ const allCompleted = computed(() => {
   return todos.value.length > 0 && todos.value.every(todo => todo.completed)
 })
 
-// 生成唯一ID
-const generateId = () => {
-  return Date.now() + Math.random()
-}
-
 // 添加新任务
-const addTodo = () => {
+const addTodo = async () => {
   const text = newTodoText.value.trim()
   if (!text) return
 
-  const newTodo: Todo = {
-    id: generateId(),
-    text,
-    completed: false,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    sortOrder: getNextSortOrder()
+  try {
+    const newTodo = await todoApi.createTodo(text)
+    if (newTodo) {
+      todos.value.unshift(newTodo)
+      newTodoText.value = ''
+    }
+  } catch (error) {
+    console.error('添加任务失败:', error)
   }
-
-  todos.value.unshift(newTodo)
-  newTodoText.value = ''
-  saveTodos()
-}
-
-// 获取下一个排序号
-const getNextSortOrder = () => {
-  const maxOrder = Math.max(...todos.value.map(t => t.sortOrder || 0), 0)
-  return maxOrder + 1
 }
 
 // 切换任务完成状态
-const toggleTodo = (id: number) => {
-  const todo = todos.value.find(t => t.id === id)
-  if (todo) {
-    todo.completed = !todo.completed
-    todo.updatedAt = new Date().toISOString()
-    saveTodos()
+const toggleTodo = async (id: number) => {
+  try {
+    const success = await todoApi.toggleTodoCompleted(id)
+    if (success) {
+      const todo = todos.value.find(t => t.id === id)
+      if (todo) {
+        todo.completed = !todo.completed
+        todo.updatedAt = new Date().toISOString()
+      }
+    }
+  } catch (error) {
+    console.error('切换任务状态失败:', error)
   }
 }
 
 // 删除任务
-const deleteTodo = (id: number) => {
-  const index = todos.value.findIndex(t => t.id === id)
-  if (index > -1) {
-    todos.value.splice(index, 1)
-    saveTodos()
+const deleteTodo = async (id: number) => {
+  try {
+    const success = await todoApi.deleteTodo(id)
+    if (success) {
+      const index = todos.value.findIndex(t => t.id === id)
+      if (index > -1) {
+        todos.value.splice(index, 1)
+      }
+    }
+  } catch (error) {
+    console.error('删除任务失败:', error)
   }
 }
 
@@ -137,18 +131,26 @@ const startEdit = (todo: Todo) => {
 }
 
 // 保存编辑
-const saveEdit = () => {
+const saveEdit = async () => {
   const text = editingText.value.trim()
   if (!text) {
     cancelEdit()
     return
   }
 
-  const todo = todos.value.find(t => t.id === editingId.value)
-  if (todo) {
-    todo.text = text
-    todo.updatedAt = new Date().toISOString()
-    saveTodos()
+  if (editingId.value) {
+    try {
+      const success = await todoApi.updateTodoText(editingId.value, text)
+      if (success) {
+        const todo = todos.value.find(t => t.id === editingId.value)
+        if (todo) {
+          todo.text = text
+          todo.updatedAt = new Date().toISOString()
+        }
+      }
+    } catch (error) {
+      console.error('更新任务失败:', error)
+    }
   }
 
   cancelEdit()
@@ -161,53 +163,64 @@ const cancelEdit = () => {
 }
 
 // 全选/全不选
-const toggleAll = () => {
+const toggleAll = async () => {
   const shouldComplete = !allCompleted.value
-  todos.value.forEach(todo => {
-    todo.completed = shouldComplete
-    todo.updatedAt = new Date().toISOString()
-  })
-  saveTodos()
+  try {
+    const success = await todoApi.setAllTodosCompleted(shouldComplete)
+    if (success) {
+      todos.value.forEach(todo => {
+        todo.completed = shouldComplete
+        todo.updatedAt = new Date().toISOString()
+      })
+    }
+  } catch (error) {
+    console.error('批量设置任务状态失败:', error)
+  }
 }
 
 // 清除已完成任务
-const clearCompleted = () => {
-  todos.value = todos.value.filter(todo => !todo.completed)
-  saveTodos()
+const clearCompleted = async () => {
+  try {
+    const deletedCount = await todoApi.deleteCompletedTodos()
+    if (deletedCount > 0) {
+      todos.value = todos.value.filter(todo => !todo.completed)
+    }
+  } catch (error) {
+    console.error('删除已完成任务失败:', error)
+  }
 }
 
 
 
 // 拖拽排序结束处理
-const onDragEnd = () => {
+const onDragEnd = async () => {
   const currentTime = new Date().toISOString()
+  const todoIds = draggableTodos.value.map(todo => todo.id)
 
-  // 更新排序号
-  draggableTodos.value.forEach((todo, index) => {
-    const originalTodo = todos.value.find(t => t.id === todo.id)
-    if (originalTodo) {
-      originalTodo.sortOrder = index + 1
-      originalTodo.updatedAt = currentTime
-    }
-  })
-
-  saveTodos()
-}
-
-
-
-// 保存到localStorage
-const saveTodos = () => {
-  localStorage.setItem('todos', JSON.stringify(todos.value))
-}
-
-// 从localStorage加载
-const loadTodos = () => {
   try {
-    const saved = localStorage.getItem('todos')
-    if (saved) {
-      todos.value = JSON.parse(saved)
+    const success = await todoApi.updateTodosSortOrder(todoIds)
+    if (success) {
+      // 更新本地排序号
+      draggableTodos.value.forEach((todo, index) => {
+        const originalTodo = todos.value.find(t => t.id === todo.id)
+        if (originalTodo) {
+          originalTodo.sortOrder = index + 1
+          originalTodo.updatedAt = currentTime
+        }
+      })
     }
+  } catch (error) {
+    console.error('更新任务排序失败:', error)
+  }
+}
+
+
+
+// 从API加载任务
+const loadTodos = async () => {
+  try {
+    const todoList = await todoApi.getAllTodos()
+    todos.value = todoList
   } catch (error) {
     console.error('加载任务失败:', error)
     todos.value = []
@@ -228,8 +241,8 @@ const handleKeyup = (event: KeyboardEvent) => {
 }
 
 // 组件挂载时加载数据
-onMounted(() => {
-  loadTodos()
+onMounted(async () => {
+  await loadTodos()
 })
 </script>
 
