@@ -341,7 +341,7 @@ onMounted(() => {
                       :title="allCompleted ? '全部标记为未完成' : '全部标记为完成'"
                     >
                       <Icon :icon="allCompleted ? 'material-symbols:check-box' : 'material-symbols:check-box-outline-blank'" />
-                      {{ allCompleted ? '全不选' : '全选' }}
+                      {{ allCompleted ? '全部标记为未完成' : '全部标记为完成' }}
                     </button>
                     <button
                       @click="clearCompleted"
@@ -656,7 +656,7 @@ onMounted(() => {
 
 /* 卡片内容 */
 .card-content {
-  padding: 0 1.5rem 1.5rem 1.5rem;
+  padding: 1.5rem 1.5rem 1.5rem 1.5rem;
 }
 
 /* 添加任务表单 */
