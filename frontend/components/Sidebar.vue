@@ -35,9 +35,9 @@
         <Icon icon="material-symbols:settings-outline" class="icon" />
         <span class="button-text">设置</span>
       </NuxtLink>
-      <NuxtLink to="/home/about" class="nav-button">
-        <Icon icon="material-symbols:info-outline" class="icon" />
-        <span class="button-text">关于</span>
+      <NuxtLink to="/home/todo" class="nav-button">
+        <Icon icon="material-symbols:event-note" class="icon" />
+        <span class="button-text">TODO</span>
       </NuxtLink>
 
       <!-- 登出按钮 -->
