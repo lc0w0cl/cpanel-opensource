@@ -31,14 +31,15 @@
         <Icon icon="material-symbols:dashboard-outline" class="icon" />
         <span class="button-text">导航</span>
       </NuxtLink>
-      <NuxtLink to="/home/settings" class="nav-button">
-        <Icon icon="material-symbols:settings-outline" class="icon" />
-        <span class="button-text">设置</span>
-      </NuxtLink>
       <NuxtLink to="/home/todo" class="nav-button">
         <Icon icon="material-symbols:event-note" class="icon" />
         <span class="button-text">TODO</span>
       </NuxtLink>
+      <NuxtLink to="/home/settings" class="nav-button">
+        <Icon icon="material-symbols:settings-outline" class="icon" />
+        <span class="button-text">设置</span>
+      </NuxtLink>
+
 
       <!-- 登出按钮 -->
       <button
