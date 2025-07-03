@@ -507,20 +507,21 @@ onMounted(async () => {
   margin-bottom: 2rem;
   flex-wrap: wrap;
   gap: 1rem;
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
 }
 
 .dashboard-title {
-  font-size: 2rem;
-  font-weight: 700;
+  font-size: 1.4rem;
+  font-weight: 600;
   color: rgba(255, 255, 255, 0.9);
   margin: 0;
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 /* 统计摘要 */
 .stats-summary {
   display: flex;
-  gap: 1.5rem;
+  gap: 1rem;
   align-items: center;
 }
 
@@ -529,22 +530,13 @@ onMounted(async () => {
   align-items: center;
   gap: 0.5rem;
   padding: 0.75rem 1rem;
-  border-radius: 0.75rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  transition: border-color 0.3s ease;
+}
 
-  /* 液态玻璃效果 */
-  background: linear-gradient(135deg,
-    rgba(255, 255, 255, 0.15) 0%,
-    rgba(255, 255, 255, 0.08) 50%,
-    rgba(255, 255, 255, 0.05) 100%
-  );
-  backdrop-filter: blur(15px) saturate(150%);
-  -webkit-backdrop-filter: blur(15px) saturate(150%);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-
-  box-shadow:
-    0 6px 20px rgba(0, 0, 0, 0.15),
-    0 2px 6px rgba(0, 0, 0, 0.1),
-    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+.stat-item:hover {
+  border-color: rgba(255, 255, 255, 0.2);
 }
 
 .stat-icon {
@@ -562,16 +554,16 @@ onMounted(async () => {
 }
 
 .stat-value {
-  font-size: 1.125rem;
-  font-weight: 700;
+  font-size: 1rem;
+  font-weight: 600;
   color: rgba(255, 255, 255, 0.9);
   min-width: 1.5rem;
   text-align: center;
 }
 
 .stat-label {
-  font-size: 0.875rem;
-  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.6);
   font-weight: 500;
 }
 
@@ -584,35 +576,14 @@ onMounted(async () => {
 
 /* Todo卡片基础样式 */
 .todo-card {
-  border-radius: 1rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
   overflow: hidden;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-
-  /* 液态玻璃效果 */
-  background: linear-gradient(135deg,
-    rgba(255, 255, 255, 0.15) 0%,
-    rgba(255, 255, 255, 0.08) 50%,
-    rgba(255, 255, 255, 0.05) 100%
-  );
-  backdrop-filter: blur(20px) saturate(150%);
-  -webkit-backdrop-filter: blur(20px) saturate(150%);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-
-  /* 阴影效果 */
-  box-shadow:
-    0 20px 40px rgba(0, 0, 0, 0.15),
-    0 8px 16px rgba(0, 0, 0, 0.1),
-    inset 0 1px 0 rgba(255, 255, 255, 0.3),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.1);
+  transition: border-color 0.3s ease, transform 0.2s ease;
 }
 
 .todo-card:hover {
-  transform: translateY(-2px);
-  box-shadow:
-    0 25px 50px rgba(0, 0, 0, 0.2),
-    0 12px 20px rgba(0, 0, 0, 0.15),
-    inset 0 1px 0 rgba(255, 255, 255, 0.4),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.1);
+  border-color: rgba(255, 255, 255, 0.2);
 }
 
 /* 卡片头部 */
@@ -620,33 +591,23 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   gap: 1rem;
-  padding: 1.5rem 1.5rem 1rem 1.5rem;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .card-icon {
-  width: 3rem;
-  height: 3rem;
-  border-radius: 0.75rem;
+  width: 1.5rem;
+  height: 1.5rem;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  color: rgba(59, 130, 246, 0.8);
 }
 
 .card-icon svg {
   width: 1.5rem;
   height: 1.5rem;
-  color: rgba(255, 255, 255, 0.9);
-}
-
-/* 添加图标样式 */
-.add-icon {
-  background: linear-gradient(135deg,
-    rgba(59, 130, 246, 0.3) 0%,
-    rgba(59, 130, 246, 0.2) 100%
-  );
-  border: 1px solid rgba(59, 130, 246, 0.4);
 }
 
 .card-title-section {
@@ -655,21 +616,21 @@ onMounted(async () => {
 }
 
 .card-title {
-  font-size: 1.125rem;
+  font-size: 1.1rem;
   font-weight: 600;
   color: rgba(255, 255, 255, 0.9);
   margin: 0 0 0.25rem 0;
 }
 
 .card-subtitle {
-  font-size: 0.875rem;
+  font-size: 0.8rem;
   color: rgba(255, 255, 255, 0.6);
   margin: 0;
 }
 
 /* 卡片内容 */
 .card-content {
-  padding: 1.5rem 1.5rem 1.5rem 1.5rem;
+  padding: 1.5rem;
 }
 
 /* 添加任务表单 */
@@ -681,56 +642,59 @@ onMounted(async () => {
 
 .todo-input {
   flex: 1;
-  padding: 0.875rem 1rem;
-  border-radius: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.5rem;
   border: 1px solid rgba(255, 255, 255, 0.2);
   background: linear-gradient(135deg,
-    rgba(255, 255, 255, 0.1) 0%,
-    rgba(255, 255, 255, 0.05) 100%
+    rgba(255, 255, 255, 0.08) 0%,
+    rgba(255, 255, 255, 0.04) 100%
   );
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
   color: rgba(255, 255, 255, 0.9);
   font-size: 0.875rem;
   transition: all 0.3s ease;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 }
 
 .todo-input::placeholder {
-  color: rgba(255, 255, 255, 0.5);
+  color: rgba(255, 255, 255, 0.4);
 }
 
 .todo-input:focus {
   outline: none;
   border-color: rgba(59, 130, 246, 0.5);
+  background: linear-gradient(135deg,
+    rgba(255, 255, 255, 0.12) 0%,
+    rgba(255, 255, 255, 0.06) 100%
+  );
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
 .add-btn {
-  width: 3rem;
-  height: 3rem;
-  border-radius: 0.75rem;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.5rem;
   display: flex;
   align-items: center;
   justify-content: center;
-  border: none;
+  border: 1px solid rgba(59, 130, 246, 0.3);
   cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-
+  transition: all 0.3s ease;
   background: linear-gradient(135deg,
-    rgba(59, 130, 246, 0.8) 0%,
-    rgba(59, 130, 246, 0.6) 100%
+    rgba(59, 130, 246, 0.15) 0%,
+    rgba(59, 130, 246, 0.08) 100%
   );
-
-  box-shadow:
-    0 6px 20px rgba(59, 130, 246, 0.3),
-    0 2px 6px rgba(59, 130, 246, 0.2);
+  color: rgba(59, 130, 246, 0.9);
 }
 
 .add-btn:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow:
-    0 8px 25px rgba(59, 130, 246, 0.4),
-    0 4px 10px rgba(59, 130, 246, 0.3);
+  background: linear-gradient(135deg,
+    rgba(59, 130, 246, 0.25) 0%,
+    rgba(59, 130, 246, 0.15) 100%
+  );
+  border-color: rgba(59, 130, 246, 0.5);
+  color: rgba(59, 130, 246, 1);
+  transform: translateY(-1px);
 }
 
 .add-btn:disabled {
@@ -740,9 +704,8 @@ onMounted(async () => {
 }
 
 .add-btn-icon {
-  width: 1.5rem;
-  height: 1.5rem;
-  color: white;
+  width: 1rem;
+  height: 1rem;
 }
 
 /* 筛选控制 */
@@ -767,8 +730,8 @@ onMounted(async () => {
   border-radius: 0.5rem;
   border: 1px solid rgba(255, 255, 255, 0.2);
   background: linear-gradient(135deg,
-    rgba(255, 255, 255, 0.1) 0%,
-    rgba(255, 255, 255, 0.05) 100%
+    rgba(255, 255, 255, 0.08) 0%,
+    rgba(255, 255, 255, 0.04) 100%
   );
   color: rgba(255, 255, 255, 0.7);
   font-size: 0.875rem;
@@ -784,11 +747,11 @@ onMounted(async () => {
 
 .filter-btn.active {
   background: linear-gradient(135deg,
-    rgba(59, 130, 246, 0.3) 0%,
-    rgba(59, 130, 246, 0.2) 100%
+    rgba(59, 130, 246, 0.15) 0%,
+    rgba(59, 130, 246, 0.08) 100%
   );
-  border-color: rgba(59, 130, 246, 0.4);
-  color: rgba(255, 255, 255, 0.9);
+  border-color: rgba(59, 130, 246, 0.3);
+  color: rgba(59, 130, 246, 0.9);
 }
 
 .filter-btn svg {
@@ -812,8 +775,8 @@ onMounted(async () => {
   border-radius: 0.5rem;
   border: 1px solid rgba(255, 255, 255, 0.2);
   background: linear-gradient(135deg,
-    rgba(255, 255, 255, 0.1) 0%,
-    rgba(255, 255, 255, 0.05) 100%
+    rgba(255, 255, 255, 0.08) 0%,
+    rgba(255, 255, 255, 0.04) 100%
   );
   color: rgba(255, 255, 255, 0.7);
   font-size: 0.875rem;
@@ -834,10 +797,11 @@ onMounted(async () => {
 
 .bulk-btn.clear-btn:hover:not(:disabled) {
   background: linear-gradient(135deg,
-    rgba(239, 68, 68, 0.3) 0%,
-    rgba(239, 68, 68, 0.2) 100%
+    rgba(239, 68, 68, 0.15) 0%,
+    rgba(239, 68, 68, 0.08) 100%
   );
-  border-color: rgba(239, 68, 68, 0.4);
+  border-color: rgba(239, 68, 68, 0.3);
+  color: rgba(239, 68, 68, 0.9);
 }
 
 .bulk-btn svg {
@@ -851,14 +815,12 @@ onMounted(async () => {
   align-items: center;
   gap: 0.75rem;
   padding: 1rem 1.5rem;
-  border-radius: 0.75rem;
+  border-radius: 0.5rem;
   background: linear-gradient(135deg,
     rgba(59, 130, 246, 0.15) 0%,
     rgba(59, 130, 246, 0.08) 100%
   );
   border: 1px solid rgba(59, 130, 246, 0.3);
-  backdrop-filter: blur(15px);
-  -webkit-backdrop-filter: blur(15px);
 }
 
 .drag-hint-card .hint-icon {
@@ -889,15 +851,8 @@ onMounted(async () => {
   justify-content: center;
   padding: 4rem 2rem;
   text-align: center;
-
-  border-radius: 1rem;
-  background: linear-gradient(135deg,
-    rgba(255, 255, 255, 0.1) 0%,
-    rgba(255, 255, 255, 0.05) 100%
-  );
-  backdrop-filter: blur(15px);
-  -webkit-backdrop-filter: blur(15px);
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .empty-icon {
@@ -907,12 +862,8 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 1rem;
-  background: linear-gradient(135deg,
-    rgba(255, 255, 255, 0.15) 0%,
-    rgba(255, 255, 255, 0.08) 100%
-  );
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .empty-icon svg {
@@ -941,27 +892,12 @@ onMounted(async () => {
   gap: 1rem;
   padding: 1rem 1.5rem;
   border-radius: 0.75rem;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-
-  background: linear-gradient(135deg,
-    rgba(255, 255, 255, 0.12) 0%,
-    rgba(255, 255, 255, 0.06) 100%
-  );
-  backdrop-filter: blur(15px);
-  -webkit-backdrop-filter: blur(15px);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-
-  box-shadow:
-    0 8px 16px rgba(0, 0, 0, 0.1),
-    0 2px 4px rgba(0, 0, 0, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  transition: border-color 0.3s ease, transform 0.2s ease;
 }
 
 .todo-item:hover {
-  transform: translateY(-1px);
-  box-shadow:
-    0 12px 24px rgba(0, 0, 0, 0.15),
-    0 4px 8px rgba(0, 0, 0, 0.1);
-  border-color: rgba(255, 255, 255, 0.25);
+  border-color: rgba(255, 255, 255, 0.2);
 }
 
 .todo-item.completed {
@@ -1011,19 +947,13 @@ onMounted(async () => {
 /* 拖拽状态样式 */
 .ghost-item {
   opacity: 0.5;
-  background: linear-gradient(135deg,
-    rgba(59, 130, 246, 0.2) 0%,
-    rgba(59, 130, 246, 0.1) 100%
-  );
   border: 2px dashed rgba(59, 130, 246, 0.5);
   transform: rotate(2deg);
 }
 
 .chosen-item {
   transform: scale(1.02);
-  box-shadow:
-    0 15px 30px rgba(0, 0, 0, 0.2),
-    0 6px 12px rgba(0, 0, 0, 0.15);
+  border-color: rgba(59, 130, 246, 0.5);
 }
 
 .drag-item {
@@ -1087,19 +1017,20 @@ onMounted(async () => {
   border-radius: 0.5rem;
   border: 1px solid rgba(59, 130, 246, 0.5);
   background: linear-gradient(135deg,
-    rgba(255, 255, 255, 0.15) 0%,
-    rgba(255, 255, 255, 0.08) 100%
+    rgba(255, 255, 255, 0.12) 0%,
+    rgba(255, 255, 255, 0.06) 100%
   );
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   color: rgba(255, 255, 255, 0.9);
   font-size: 0.875rem;
   line-height: 1.5;
+  transition: all 0.3s ease;
 }
 
 .todo-edit-input:focus {
   outline: none;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
 /* 任务操作按钮 */
@@ -1119,8 +1050,8 @@ onMounted(async () => {
   justify-content: center;
   border: 1px solid rgba(255, 255, 255, 0.2);
   background: linear-gradient(135deg,
-    rgba(255, 255, 255, 0.1) 0%,
-    rgba(255, 255, 255, 0.05) 100%
+    rgba(255, 255, 255, 0.08) 0%,
+    rgba(255, 255, 255, 0.04) 100%
   );
   cursor: pointer;
   transition: all 0.3s ease;
@@ -1128,7 +1059,6 @@ onMounted(async () => {
 
 .action-btn:hover {
   border-color: rgba(255, 255, 255, 0.3);
-  transform: translateY(-1px);
 }
 
 .action-btn svg {
@@ -1139,26 +1069,28 @@ onMounted(async () => {
 
 .edit-btn:hover {
   background: linear-gradient(135deg,
-    rgba(59, 130, 246, 0.3) 0%,
-    rgba(59, 130, 246, 0.2) 100%
+    rgba(59, 130, 246, 0.15) 0%,
+    rgba(59, 130, 246, 0.08) 100%
   );
-  border-color: rgba(59, 130, 246, 0.4);
+  border-color: rgba(59, 130, 246, 0.3);
+  color: rgba(59, 130, 246, 0.9);
 }
 
 .edit-btn:hover svg {
-  color: rgba(255, 255, 255, 0.9);
+  color: rgba(59, 130, 246, 0.9);
 }
 
 .delete-btn:hover {
   background: linear-gradient(135deg,
-    rgba(239, 68, 68, 0.3) 0%,
-    rgba(239, 68, 68, 0.2) 100%
+    rgba(239, 68, 68, 0.15) 0%,
+    rgba(239, 68, 68, 0.08) 100%
   );
-  border-color: rgba(239, 68, 68, 0.4);
+  border-color: rgba(239, 68, 68, 0.3);
+  color: rgba(239, 68, 68, 0.9);
 }
 
 .delete-btn:hover svg {
-  color: rgba(255, 255, 255, 0.9);
+  color: rgba(239, 68, 68, 0.9);
 }
 
 /* 响应式设计 */
