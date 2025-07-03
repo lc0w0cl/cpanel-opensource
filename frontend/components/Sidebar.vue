@@ -35,6 +35,10 @@
         <Icon icon="material-symbols:event-note" class="icon" />
         <span class="button-text">TODO</span>
       </NuxtLink>
+      <NuxtLink to="/home/music" class="nav-button">
+        <Icon icon="material-symbols:settings-outline" class="icon" />
+        <span class="button-text">音乐</span>
+      </NuxtLink>
       <NuxtLink to="/home/settings" class="nav-button">
         <Icon icon="material-symbols:settings-outline" class="icon" />
         <span class="button-text">设置</span>
