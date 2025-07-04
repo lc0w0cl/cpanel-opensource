@@ -32,6 +32,7 @@ public class WebConfig implements WebMvcConfigurer {
                         "/api/auth/login",      // 排除登录接口
                         "/api/auth/status",     // 排除状态检查接口
                         "/api/auth/refresh",    // 排除token刷新接口
+                        "/api/music/**",        // 排除音乐相关接口（不需要认证）
                         "/uploads/**",          // 排除文件上传路径
                         "/static/**",           // 排除静态资源
                         "/css/**",

@@ -45,3 +45,14 @@ jwt:
   issuer: cpanel
   # 受众
   audience: cpanel-users
+
+# 服务器配置
+server:
+  port: 8080
+
+# 音乐服务配置
+music:
+  # 图片代理配置
+  proxy:
+    # 代理服务器基础URL（用于生成代理链接）
+    base-url: http://localhost:8080

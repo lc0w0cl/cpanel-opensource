@@ -7,6 +7,7 @@ import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
@@ -23,9 +24,12 @@ import java.util.regex.Pattern;
 @Slf4j
 @Service
 public class MusicSearchService {
-    
+
     private static final String BILIBILI_SEARCH_URL = "https://search.bilibili.com/all";
     private static final String USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
+
+    @Value("${music.proxy.base-url:http://localhost:8080}")
+    private String proxyBaseUrl;
     
     /**
      * 搜索音乐
@@ -196,6 +200,11 @@ public class MusicSearchService {
                 if (!thumbnail.isEmpty() && !thumbnail.startsWith("http")) {
                     thumbnail = "https:" + thumbnail;
                 }
+
+                // 将缩略图URL转换为代理URL
+                if (!thumbnail.isEmpty()) {
+                    thumbnail = convertToProxyUrl(thumbnail);
+                }
             }
 
             // 提取播放量 - 根据新结构，从stats区域获取第一个数字
@@ -256,5 +265,41 @@ public class MusicSearchService {
             return matcher.group(1);
         }
         return "";
+    }
+
+    /**
+     * 将原始图片URL转换为代理URL
+     */
+    private String convertToProxyUrl(String originalUrl) {
+        try {
+            if (originalUrl == null || originalUrl.trim().isEmpty()) {
+                return "";
+            }
+
+            // 检查是否为哔哩哔哩的图片
+            String cleanUrl = originalUrl.startsWith("//") ? originalUrl.substring(2) : originalUrl;
+            if (cleanUrl.startsWith("https://")) {
+                cleanUrl = cleanUrl.substring(8);
+            } else if (cleanUrl.startsWith("http://")) {
+                cleanUrl = cleanUrl.substring(7);
+            }
+
+            // 只对哔哩哔哩的图片进行代理
+            if (cleanUrl.startsWith("i0.hdslb.com/") ||
+                cleanUrl.startsWith("i1.hdslb.com/") ||
+                cleanUrl.startsWith("i2.hdslb.com/") ||
+                cleanUrl.startsWith("s1.hdslb.com/") ||
+                cleanUrl.startsWith("s2.hdslb.com/")) {
+
+                // 构建代理URL
+                String encodedUrl = URLEncoder.encode(originalUrl, StandardCharsets.UTF_8);
+                return String.format("%s/api/music/proxy/image?url=%s", proxyBaseUrl, encodedUrl);
+            }
+
+            return originalUrl;
+        } catch (Exception e) {
+            log.warn("转换代理URL失败: {}", e.getMessage());
+            return originalUrl;
+        }
     }
 }

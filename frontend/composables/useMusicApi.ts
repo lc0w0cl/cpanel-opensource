@@ -2,8 +2,6 @@
  * 音乐API 相关的组合式函数
  */
 
-import { apiRequest } from './useJwt'
-
 // 音乐搜索结果接口定义
 export interface MusicSearchResult {
   id: string
@@ -49,16 +47,17 @@ export const useMusicApi = () => {
    */
   const searchMusic = async (request: MusicSearchRequest): Promise<MusicSearchResult[]> => {
     try {
-      const response = await apiRequest(`${API_BASE_URL}/music/search`, {
+      // 音乐搜索不需要认证，直接使用 fetch
+      const response = await fetch(`${API_BASE_URL}/music/search`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify(request)
       })
-      
+
       const result: ApiResponse<MusicSearchResult[]> = await response.json()
-      
+
       if (result.success) {
         return result.data || []
       } else {
@@ -76,9 +75,10 @@ export const useMusicApi = () => {
    */
   const getVideoDetail = async (platform: string, videoId: string): Promise<MusicSearchResult | null> => {
     try {
-      const response = await apiRequest(`${API_BASE_URL}/music/video/${platform}/${videoId}`)
+      // 获取视频详情不需要认证，直接使用 fetch
+      const response = await fetch(`${API_BASE_URL}/music/video/${platform}/${videoId}`)
       const result: ApiResponse<MusicSearchResult> = await response.json()
-      
+
       if (result.success) {
         return result.data
       } else {

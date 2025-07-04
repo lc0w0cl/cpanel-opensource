@@ -36,9 +36,14 @@ public class JwtAuthInterceptor implements HandlerInterceptor {
         String requestPath = request.getRequestURI();
         
         // 登录接口和状态检查接口不需要token验证
-        if (requestPath.endsWith("/auth/login") || 
+        if (requestPath.endsWith("/auth/login") ||
             requestPath.endsWith("/auth/status") ||
             requestPath.endsWith("/auth/refresh")) {
+            return true;
+        }
+
+        // 音乐相关接口不需要token验证
+        if (requestPath.startsWith("/api/music/")) {
             return true;
         }
 
