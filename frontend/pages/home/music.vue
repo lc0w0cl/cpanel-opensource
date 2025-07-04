@@ -165,33 +165,35 @@ const clearResults = () => {
               <p class="card-subtitle">支持关键词搜索和直链下载</p>
             </div>
 
-            <!-- 搜索类型选择 -->
+            <!-- 搜索类型选择和操作按钮 -->
             <div class="search-type-tabs">
-              <button
-                  @click="searchType = 'keyword'"
-                  :class="['tab-btn', { active: searchType === 'keyword' }]"
-              >
-                <Icon icon="mdi:magnify" />
-                关键词搜索
-              </button>
-              <button
-                  @click="searchType = 'url'"
-                  :class="['tab-btn', { active: searchType === 'url' }]"
-              >
-                <Icon icon="mdi:link" />
-                链接下载
-              </button>
-            </div>
+              <div class="tab-buttons">
+                <button
+                    @click="searchType = 'keyword'"
+                    :class="['tab-btn', { active: searchType === 'keyword' }]"
+                >
+                  <Icon icon="mdi:magnify" />
+                  关键词搜索
+                </button>
+                <button
+                    @click="searchType = 'url'"
+                    :class="['tab-btn', { active: searchType === 'url' }]"
+                >
+                  <Icon icon="mdi:link" />
+                  链接下载
+                </button>
+              </div>
 
-            <div class="header-right">
-              <button
-                  v-if="hasResults"
-                  @click="clearResults"
-                  class="clear-btn"
-              >
-                <Icon icon="mdi:broom" class="btn-icon" />
-                清空结果
-              </button>
+              <div class="tab-actions">
+                <button
+                    v-if="hasResults"
+                    @click="clearResults"
+                    class="clear-btn"
+                >
+                  <Icon icon="mdi:broom" class="btn-icon" />
+                  清空结果
+                </button>
+              </div>
             </div>
           </div>
 
@@ -631,8 +633,21 @@ const clearResults = () => {
 /* 搜索类型标签 */
 .search-type-tabs {
   display: flex;
-  gap: 0.5rem;
+  justify-content: space-between;
+  align-items: center;
   margin-bottom: 1.5rem;
+  gap: 1rem;
+}
+
+.tab-buttons {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.tab-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
 }
 
 .tab-btn {
