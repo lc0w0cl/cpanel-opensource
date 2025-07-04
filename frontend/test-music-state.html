@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>音乐状态管理测试</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #1a1a1a;
+            color: white;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #333;
+            border-radius: 8px;
+        }
+        .test-section h3 {
+            margin-top: 0;
+            color: #4CAF50;
+        }
+        button {
+            background: #2196F3;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            margin: 5px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #1976D2;
+        }
+        input {
+            padding: 8px;
+            margin: 5px;
+            border: 1px solid #333;
+            border-radius: 4px;
+            background: #333;
+            color: white;
+        }
+        .status {
+            background: #333;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .success {
+            color: #4CAF50;
+        }
+        .error {
+            color: #f44336;
+        }
+    </style>
+</head>
+<body>
+    <h1>音乐状态管理测试</h1>
+    
+    <div class="test-section">
+        <h3>1. 本地存储测试</h3>
+        <button onclick="testLocalStorage()">测试本地存储</button>
+        <button onclick="clearLocalStorage()">清空本地存储</button>
+        <div id="localStorage-status" class="status"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>2. 搜索状态测试</h3>
+        <input type="text" id="search-input" placeholder="输入搜索关键词">
+        <button onclick="saveSearchState()">保存搜索状态</button>
+        <button onclick="loadSearchState()">加载搜索状态</button>
+        <div id="search-status" class="status"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>3. 模拟搜索结果</h3>
+        <button onclick="addMockResults()">添加模拟搜索结果</button>
+        <button onclick="clearResults()">清空结果</button>
+        <div id="results-status" class="status"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>4. 页面刷新测试</h3>
+        <p>添加一些数据后刷新页面，检查数据是否保持</p>
+        <button onclick="location.reload()">刷新页面</button>
+    </div>
+
+    <script>
+        // 测试本地存储功能
+        function testLocalStorage() {
+            const statusDiv = document.getElementById('localStorage-status');
+            try {
+                // 测试写入
+                localStorage.setItem('test_key', 'test_value');
+                const value = localStorage.getItem('test_key');
+                
+                if (value === 'test_value') {
+                    statusDiv.innerHTML = '<span class="success">✓ 本地存储功能正常</span>';
+                } else {
+                    statusDiv.innerHTML = '<span class="error">✗ 本地存储读取失败</span>';
+                }
+                
+                // 清理测试数据
+                localStorage.removeItem('test_key');
+            } catch (error) {
+                statusDiv.innerHTML = `<span class="error">✗ 本地存储错误: ${error.message}</span>`;
+            }
+        }
+
+        function clearLocalStorage() {
+            const keys = [
+                'music_search_results',
+                'music_search_query',
+                'music_search_type',
+                'music_search_platform',
+                'music_download_queue',
+                'music_volume',
+                'music_current_playing'
+            ];
+            
+            keys.forEach(key => localStorage.removeItem(key));
+            document.getElementById('localStorage-status').innerHTML = '<span class="success">✓ 音乐相关本地存储已清空</span>';
+        }
+
+        // 测试搜索状态
+        function saveSearchState() {
+            const query = document.getElementById('search-input').value;
+            if (!query.trim()) {
+                document.getElementById('search-status').innerHTML = '<span class="error">请输入搜索关键词</span>';
+                return;
+            }
+
+            try {
+                localStorage.setItem('music_search_query', query);
+                localStorage.setItem('music_search_type', 'keyword');
+                localStorage.setItem('music_search_platform', 'both');
+                
+                document.getElementById('search-status').innerHTML = `<span class="success">✓ 搜索状态已保存: "${query}"</span>`;
+            } catch (error) {
+                document.getElementById('search-status').innerHTML = `<span class="error">✗ 保存失败: ${error.message}</span>`;
+            }
+        }
+
+        function loadSearchState() {
+            try {
+                const query = localStorage.getItem('music_search_query');
+                const type = localStorage.getItem('music_search_type');
+                const platform = localStorage.getItem('music_search_platform');
+                
+                if (query) {
+                    document.getElementById('search-input').value = query;
+                    document.getElementById('search-status').innerHTML = 
+                        `<span class="success">✓ 搜索状态已加载:<br>
+                        关键词: "${query}"<br>
+                        类型: ${type}<br>
+                        平台: ${platform}</span>`;
+                } else {
+                    document.getElementById('search-status').innerHTML = '<span class="error">没有找到保存的搜索状态</span>';
+                }
+            } catch (error) {
+                document.getElementById('search-status').innerHTML = `<span class="error">✗ 加载失败: ${error.message}</span>`;
+            }
+        }
+
+        // 测试搜索结果
+        function addMockResults() {
+            const mockResults = [
+                {
+                    id: '1',
+                    title: '测试歌曲1',
+                    artist: '测试歌手1',
+                    duration: '3:45',
+                    platform: 'bilibili',
+                    thumbnail: 'https://via.placeholder.com/120x90',
+                    url: 'https://www.bilibili.com/video/test1',
+                    quality: 'HD'
+                },
+                {
+                    id: '2',
+                    title: '测试歌曲2',
+                    artist: '测试歌手2',
+                    duration: '4:12',
+                    platform: 'youtube',
+                    thumbnail: 'https://via.placeholder.com/120x90',
+                    url: 'https://www.youtube.com/watch?v=test2',
+                    quality: 'HD'
+                }
+            ];
+
+            try {
+                localStorage.setItem('music_search_results', JSON.stringify(mockResults));
+                document.getElementById('results-status').innerHTML = 
+                    `<span class="success">✓ 已添加 ${mockResults.length} 个模拟搜索结果</span>`;
+            } catch (error) {
+                document.getElementById('results-status').innerHTML = `<span class="error">✗ 添加失败: ${error.message}</span>`;
+            }
+        }
+
+        function clearResults() {
+            localStorage.removeItem('music_search_results');
+            document.getElementById('results-status').innerHTML = '<span class="success">✓ 搜索结果已清空</span>';
+        }
+
+        // 页面加载时检查现有数据
+        window.onload = function() {
+            loadSearchState();
+            
+            const results = localStorage.getItem('music_search_results');
+            if (results) {
+                try {
+                    const parsedResults = JSON.parse(results);
+                    document.getElementById('results-status').innerHTML = 
+                        `<span class="success">发现 ${parsedResults.length} 个保存的搜索结果</span>`;
+                } catch (error) {
+                    document.getElementById('results-status').innerHTML = 
+                        '<span class="error">搜索结果数据格式错误</span>';
+                }
+            }
+        };
+    </script>
+</body>
+</html>

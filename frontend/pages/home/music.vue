@@ -2,38 +2,64 @@
 import { ref, computed } from 'vue'
 import { Icon } from '@iconify/vue'
 import { useMusicApi, type MusicSearchResult } from '~/composables/useMusicApi'
+import { useMusicState } from '~/composables/useMusicState'
 
-// 搜索相关状态
-const searchQuery = ref('')
-const searchType = ref<'keyword' | 'url'>('keyword')
-const platform = ref<'bilibili' | 'youtube' | 'both'>('both')
-const isSearching = ref(false)
-const searchError = ref('')
+// 使用音乐状态管理
+const {
+  // 状态
+  searchResults,
+  selectedResults,
+  downloadQueue,
+  downloadProgress,
+  currentPlaying,
+  isPlaying,
+  isLoading,
+  audioElement,
+  currentTime,
+  totalDuration,
+  volume,
+  searchQuery,
+  searchType,
+  platform,
+  isSearching,
+  searchError,
 
-// 搜索结果
-const searchResults = ref<MusicSearchResult[]>([])
-const selectedResults = ref<Set<string>>(new Set())
+  // 计算属性
+  hasResults,
+  hasSelectedItems,
+  playProgress,
+
+  // 方法
+  setSearchResults,
+  clearSearchResults,
+  toggleSelection,
+  toggleSelectAll,
+  addToDownloadQueue,
+  removeFromQueue,
+  clearDownloadQueue,
+  setSearchQuery,
+  setSearchType,
+  setPlatform,
+  setSearching,
+  setSearchError,
+  setCurrentPlaying,
+  setPlaying,
+  setLoading,
+  setAudioElement,
+  setCurrentTime,
+  setTotalDuration,
+  setVolume,
+  setDownloadProgress,
+  removeDownloadProgress
+} = useMusicState()
 
 // 音乐API
-const { searchMusic, downloadMusic, getAudioStream } = useMusicApi()
-
-// 播放相关状态
-const currentPlaying = ref<MusicSearchResult | null>(null)
-const isPlaying = ref(false)
-const isLoading = ref(false)
-const audioElement = ref<HTMLAudioElement | null>(null)
-const currentTime = ref(0)
-const totalDuration = ref(0)
-const volume = ref(1)
+const { searchMusic, downloadMusic, getAudioStreamByUrl } = useMusicApi()
 
 // 下载相关状态
-const downloadQueue = ref<MusicSearchResult[]>([])
 const isDownloading = ref(false)
-const downloadProgress = ref<Record<string, number>>({})
 
 // 计算属性
-const hasResults = computed(() => searchResults.value.length > 0)
-const hasSelectedItems = computed(() => selectedResults.value.size > 0)
 const isValidUrl = computed(() => {
   if (searchType.value !== 'url') return true
   const url = searchQuery.value.trim()
@@ -44,7 +70,7 @@ const isValidUrl = computed(() => {
 const handleSearch = async () => {
   if (!searchQuery.value.trim()) return
 
-  isSearching.value = true
+  setSearching(true)
 
   try {
     // 构建搜索请求
@@ -59,47 +85,24 @@ const handleSearch = async () => {
     // 使用音乐API搜索
     const results = await searchMusic(searchRequest)
 
-    searchResults.value = results
-    searchError.value = ''
+    setSearchResults(results)
+    setSearchError('')
 
   } catch (error: any) {
     console.error('搜索请求失败:', error)
-    searchError.value = error.message || '网络请求失败，请检查网络连接'
-    searchResults.value = []
+    setSearchError(error.message || '网络请求失败，请检查网络连接')
+    setSearchResults([])
   } finally {
-    isSearching.value = false
+    setSearching(false)
   }
 }
 
-// 切换选择
-const toggleSelection = (id: string) => {
-  if (selectedResults.value.has(id)) {
-    selectedResults.value.delete(id)
-  } else {
-    selectedResults.value.add(id)
-  }
-}
-
-// 全选/取消全选
-const toggleSelectAll = () => {
-  if (selectedResults.value.size === searchResults.value.length) {
-    selectedResults.value.clear()
-  } else {
-    selectedResults.value = new Set(searchResults.value.map(item => item.id))
-  }
-}
-
-// 添加到下载队列
-const addToDownloadQueue = () => {
-  const selectedItems = searchResults.value.filter(item => selectedResults.value.has(item.id))
-  downloadQueue.value.push(...selectedItems)
-  selectedResults.value.clear()
-}
+// 这些方法现在由 useMusicState 提供，无需重新定义
 
 // 开始下载
 const startDownload = async (item: MusicSearchResult) => {
   isDownloading.value = true
-  downloadProgress.value[item.id] = 0
+  setDownloadProgress(item.id, 0)
 
   try {
     // 调用下载API
@@ -108,9 +111,10 @@ const startDownload = async (item: MusicSearchResult) => {
     if (success) {
       // 模拟下载进度
       const interval = setInterval(() => {
-        downloadProgress.value[item.id] += Math.random() * 20
-        if (downloadProgress.value[item.id] >= 100) {
-          downloadProgress.value[item.id] = 100
+        const currentProgress = downloadProgress.value[item.id] || 0
+        const newProgress = currentProgress + Math.random() * 20
+        if (newProgress >= 100) {
+          setDownloadProgress(item.id, 100)
           clearInterval(interval)
 
           // 检查是否所有下载完成
@@ -120,41 +124,27 @@ const startDownload = async (item: MusicSearchResult) => {
           if (allCompleted) {
             isDownloading.value = false
           }
+        } else {
+          setDownloadProgress(item.id, newProgress)
         }
       }, 200)
     } else {
       // 下载失败
-      delete downloadProgress.value[item.id]
+      removeDownloadProgress(item.id)
       isDownloading.value = false
       console.error('下载失败:', item.title)
     }
   } catch (error) {
     console.error('下载异常:', error)
-    delete downloadProgress.value[item.id]
+    removeDownloadProgress(item.id)
     isDownloading.value = false
   }
-}
-
-// 移除下载项
-const removeFromQueue = (id: string) => {
-  const index = downloadQueue.value.findIndex(item => item.id === id)
-  if (index > -1) {
-    downloadQueue.value.splice(index, 1)
-    delete downloadProgress.value[id]
-  }
-}
-
-// 清空搜索结果
-const clearResults = () => {
-  searchResults.value = []
-  selectedResults.value.clear()
-  searchError.value = ''
 }
 
 // 播放音乐
 const playMusic = async (result: MusicSearchResult) => {
   try {
-    isLoading.value = true
+    setLoading(true)
 
     // 如果正在播放同一首歌，则暂停/继续
     if (currentPlaying.value?.id === result.id) {
@@ -169,11 +159,11 @@ const playMusic = async (result: MusicSearchResult) => {
     // 停止当前播放
     if (audioElement.value) {
       audioElement.value.pause()
-      audioElement.value = null
+      setAudioElement(null)
     }
 
     // 获取音频流URL
-    const audioUrl = await getAudioStream(result.platform, result.id)
+    const audioUrl = await getAudioStreamByUrl(result.url)
 
     if (!audioUrl) {
       console.error('无法获取音频流')
@@ -182,38 +172,38 @@ const playMusic = async (result: MusicSearchResult) => {
 
     // 创建音频元素
     const audio = new Audio(audioUrl)
-    audioElement.value = audio
-    currentPlaying.value = result
+    setAudioElement(audio)
+    setCurrentPlaying(result)
 
     // 设置音频事件监听
     audio.addEventListener('loadedmetadata', () => {
-      totalDuration.value = audio.duration
+      setTotalDuration(audio.duration)
     })
 
     audio.addEventListener('timeupdate', () => {
-      currentTime.value = audio.currentTime
+      setCurrentTime(audio.currentTime)
     })
 
     audio.addEventListener('ended', () => {
-      isPlaying.value = false
-      currentTime.value = 0
+      setPlaying(false)
+      setCurrentTime(0)
     })
 
     audio.addEventListener('error', (e) => {
       console.error('音频播放错误:', e)
-      isPlaying.value = false
-      isLoading.value = false
+      setPlaying(false)
+      setLoading(false)
     })
 
     // 开始播放
     audio.volume = volume.value
     await audio.play()
-    isPlaying.value = true
+    setPlaying(true)
 
   } catch (error) {
     console.error('播放音乐失败:', error)
   } finally {
-    isLoading.value = false
+    setLoading(false)
   }
 }
 
@@ -221,7 +211,7 @@ const playMusic = async (result: MusicSearchResult) => {
 const pauseMusic = () => {
   if (audioElement.value) {
     audioElement.value.pause()
-    isPlaying.value = false
+    setPlaying(false)
   }
 }
 
@@ -229,7 +219,7 @@ const pauseMusic = () => {
 const resumeMusic = () => {
   if (audioElement.value) {
     audioElement.value.play()
-    isPlaying.value = true
+    setPlaying(true)
   }
 }
 
@@ -238,8 +228,8 @@ const stopMusic = () => {
   if (audioElement.value) {
     audioElement.value.pause()
     audioElement.value.currentTime = 0
-    isPlaying.value = false
-    currentTime.value = 0
+    setPlaying(false)
+    setCurrentTime(0)
   }
 }
 
@@ -251,8 +241,8 @@ const setProgress = (progress: number) => {
 }
 
 // 设置音量
-const setVolume = (newVolume: number) => {
-  volume.value = newVolume
+const setVolumeValue = (newVolume: number) => {
+  setVolume(newVolume)
   if (audioElement.value) {
     audioElement.value.volume = newVolume
   }
@@ -265,12 +255,6 @@ const formatTime = (seconds: number) => {
   const secs = Math.floor(seconds % 60)
   return `${mins}:${secs.toString().padStart(2, '0')}`
 }
-
-// 计算播放进度百分比
-const playProgress = computed(() => {
-  if (totalDuration.value === 0) return 0
-  return (currentTime.value / totalDuration.value) * 100
-})
 </script>
 
 <template>
@@ -299,14 +283,14 @@ const playProgress = computed(() => {
             <div class="search-type-tabs">
               <div class="tab-buttons">
                 <button
-                    @click="searchType = 'keyword'"
+                    @click="setSearchType('keyword')"
                     :class="['tab-btn', { active: searchType === 'keyword' }]"
                 >
                   <Icon icon="mdi:magnify" />
                   关键词搜索
                 </button>
                 <button
-                    @click="searchType = 'url'"
+                    @click="setSearchType('url')"
                     :class="['tab-btn', { active: searchType === 'url' }]"
                 >
                   <Icon icon="mdi:link" />
@@ -317,7 +301,7 @@ const playProgress = computed(() => {
               <div class="tab-actions">
                 <button
                     v-if="hasResults"
-                    @click="clearResults"
+                    @click="clearSearchResults"
                     class="clear-btn"
                 >
                   <Icon icon="mdi:broom" class="btn-icon" />
@@ -335,21 +319,21 @@ const playProgress = computed(() => {
               <label class="platform-label">搜索平台：</label>
               <div class="platform-buttons">
                 <button
-                  @click="platform = 'both'"
+                  @click="setPlatform('both')"
                   :class="['platform-btn', { active: platform === 'both' }]"
                 >
                   <Icon icon="mdi:earth" />
                   全部
                 </button>
                 <button
-                  @click="platform = 'bilibili'"
+                  @click="setPlatform('bilibili')"
                   :class="['platform-btn', { active: platform === 'bilibili' }]"
                 >
                   <Icon icon="simple-icons:bilibili" />
                   哔哩哔哩
                 </button>
                 <button
-                  @click="platform = 'youtube'"
+                  @click="setPlatform('youtube')"
                   :class="['platform-btn', { active: platform === 'youtube' }]"
                 >
                   <Icon icon="mdi:youtube" />
@@ -362,7 +346,8 @@ const playProgress = computed(() => {
             <div class="search-input-section">
               <div class="search-input-wrapper">
                 <input
-                  v-model="searchQuery"
+                  :value="searchQuery"
+                  @input="setSearchQuery($event.target.value)"
                   @keyup.enter="handleSearch"
                   type="text"
                   :placeholder="searchType === 'keyword' ? '输入歌曲名称、歌手或关键词...' : '粘贴视频链接...'"
@@ -551,7 +536,7 @@ const playProgress = computed(() => {
                 开始全部下载
               </button>
               <button
-                @click="downloadQueue.splice(0); Object.keys(downloadProgress).forEach(key => delete downloadProgress[key])"
+                @click="clearDownloadQueue"
                 class="clear-queue-btn"
                 :disabled="isDownloading"
               >
@@ -726,7 +711,7 @@ const playProgress = computed(() => {
           max="1"
           step="0.1"
           :value="volume"
-          @input="setVolume($event.target.value)"
+          @input="setVolumeValue($event.target.value)"
           class="volume-slider"
         />
       </div>
