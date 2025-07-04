@@ -17,6 +17,7 @@ import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.List;
+import java.util.Map;
 
 @Slf4j
 @RestController
@@ -94,6 +95,57 @@ public class MusicController {
         } catch (Exception e) {
             log.error("测试搜索时发生错误", e);
             return ApiResponse.error("测试搜索失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 获取音频流URL（用于在线播放）
+     */
+    @GetMapping("/stream/{platform}/{videoId}")
+    public ApiResponse<String> getAudioStream(
+            @PathVariable String platform,
+            @PathVariable String videoId) {
+        try {
+            log.info("获取音频流: platform={}, videoId={}", platform, videoId);
+
+            String audioUrl = musicSearchService.getAudioStreamUrl(platform, videoId);
+
+            if (audioUrl != null && !audioUrl.isEmpty()) {
+                return ApiResponse.success(audioUrl);
+            } else {
+                return ApiResponse.error("无法获取音频流");
+            }
+
+        } catch (Exception e) {
+            log.error("获取音频流时发生错误", e);
+            return ApiResponse.error("获取音频流失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 通过URL获取音频流
+     */
+    @PostMapping("/stream-url")
+    public ApiResponse<String> getAudioStreamByUrl(@RequestBody Map<String, String> request) {
+        try {
+            String url = request.get("url");
+            log.info("通过URL获取音频流: {}", url);
+
+            if (url == null || url.trim().isEmpty()) {
+                return ApiResponse.error("URL不能为空");
+            }
+
+            String audioUrl = musicSearchService.getAudioStreamUrlByUrl(url);
+
+            if (audioUrl != null && !audioUrl.isEmpty()) {
+                return ApiResponse.success(audioUrl);
+            } else {
+                return ApiResponse.error("无法获取音频流");
+            }
+
+        } catch (Exception e) {
+            log.error("通过URL获取音频流时发生错误", e);
+            return ApiResponse.error("获取音频流失败: " + e.getMessage());
         }
     }
 

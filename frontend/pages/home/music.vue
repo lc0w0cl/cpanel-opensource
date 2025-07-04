@@ -15,7 +15,16 @@ const searchResults = ref<MusicSearchResult[]>([])
 const selectedResults = ref<Set<string>>(new Set())
 
 // 音乐API
-const { searchMusic, downloadMusic } = useMusicApi()
+const { searchMusic, downloadMusic, getAudioStream } = useMusicApi()
+
+// 播放相关状态
+const currentPlaying = ref<MusicSearchResult | null>(null)
+const isPlaying = ref(false)
+const isLoading = ref(false)
+const audioElement = ref<HTMLAudioElement | null>(null)
+const currentTime = ref(0)
+const totalDuration = ref(0)
+const volume = ref(1)
 
 // 下载相关状态
 const downloadQueue = ref<MusicSearchResult[]>([])
@@ -141,6 +150,127 @@ const clearResults = () => {
   selectedResults.value.clear()
   searchError.value = ''
 }
+
+// 播放音乐
+const playMusic = async (result: MusicSearchResult) => {
+  try {
+    isLoading.value = true
+
+    // 如果正在播放同一首歌，则暂停/继续
+    if (currentPlaying.value?.id === result.id) {
+      if (isPlaying.value) {
+        pauseMusic()
+      } else {
+        resumeMusic()
+      }
+      return
+    }
+
+    // 停止当前播放
+    if (audioElement.value) {
+      audioElement.value.pause()
+      audioElement.value = null
+    }
+
+    // 获取音频流URL
+    const audioUrl = await getAudioStream(result.platform, result.id)
+
+    if (!audioUrl) {
+      console.error('无法获取音频流')
+      return
+    }
+
+    // 创建音频元素
+    const audio = new Audio(audioUrl)
+    audioElement.value = audio
+    currentPlaying.value = result
+
+    // 设置音频事件监听
+    audio.addEventListener('loadedmetadata', () => {
+      totalDuration.value = audio.duration
+    })
+
+    audio.addEventListener('timeupdate', () => {
+      currentTime.value = audio.currentTime
+    })
+
+    audio.addEventListener('ended', () => {
+      isPlaying.value = false
+      currentTime.value = 0
+    })
+
+    audio.addEventListener('error', (e) => {
+      console.error('音频播放错误:', e)
+      isPlaying.value = false
+      isLoading.value = false
+    })
+
+    // 开始播放
+    audio.volume = volume.value
+    await audio.play()
+    isPlaying.value = true
+
+  } catch (error) {
+    console.error('播放音乐失败:', error)
+  } finally {
+    isLoading.value = false
+  }
+}
+
+// 暂停音乐
+const pauseMusic = () => {
+  if (audioElement.value) {
+    audioElement.value.pause()
+    isPlaying.value = false
+  }
+}
+
+// 继续播放
+const resumeMusic = () => {
+  if (audioElement.value) {
+    audioElement.value.play()
+    isPlaying.value = true
+  }
+}
+
+// 停止音乐
+const stopMusic = () => {
+  if (audioElement.value) {
+    audioElement.value.pause()
+    audioElement.value.currentTime = 0
+    isPlaying.value = false
+    currentTime.value = 0
+  }
+}
+
+// 设置播放进度
+const setProgress = (progress: number) => {
+  if (audioElement.value && totalDuration.value > 0) {
+    audioElement.value.currentTime = (progress / 100) * totalDuration.value
+  }
+}
+
+// 设置音量
+const setVolume = (newVolume: number) => {
+  volume.value = newVolume
+  if (audioElement.value) {
+    audioElement.value.volume = newVolume
+  }
+}
+
+// 格式化时间
+const formatTime = (seconds: number) => {
+  if (isNaN(seconds)) return '0:00'
+  const mins = Math.floor(seconds / 60)
+  const secs = Math.floor(seconds % 60)
+  return `${mins}:${secs.toString().padStart(2, '0')}`
+}
+
+// 计算播放进度百分比
+const playProgress = computed(() => {
+  if (totalDuration.value === 0) return 0
+  return (currentTime.value / totalDuration.value) * 100
+})
 </script>
 
 <template>
@@ -354,6 +484,30 @@ const clearResults = () => {
                   <!-- 操作按钮 - 固定在底部 -->
                   <div class="result-actions">
                     <button
+                      @click="playMusic(result)"
+                      class="play-btn"
+                      :class="{
+                        playing: currentPlaying?.id === result.id && isPlaying,
+                        loading: currentPlaying?.id === result.id && isLoading
+                      }"
+                      :title="currentPlaying?.id === result.id && isPlaying ? '暂停' : '播放'"
+                    >
+                      <Icon
+                        v-if="currentPlaying?.id === result.id && isLoading"
+                        icon="mdi:loading"
+                        class="loading-icon"
+                      />
+                      <Icon
+                        v-else-if="currentPlaying?.id === result.id && isPlaying"
+                        icon="mdi:pause"
+                      />
+                      <Icon
+                        v-else
+                        icon="mdi:play"
+                      />
+                      {{ currentPlaying?.id === result.id && isPlaying ? '暂停' : '播放' }}
+                    </button>
+                    <button
                       @click="startDownload(result)"
                       class="download-btn"
                       title="立即下载"
@@ -503,6 +657,81 @@ const clearResults = () => {
       </div>
     </div>
   </NuxtLayout>
+
+  <!-- 全局音乐播放器 -->
+  <div v-if="currentPlaying" class="music-player">
+    <div class="player-container">
+      <!-- 当前播放信息 -->
+      <div class="player-info">
+        <img
+          :src="currentPlaying.thumbnail"
+          :alt="currentPlaying.title"
+          class="player-thumbnail"
+        />
+        <div class="player-text">
+          <h4 class="player-title">{{ currentPlaying.title }}</h4>
+          <p class="player-artist">{{ currentPlaying.artist }}</p>
+        </div>
+      </div>
+
+      <!-- 播放控制 -->
+      <div class="player-controls">
+        <button @click="stopMusic" class="control-btn" title="停止">
+          <Icon icon="mdi:stop" />
+        </button>
+        <button
+          @click="isPlaying ? pauseMusic() : resumeMusic()"
+          class="control-btn play-control"
+          :disabled="isLoading"
+          title="播放/暂停"
+        >
+          <Icon
+            v-if="isLoading"
+            icon="mdi:loading"
+            class="loading-icon"
+          />
+          <Icon
+            v-else-if="isPlaying"
+            icon="mdi:pause"
+          />
+          <Icon
+            v-else
+            icon="mdi:play"
+          />
+        </button>
+      </div>
+
+      <!-- 进度条 -->
+      <div class="player-progress">
+        <span class="time-display">{{ formatTime(currentTime) }}</span>
+        <div class="progress-container">
+          <input
+            type="range"
+            min="0"
+            max="100"
+            :value="playProgress"
+            @input="setProgress($event.target.value)"
+            class="progress-slider"
+          />
+        </div>
+        <span class="time-display">{{ formatTime(totalDuration) }}</span>
+      </div>
+
+      <!-- 音量控制 -->
+      <div class="player-volume">
+        <Icon icon="mdi:volume-high" />
+        <input
+          type="range"
+          min="0"
+          max="1"
+          step="0.1"
+          :value="volume"
+          @input="setVolume($event.target.value)"
+          class="volume-slider"
+        />
+      </div>
+    </div>
+  </div>
 </template>
 
 <style scoped>
@@ -1236,6 +1465,20 @@ const clearResults = () => {
   margin: 0.25rem 0;
 }
 
+/* 加载动画 */
+.loading-icon {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 /* 操作按钮 */
 .result-actions {
   display: flex;
@@ -1253,6 +1496,7 @@ const clearResults = () => {
 }
 
 /* 结果卡片中的按钮 */
+.result-card .play-btn,
 .result-card .download-btn,
 .result-card .view-btn {
   display: flex;
@@ -1302,6 +1546,30 @@ const clearResults = () => {
   );
   border-color: rgba(34, 197, 94, 0.3);
   color: rgba(34, 197, 94, 0.9);
+}
+
+/* 播放按钮样式 */
+.play-btn:hover {
+  background: linear-gradient(135deg,
+    rgba(168, 85, 247, 0.15) 0%,
+    rgba(168, 85, 247, 0.08) 100%
+  );
+  border-color: rgba(168, 85, 247, 0.3);
+  color: rgba(168, 85, 247, 0.9);
+}
+
+.play-btn.playing {
+  background: linear-gradient(135deg,
+    rgba(168, 85, 247, 0.2) 0%,
+    rgba(168, 85, 247, 0.1) 100%
+  );
+  border-color: rgba(168, 85, 247, 0.4);
+  color: rgba(168, 85, 247, 1);
+}
+
+.play-btn.loading {
+  opacity: 0.7;
+  cursor: not-allowed;
 }
 
 /* 查看按钮悬停效果 */
@@ -1524,6 +1792,236 @@ const clearResults = () => {
 
   .platform-btn {
     justify-content: center;
+  }
+}
+
+/* 全局音乐播放器 */
+.music-player {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(135deg,
+    rgba(0, 0, 0, 0.9) 0%,
+    rgba(0, 0, 0, 0.8) 100%
+  );
+  backdrop-filter: blur(20px);
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 1rem;
+  z-index: 1000;
+}
+
+.player-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+/* 播放信息 */
+.player-info {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 200px;
+}
+
+.player-thumbnail {
+  width: 50px;
+  height: 50px;
+  border-radius: 0.5rem;
+  object-fit: cover;
+}
+
+.player-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.player-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+  margin: 0 0 0.25rem 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.player-artist {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.6);
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 播放控制 */
+.player-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.control-btn {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: linear-gradient(135deg,
+    rgba(255, 255, 255, 0.1) 0%,
+    rgba(255, 255, 255, 0.05) 100%
+  );
+  color: rgba(255, 255, 255, 0.8);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.control-btn:hover {
+  background: linear-gradient(135deg,
+    rgba(255, 255, 255, 0.15) 0%,
+    rgba(255, 255, 255, 0.08) 100%
+  );
+  border-color: rgba(255, 255, 255, 0.3);
+  color: rgba(255, 255, 255, 1);
+}
+
+.control-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.play-control {
+  width: 3rem;
+  height: 3rem;
+  background: linear-gradient(135deg,
+    rgba(168, 85, 247, 0.2) 0%,
+    rgba(168, 85, 247, 0.1) 100%
+  );
+  border-color: rgba(168, 85, 247, 0.3);
+  color: rgba(168, 85, 247, 1);
+}
+
+.play-control:hover {
+  background: linear-gradient(135deg,
+    rgba(168, 85, 247, 0.3) 0%,
+    rgba(168, 85, 247, 0.15) 100%
+  );
+}
+
+/* 进度条 */
+.player-progress {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 0 1rem;
+}
+
+.time-display {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.6);
+  min-width: 35px;
+  text-align: center;
+}
+
+.progress-container {
+  flex: 1;
+}
+
+.progress-slider {
+  width: 100%;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.2);
+  outline: none;
+  cursor: pointer;
+  -webkit-appearance: none;
+}
+
+.progress-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: rgba(168, 85, 247, 1);
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.progress-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+}
+
+.progress-slider::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: rgba(168, 85, 247, 1);
+  cursor: pointer;
+  border: none;
+}
+
+/* 音量控制 */
+.player-volume {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 100px;
+}
+
+.volume-slider {
+  width: 60px;
+  height: 3px;
+  border-radius: 1.5px;
+  background: rgba(255, 255, 255, 0.2);
+  outline: none;
+  cursor: pointer;
+  -webkit-appearance: none;
+}
+
+.volume-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.8);
+  cursor: pointer;
+}
+
+.volume-slider::-moz-range-thumb {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.8);
+  cursor: pointer;
+  border: none;
+}
+
+/* 播放器响应式设计 */
+@media (max-width: 768px) {
+  .player-container {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .player-info {
+    min-width: auto;
+    width: 100%;
+  }
+
+  .player-progress {
+    margin: 0;
+    width: 100%;
+  }
+
+  .player-volume {
+    min-width: auto;
   }
 }
 </style>

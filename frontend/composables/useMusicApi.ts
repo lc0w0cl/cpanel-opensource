@@ -92,11 +92,58 @@ export const useMusicApi = () => {
   }
 
   /**
+   * 获取音频流URL（用于在线播放）
+   */
+  const getAudioStream = async (platform: string, videoId: string): Promise<string | null> => {
+    try {
+      const response = await apiRequest(`${API_BASE_URL}/music/stream/${platform}/${videoId}`)
+      const result: ApiResponse<string> = await response.json()
+
+      if (result.success) {
+        return result.data
+      } else {
+        console.error('获取音频流失败:', result.message)
+        return null
+      }
+    } catch (error) {
+      console.error('获取音频流异常:', error)
+      return null
+    }
+  }
+
+  /**
+   * 通过URL获取音频流
+   */
+  const getAudioStreamByUrl = async (videoUrl: string): Promise<string | null> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/music/stream-url`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ url: videoUrl })
+      })
+
+      const result: ApiResponse<string> = await response.json()
+
+      if (result.success) {
+        return result.data
+      } else {
+        console.error('获取音频流失败:', result.message)
+        return null
+      }
+    } catch (error) {
+      console.error('获取音频流异常:', error)
+      return null
+    }
+  }
+
+  /**
    * 下载音乐（预留接口）
    */
   const downloadMusic = async (videoUrl: string, options?: any): Promise<boolean> => {
     try {
-      const response = await apiRequest(`${API_BASE_URL}/music/download`, {
+      const response = await fetch(`${API_BASE_URL}/music/download`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -106,9 +153,9 @@ export const useMusicApi = () => {
           ...options
         })
       })
-      
+
       const result: ApiResponse<any> = await response.json()
-      
+
       if (result.success) {
         return true
       } else {
@@ -124,6 +171,8 @@ export const useMusicApi = () => {
   return {
     searchMusic,
     getVideoDetail,
+    getAudioStream,
+    getAudioStreamByUrl,
     downloadMusic
   }
 }

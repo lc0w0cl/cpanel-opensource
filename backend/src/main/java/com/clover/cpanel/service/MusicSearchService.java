@@ -10,7 +10,9 @@ import org.jsoup.select.Elements;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -300,6 +302,80 @@ public class MusicSearchService {
         } catch (Exception e) {
             log.warn("转换代理URL失败: {}", e.getMessage());
             return originalUrl;
+        }
+    }
+
+    /**
+     * 获取音频流URL（通过平台和视频ID）
+     */
+    public String getAudioStreamUrl(String platform, String videoId) {
+        try {
+            String videoUrl;
+            if ("bilibili".equals(platform)) {
+                videoUrl = "https://www.bilibili.com/video/" + videoId;
+            } else if ("youtube".equals(platform)) {
+                videoUrl = "https://www.youtube.com/watch?v=" + videoId;
+            } else {
+                log.warn("不支持的平台: {}", platform);
+                return null;
+            }
+
+            return getAudioStreamUrlByUrl(videoUrl);
+        } catch (Exception e) {
+            log.error("获取音频流URL失败: platform={}, videoId={}", platform, videoId, e);
+            return null;
+        }
+    }
+
+    /**
+     * 获取音频流URL（通过视频URL）
+     */
+    public String getAudioStreamUrlByUrl(String videoUrl) {
+        try {
+            log.info("正在获取音频流URL: {}", videoUrl);
+
+            // 构建yt-dlp命令
+            ProcessBuilder processBuilder = new ProcessBuilder(
+                "yt-dlp",
+                "--get-url",           // 只获取URL，不下载
+                "--format", "bestaudio/best",  // 获取最佳音频格式
+                "--no-playlist",       // 不处理播放列表
+                videoUrl
+            );
+
+            processBuilder.redirectErrorStream(true);
+            Process process = processBuilder.start();
+
+            // 读取输出
+            StringBuilder output = new StringBuilder();
+            try (BufferedReader reader = new BufferedReader(
+                    new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    output.append(line).append("\n");
+                }
+            }
+
+            // 等待进程完成
+            int exitCode = process.waitFor();
+
+            if (exitCode == 0) {
+                String audioUrl = output.toString().trim();
+                if (!audioUrl.isEmpty() && audioUrl.startsWith("http")) {
+                    log.info("成功获取音频流URL: {}", audioUrl.substring(0, Math.min(100, audioUrl.length())));
+                    return audioUrl;
+                } else {
+                    log.warn("yt-dlp返回的URL格式不正确: {}", audioUrl);
+                    return null;
+                }
+            } else {
+                log.error("yt-dlp执行失败，退出码: {}, 输出: {}", exitCode, output.toString());
+                return null;
+            }
+
+        } catch (Exception e) {
+            log.error("执行yt-dlp时发生错误", e);
+            return null;
         }
     }
 }
