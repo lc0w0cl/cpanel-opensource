@@ -165,6 +165,24 @@ const clearResults = () => {
               <p class="card-subtitle">支持关键词搜索和直链下载</p>
             </div>
 
+            <!-- 搜索类型选择 -->
+            <div class="search-type-tabs">
+              <button
+                  @click="searchType = 'keyword'"
+                  :class="['tab-btn', { active: searchType === 'keyword' }]"
+              >
+                <Icon icon="mdi:magnify" />
+                关键词搜索
+              </button>
+              <button
+                  @click="searchType = 'url'"
+                  :class="['tab-btn', { active: searchType === 'url' }]"
+              >
+                <Icon icon="mdi:link" />
+                链接下载
+              </button>
+            </div>
+
             <div class="header-right">
               <button
                   v-if="hasResults"
@@ -178,23 +196,7 @@ const clearResults = () => {
           </div>
 
           <div class="card-content">
-            <!-- 搜索类型选择 -->
-            <div class="search-type-tabs">
-              <button
-                @click="searchType = 'keyword'"
-                :class="['tab-btn', { active: searchType === 'keyword' }]"
-              >
-                <Icon icon="mdi:magnify" />
-                关键词搜索
-              </button>
-              <button
-                @click="searchType = 'url'"
-                :class="['tab-btn', { active: searchType === 'url' }]"
-              >
-                <Icon icon="mdi:link" />
-                链接下载
-              </button>
-            </div>
+
 
             <!-- 平台选择 -->
             <div v-if="searchType === 'keyword'" class="platform-selection">
@@ -332,6 +334,14 @@ const clearResults = () => {
                       <Icon icon="mdi:high-definition" />
                       {{ result.quality }}
                     </span>
+                    <span v-if="result.playCount" class="play-count">
+                      <Icon icon="mdi:play" />
+                      {{ result.playCount }}
+                    </span>
+                    <span v-if="result.publishTime" class="publish-time">
+                      <Icon icon="mdi:calendar" />
+                      {{ result.publishTime }}
+                    </span>
                   </div>
                 </div>
 
@@ -407,6 +417,22 @@ const clearResults = () => {
                 <div class="download-info">
                   <h4 class="download-title">{{ item.title }}</h4>
                   <p class="download-artist">{{ item.artist }}</p>
+
+                  <!-- 元数据信息 -->
+                  <div class="download-meta">
+                    <span class="duration">
+                      <Icon icon="mdi:clock-outline" />
+                      {{ item.duration }}
+                    </span>
+                    <span v-if="item.playCount" class="play-count">
+                      <Icon icon="mdi:play" />
+                      {{ item.playCount }}
+                    </span>
+                    <span v-if="item.publishTime" class="publish-time">
+                      <Icon icon="mdi:calendar" />
+                      {{ item.publishTime }}
+                    </span>
+                  </div>
 
                   <!-- 下载进度 -->
                   <div v-if="downloadProgress[item.id] !== undefined" class="download-progress">
@@ -1048,12 +1074,15 @@ const clearResults = () => {
 
 .result-meta {
   display: flex;
-  gap: 1rem;
+  gap: 0.75rem;
   align-items: center;
+  flex-wrap: wrap;
 }
 
 .duration,
-.quality {
+.quality,
+.play-count,
+.publish-time {
   display: flex;
   align-items: center;
   gap: 0.25rem;
@@ -1062,9 +1091,30 @@ const clearResults = () => {
 }
 
 .duration svg,
-.quality svg {
+.quality svg,
+.play-count svg,
+.publish-time svg {
   width: 0.75rem;
   height: 0.75rem;
+}
+
+/* 播放量特殊样式 */
+.play-count {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+/* 发布时间特殊样式 */
+.publish-time {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+/* 下载队列元数据 */
+.download-meta {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+  margin: 0.25rem 0;
 }
 
 /* 操作按钮 */
