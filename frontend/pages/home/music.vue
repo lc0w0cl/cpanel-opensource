@@ -295,13 +295,14 @@ const clearResults = () => {
           </div>
 
           <div class="card-content">
-            <div class="results-list">
+            <div class="results-grid">
               <div
                 v-for="result in searchResults"
                 :key="result.id"
-                class="result-item"
+                class="result-card"
                 :class="{ selected: selectedResults.has(result.id) }"
               >
+                <!-- 选择框 -->
                 <div class="result-checkbox">
                   <button
                     @click="toggleSelection(result.id)"
@@ -314,8 +315,16 @@ const clearResults = () => {
                   </button>
                 </div>
 
+                <!-- 缩略图区域 -->
                 <div class="result-thumbnail">
                   <img :src="result.thumbnail" :alt="result.title" class="thumbnail-img" />
+
+                  <!-- 时长显示在图片上 -->
+                  <div class="duration-overlay">
+                    {{ result.duration }}
+                  </div>
+
+                  <!-- 平台标识 -->
                   <div class="platform-badge" :class="result.platform">
                     <Icon
                       :icon="result.platform === 'bilibili' ? 'simple-icons:bilibili' : 'mdi:youtube'"
@@ -324,18 +333,11 @@ const clearResults = () => {
                   </div>
                 </div>
 
+                <!-- 信息区域 -->
                 <div class="result-info">
                   <h4 class="result-title">{{ result.title }}</h4>
                   <p class="result-artist">{{ result.artist }}</p>
                   <div class="result-meta">
-                    <span class="duration">
-                      <Icon icon="mdi:clock-outline" />
-                      {{ result.duration }}
-                    </span>
-                    <span class="quality">
-                      <Icon icon="mdi:high-definition" />
-                      {{ result.quality }}
-                    </span>
                     <span v-if="result.playCount" class="play-count">
                       <Icon icon="mdi:play" />
                       {{ result.playCount }}
@@ -345,24 +347,27 @@ const clearResults = () => {
                       {{ result.publishTime }}
                     </span>
                   </div>
-                </div>
 
-                <div class="result-actions">
-                  <button
-                    @click="startDownload(result)"
-                    class="download-btn"
-                    title="立即下载"
-                  >
-                    <Icon icon="mdi:download" />
-                  </button>
-                  <a
-                    :href="result.url"
-                    target="_blank"
-                    class="view-btn"
-                    title="查看原视频"
-                  >
-                    <Icon icon="mdi:open-in-new" />
-                  </a>
+                  <!-- 操作按钮 -->
+                  <div class="result-actions">
+                    <button
+                      @click="startDownload(result)"
+                      class="download-btn"
+                      title="立即下载"
+                    >
+                      <Icon icon="mdi:download" />
+                      下载
+                    </button>
+                    <a
+                      :href="result.url"
+                      target="_blank"
+                      class="view-btn"
+                      title="查看原视频"
+                    >
+                      <Icon icon="mdi:open-in-new" />
+                      查看
+                    </a>
+                  </div>
                 </div>
               </div>
             </div>
@@ -951,15 +956,52 @@ const clearResults = () => {
   cursor: not-allowed;
 }
 
-/* 结果列表 */
-.results-list,
+/* 结果网格 */
+.results-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1.5rem;
+  padding: 0.5rem;
+}
+
+/* 下载列表保持原样 */
 .download-list {
   display: flex;
   flex-direction: column;
   gap: 1rem;
 }
 
-.result-item,
+/* 结果卡片 - 垂直布局 */
+.result-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: linear-gradient(135deg,
+    rgba(255, 255, 255, 0.08) 0%,
+    rgba(255, 255, 255, 0.04) 100%
+  );
+  overflow: hidden;
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.result-card:hover {
+  border-color: rgba(255, 255, 255, 0.2);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+}
+
+.result-card.selected {
+  border-color: rgba(59, 130, 246, 0.6);
+  background: linear-gradient(135deg,
+    rgba(59, 130, 246, 0.15) 0%,
+    rgba(59, 130, 246, 0.08) 100%
+  );
+}
+
+/* 下载项保持原有水平布局 */
 .download-item {
   display: flex;
   align-items: center;
@@ -970,22 +1012,16 @@ const clearResults = () => {
   transition: border-color 0.3s ease, transform 0.2s ease;
 }
 
-.result-item:hover,
 .download-item:hover {
   border-color: rgba(255, 255, 255, 0.2);
 }
 
-.result-item.selected {
-  border-color: rgba(59, 130, 246, 0.5);
-  background: linear-gradient(135deg,
-    rgba(59, 130, 246, 0.1) 0%,
-    rgba(59, 130, 246, 0.05) 100%
-  );
-}
-
 /* 复选框 */
 .result-checkbox {
-  flex-shrink: 0;
+  position: absolute;
+  top: 0.5rem;
+  left: 0.5rem;
+  z-index: 10;
 }
 
 .checkbox-btn {
@@ -1017,13 +1053,33 @@ const clearResults = () => {
 }
 
 /* 缩略图 */
-.result-thumbnail,
+.result-thumbnail {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16/9;
+  overflow: hidden;
+  border-radius: 0.5rem 0.5rem 0 0;
+}
+
 .download-thumbnail {
   position: relative;
   flex-shrink: 0;
 }
 
-.thumbnail-img {
+/* 结果卡片中的缩略图 */
+.result-card .thumbnail-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s ease;
+}
+
+.result-card:hover .thumbnail-img {
+  transform: scale(1.05);
+}
+
+/* 下载列表中的缩略图 */
+.download-thumbnail .thumbnail-img {
   width: 80px;
   height: 60px;
   border-radius: 0.5rem;
@@ -1031,10 +1087,24 @@ const clearResults = () => {
   border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
+/* 时长覆盖层 */
+.duration-overlay {
+  position: absolute;
+  bottom: 0.5rem;
+  right: 0.5rem;
+  background: rgba(0, 0, 0, 0.8);
+  color: white;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  backdrop-filter: blur(4px);
+}
+
 .platform-badge {
   position: absolute;
-  top: -0.25rem;
-  right: -0.25rem;
+  top: 0.5rem;
+  right: 0.5rem;
   width: 1.5rem;
   height: 1.5rem;
   border-radius: 50%;
@@ -1042,6 +1112,7 @@ const clearResults = () => {
   align-items: center;
   justify-content: center;
   border: 2px solid rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(4px);
 }
 
 .platform-badge.bilibili {
@@ -1059,13 +1130,32 @@ const clearResults = () => {
 }
 
 /* 信息区域 */
-.result-info,
+.result-info {
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
 .download-info {
   flex: 1;
   min-width: 0;
 }
 
-.result-title,
+/* 结果卡片标题 */
+.result-card .result-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+  margin: 0;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* 下载列表标题 */
 .download-title {
   font-size: 0.875rem;
   font-weight: 600;
@@ -1077,11 +1167,12 @@ const clearResults = () => {
   white-space: nowrap;
 }
 
+/* 艺术家信息 */
 .result-artist,
 .download-artist {
   font-size: 0.75rem;
   color: rgba(255, 255, 255, 0.6);
-  margin: 0 0 0.5rem 0;
+  margin: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1089,9 +1180,10 @@ const clearResults = () => {
 
 .result-meta {
   display: flex;
-  gap: 0.75rem;
+  gap: 0.5rem;
   align-items: center;
   flex-wrap: wrap;
+  margin-top: 0.25rem;
 }
 
 .duration,
@@ -1133,7 +1225,13 @@ const clearResults = () => {
 }
 
 /* 操作按钮 */
-.result-actions,
+.result-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  margin-top: 0.5rem;
+}
+
 .download-actions {
   display: flex;
   gap: 0.5rem;
@@ -1141,10 +1239,30 @@ const clearResults = () => {
   flex-shrink: 0;
 }
 
-.download-btn,
-.view-btn,
-.start-btn,
-.remove-btn {
+/* 结果卡片中的按钮 */
+.result-card .download-btn,
+.result-card .view-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.375rem;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: linear-gradient(135deg,
+    rgba(255, 255, 255, 0.08) 0%,
+    rgba(255, 255, 255, 0.04) 100%
+  );
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.75rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-decoration: none;
+}
+
+/* 下载列表中的按钮 */
+.download-actions .start-btn,
+.download-actions .remove-btn {
   width: 2rem;
   height: 2rem;
   border-radius: 0.5rem;
@@ -1162,6 +1280,7 @@ const clearResults = () => {
   text-decoration: none;
 }
 
+/* 下载按钮悬停效果 */
 .download-btn:hover,
 .start-btn:hover {
   background: linear-gradient(135deg,
@@ -1172,6 +1291,7 @@ const clearResults = () => {
   color: rgba(34, 197, 94, 0.9);
 }
 
+/* 查看按钮悬停效果 */
 .view-btn:hover {
   background: linear-gradient(135deg,
     rgba(59, 130, 246, 0.15) 0%,
