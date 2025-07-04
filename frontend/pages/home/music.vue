@@ -335,20 +335,23 @@ const clearResults = () => {
 
                 <!-- 信息区域 -->
                 <div class="result-info">
-                  <h4 class="result-title">{{ result.title }}</h4>
-                  <p class="result-artist">{{ result.artist }}</p>
-                  <div class="result-meta">
-                    <span v-if="result.playCount" class="play-count">
-                      <Icon icon="mdi:play" />
-                      {{ result.playCount }}
-                    </span>
-                    <span v-if="result.publishTime" class="publish-time">
-                      <Icon icon="mdi:calendar" />
-                      {{ result.publishTime }}
-                    </span>
+                  <!-- 内容区域 -->
+                  <div class="result-content">
+                    <h4 class="result-title">{{ result.title }}</h4>
+                    <p class="result-artist">{{ result.artist }}</p>
+                    <div class="result-meta">
+                      <span v-if="result.playCount" class="play-count">
+                        <Icon icon="mdi:play" />
+                        {{ result.playCount }}
+                      </span>
+                      <span v-if="result.publishTime" class="publish-time">
+                        <Icon icon="mdi:calendar" />
+                        {{ result.publishTime }}
+                      </span>
+                    </div>
                   </div>
 
-                  <!-- 操作按钮 -->
+                  <!-- 操作按钮 - 固定在底部 -->
                   <div class="result-actions">
                     <button
                       @click="startDownload(result)"
@@ -976,6 +979,7 @@ const clearResults = () => {
   position: relative;
   display: flex;
   flex-direction: column;
+  height: 100%;
   border-radius: 0.75rem;
   border: 1px solid rgba(255, 255, 255, 0.1);
   background: linear-gradient(135deg,
@@ -1134,6 +1138,14 @@ const clearResults = () => {
   padding: 1rem;
   display: flex;
   flex-direction: column;
+  flex: 1;
+  justify-content: space-between;
+}
+
+/* 内容区域 */
+.result-content {
+  display: flex;
+  flex-direction: column;
   gap: 0.5rem;
 }
 
@@ -1229,7 +1241,8 @@ const clearResults = () => {
   display: flex;
   gap: 0.5rem;
   align-items: center;
-  margin-top: 0.5rem;
+  margin-top: 1rem;
+  flex-shrink: 0;
 }
 
 .download-actions {
