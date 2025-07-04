@@ -1,19 +1,24 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { Icon } from '@iconify/vue'
+import { useMusicApi, type MusicSearchResult } from '~/composables/useMusicApi'
 
 // 搜索相关状态
 const searchQuery = ref('')
 const searchType = ref<'keyword' | 'url'>('keyword')
 const platform = ref<'bilibili' | 'youtube' | 'both'>('both')
 const isSearching = ref(false)
+const searchError = ref('')
 
 // 搜索结果
-const searchResults = ref<any[]>([])
+const searchResults = ref<MusicSearchResult[]>([])
 const selectedResults = ref<Set<string>>(new Set())
 
+// 音乐API
+const { searchMusic, downloadMusic } = useMusicApi()
+
 // 下载相关状态
-const downloadQueue = ref<any[]>([])
+const downloadQueue = ref<MusicSearchResult[]>([])
 const isDownloading = ref(false)
 const downloadProgress = ref<Record<string, number>>({})
 
@@ -32,35 +37,29 @@ const handleSearch = async () => {
 
   isSearching.value = true
 
-  // 模拟搜索延迟
-  setTimeout(() => {
-    // 模拟搜索结果
-    const mockResults = [
-      {
-        id: '1',
-        title: '周杰伦 - 青花瓷',
-        artist: '周杰伦',
-        duration: '3:58',
-        platform: 'bilibili',
-        thumbnail: 'https://via.placeholder.com/120x90',
-        url: 'https://www.bilibili.com/video/BV1xx411c7mu',
-        quality: 'HD'
-      },
-      {
-        id: '2',
-        title: 'Jay Chou - Blue and White Porcelain',
-        artist: 'Jay Chou',
-        duration: '3:58',
-        platform: 'youtube',
-        thumbnail: 'https://via.placeholder.com/120x90',
-        url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
-        quality: 'HD'
-      }
-    ]
+  try {
+    // 构建搜索请求
+    const searchRequest = {
+      query: searchQuery.value.trim(),
+      searchType: searchType.value,
+      platform: platform.value,
+      page: 1,
+      pageSize: 20
+    }
 
-    searchResults.value = mockResults
+    // 使用音乐API搜索
+    const results = await searchMusic(searchRequest)
+
+    searchResults.value = results
+    searchError.value = ''
+
+  } catch (error: any) {
+    console.error('搜索请求失败:', error)
+    searchError.value = error.message || '网络请求失败，请检查网络连接'
+    searchResults.value = []
+  } finally {
     isSearching.value = false
-  }, 1500)
+  }
 }
 
 // 切换选择
@@ -89,26 +88,42 @@ const addToDownloadQueue = () => {
 }
 
 // 开始下载
-const startDownload = (item: any) => {
+const startDownload = async (item: MusicSearchResult) => {
   isDownloading.value = true
   downloadProgress.value[item.id] = 0
 
-  // 模拟下载进度
-  const interval = setInterval(() => {
-    downloadProgress.value[item.id] += Math.random() * 20
-    if (downloadProgress.value[item.id] >= 100) {
-      downloadProgress.value[item.id] = 100
-      clearInterval(interval)
+  try {
+    // 调用下载API
+    const success = await downloadMusic(item.url)
 
-      // 检查是否所有下载完成
-      const allCompleted = downloadQueue.value.every(queueItem =>
-        downloadProgress.value[queueItem.id] === 100
-      )
-      if (allCompleted) {
-        isDownloading.value = false
-      }
+    if (success) {
+      // 模拟下载进度
+      const interval = setInterval(() => {
+        downloadProgress.value[item.id] += Math.random() * 20
+        if (downloadProgress.value[item.id] >= 100) {
+          downloadProgress.value[item.id] = 100
+          clearInterval(interval)
+
+          // 检查是否所有下载完成
+          const allCompleted = downloadQueue.value.every(queueItem =>
+            downloadProgress.value[queueItem.id] === 100
+          )
+          if (allCompleted) {
+            isDownloading.value = false
+          }
+        }
+      }, 200)
+    } else {
+      // 下载失败
+      delete downloadProgress.value[item.id]
+      isDownloading.value = false
+      console.error('下载失败:', item.title)
     }
-  }, 200)
+  } catch (error) {
+    console.error('下载异常:', error)
+    delete downloadProgress.value[item.id]
+    isDownloading.value = false
+  }
 }
 
 // 移除下载项
@@ -124,6 +139,7 @@ const removeFromQueue = (id: string) => {
 const clearResults = () => {
   searchResults.value = []
   selectedResults.value.clear()
+  searchError.value = ''
 }
 </script>
 
@@ -234,6 +250,12 @@ const clearResults = () => {
               <div v-if="searchType === 'url' && searchQuery && !isValidUrl" class="url-hint">
                 <Icon icon="mdi:alert-circle" class="hint-icon" />
                 <span>请输入有效的哔哩哔哩或YouTube链接</span>
+              </div>
+
+              <!-- 搜索错误提示 -->
+              <div v-if="searchError" class="search-error">
+                <Icon icon="mdi:alert-circle" class="error-icon" />
+                <span>{{ searchError }}</span>
               </div>
             </div>
           </div>
@@ -547,7 +569,7 @@ const clearResults = () => {
 .card-icon {
   width: 1.5rem;
   height: 1.5rem;
-  color: rgba(59, 130, 246, 0.8);
+  color: rgba(255, 255, 255, 0.9);
   margin-right: 1rem;
 }
 
@@ -616,7 +638,7 @@ const clearResults = () => {
     rgba(59, 130, 246, 0.08) 100%
   );
   border-color: rgba(59, 130, 246, 0.3);
-  color: rgba(59, 130, 246, 0.9);
+  color: rgba(255, 255, 255, 0.9);
 }
 
 .tab-btn svg {
@@ -673,7 +695,7 @@ const clearResults = () => {
     rgba(59, 130, 246, 0.08) 100%
   );
   border-color: rgba(59, 130, 246, 0.3);
-  color: rgba(59, 130, 246, 0.9);
+  color: rgba(255, 255, 255, 0.9);
 }
 
 .platform-btn svg {
@@ -715,12 +737,12 @@ const clearResults = () => {
 
 .search-input:focus {
   outline: none;
-  border-color: rgba(59, 130, 246, 0.5);
+  border-color: rgba(255, 255, 255, 0.5);
   background: linear-gradient(135deg,
     rgba(255, 255, 255, 0.12) 0%,
     rgba(255, 255, 255, 0.06) 100%
   );
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.1);
 }
 
 .search-input.invalid {
@@ -743,7 +765,7 @@ const clearResults = () => {
     rgba(59, 130, 246, 0.15) 0%,
     rgba(59, 130, 246, 0.08) 100%
   );
-  color: rgba(59, 130, 246, 0.9);
+  color: rgba(255, 255, 255, 0.9);
   font-size: 0.875rem;
   font-weight: 500;
   cursor: pointer;
@@ -757,7 +779,7 @@ const clearResults = () => {
     rgba(59, 130, 246, 0.15) 100%
   );
   border-color: rgba(59, 130, 246, 0.5);
-  color: rgba(59, 130, 246, 1);
+  color: rgba(255, 255, 255, 1);
   transform: translateY(-1px);
 }
 
@@ -789,6 +811,29 @@ const clearResults = () => {
 }
 
 .hint-icon {
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
+}
+
+/* 搜索错误提示 */
+.search-error {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  background: linear-gradient(135deg,
+    rgba(239, 68, 68, 0.15) 0%,
+    rgba(239, 68, 68, 0.08) 100%
+  );
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  font-size: 0.8rem;
+  color: rgba(239, 68, 68, 0.9);
+  margin-top: 0.75rem;
+}
+
+.error-icon {
   width: 1rem;
   height: 1rem;
   flex-shrink: 0;
@@ -830,7 +875,7 @@ const clearResults = () => {
     rgba(59, 130, 246, 0.08) 100%
   );
   border-color: rgba(59, 130, 246, 0.3);
-  color: rgba(59, 130, 246, 0.9);
+  color: rgba(255, 255, 255, 0.9);
 }
 
 .add-to-queue-btn:hover {
@@ -839,7 +884,7 @@ const clearResults = () => {
     rgba(59, 130, 246, 0.15) 100%
   );
   border-color: rgba(59, 130, 246, 0.5);
-  color: rgba(59, 130, 246, 1);
+  color: rgba(255, 255, 255, 1);
 }
 
 .clear-queue-btn {
@@ -927,7 +972,7 @@ const clearResults = () => {
 }
 
 .checkbox-btn:hover .checkbox-icon {
-  color: rgba(59, 130, 246, 0.8);
+  color: rgba(255, 255, 255, 0.9);
 }
 
 /* 缩略图 */
@@ -1068,7 +1113,7 @@ const clearResults = () => {
     rgba(59, 130, 246, 0.08) 100%
   );
   border-color: rgba(59, 130, 246, 0.3);
-  color: rgba(59, 130, 246, 0.9);
+  color: rgba(255, 255, 255, 0.9);
 }
 
 .remove-btn:hover:not(:disabled) {
@@ -1140,7 +1185,7 @@ const clearResults = () => {
 .downloading-status svg {
   width: 1.25rem;
   height: 1.25rem;
-  color: rgba(59, 130, 246, 0.8);
+  color: rgba(255, 255, 255, 0.9);
 }
 
 .success-icon {

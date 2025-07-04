@@ -4,3 +4,9 @@ spring:
   config:
     import: classpath:module.yml
 
+# 日志配置
+logging:
+  level:
+    com.clover.cpanel.service.MusicSearchService: DEBUG
+    root: INFO
+
