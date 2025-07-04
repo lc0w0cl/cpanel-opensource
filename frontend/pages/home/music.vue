@@ -132,20 +132,11 @@ const clearResults = () => {
     <div class="music-container">
       <!-- 页面标题 -->
       <div class="page-header">
-        <div class="header-left">
-          <h1 class="page-title">音乐下载</h1>
-          <p class="page-description">从哔哩哔哩和YouTube搜索并下载音乐</p>
-        </div>
-        <div class="header-right">
-          <button
-            v-if="hasResults"
-            @click="clearResults"
-            class="clear-btn"
-          >
-            <Icon icon="mdi:broom" class="btn-icon" />
-            清空结果
-          </button>
-        </div>
+<!--        <div class="header-left">-->
+<!--          <h1 class="page-title">音乐下载</h1>-->
+<!--          <p class="page-description">从哔哩哔哩和YouTube搜索并下载音乐</p>-->
+<!--        </div>-->
+
       </div>
 
       <!-- 搜索区域 -->
@@ -156,6 +147,17 @@ const clearResults = () => {
             <div class="card-title-section">
               <h3 class="card-title">搜索音乐</h3>
               <p class="card-subtitle">支持关键词搜索和直链下载</p>
+            </div>
+
+            <div class="header-right">
+              <button
+                  v-if="hasResults"
+                  @click="clearResults"
+                  class="clear-btn"
+              >
+                <Icon icon="mdi:broom" class="btn-icon" />
+                清空结果
+              </button>
             </div>
           </div>
 
