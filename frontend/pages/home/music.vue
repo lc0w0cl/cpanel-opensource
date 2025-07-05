@@ -68,6 +68,11 @@ const isParsingPlaylist = ref(false)
 const playlistInfo = ref(null)
 const playlistError = ref('')
 
+// 自动匹配相关状态
+const isAutoMatching = ref(false)
+const matchingProgress = ref<Record<string, number>>({})
+const matchingError = ref('')
+
 // 计算属性
 const isValidUrl = computed(() => {
   if (searchType.value === 'keyword') return true
@@ -670,6 +675,153 @@ const resumeAllDownloads = () => {
   }
 }
 
+// 自动匹配选中的歌曲
+const autoMatchMusic = async () => {
+  const selectedSongs = searchResults.value.filter(result => selectedResults.value.has(result.id))
+
+  if (selectedSongs.length === 0) {
+    showNotification('请先选择要匹配的歌曲', 'error')
+    return
+  }
+
+  isAutoMatching.value = true
+  matchingError.value = ''
+  matchingProgress.value = {}
+
+  try {
+    showNotification(`开始自动匹配 ${selectedSongs.length} 首歌曲，将在B站搜索最佳资源`, 'success')
+
+    // 逐个匹配歌曲
+    for (let i = 0; i < selectedSongs.length; i++) {
+      const song = selectedSongs[i]
+
+      if (!isAutoMatching.value) break // 检查是否被取消
+
+      try {
+        // 设置匹配进度
+        matchingProgress.value[song.id] = 0
+
+        console.log(`开始匹配第 ${i + 1}/${selectedSongs.length} 首: ${song.title} - ${song.artist}`)
+
+        // 构建多个搜索关键词，提高匹配成功率
+        const searchKeywords = [
+          `${song.artist} ${song.title}`,  // 歌手 + 歌曲名
+          `${song.title} ${song.artist}`,  // 歌曲名 + 歌手
+          song.title,                      // 仅歌曲名
+          `${song.title} 音乐`,            // 歌曲名 + 音乐
+          `${song.artist} ${song.title} 官方` // 歌手 + 歌曲名 + 官方
+        ]
+
+        let bestResult = null
+        let allResults: any[] = []
+
+        // 尝试多个搜索关键词
+        for (const keyword of searchKeywords) {
+          try {
+            const searchRequest = {
+              query: keyword.trim(),
+              searchType: 'keyword' as const,
+              platform: 'bilibili' as const,
+              page: 1,
+              pageSize: 5
+            }
+
+            const searchResults = await searchMusic(searchRequest)
+            allResults.push(...searchResults)
+
+            if (searchResults.length > 0) {
+              console.log(`关键词 "${keyword}" 找到 ${searchResults.length} 个结果`)
+              break // 找到结果就停止搜索
+            }
+          } catch (error) {
+            console.log(`关键词 "${keyword}" 搜索失败:`, error)
+            continue
+          }
+        }
+
+        matchingProgress.value[song.id] = 50
+
+        if (allResults.length === 0) {
+          console.warn(`未找到匹配结果: ${song.title} - ${song.artist}`)
+          matchingProgress.value[song.id] = 100
+          continue
+        }
+
+        // 去重并选择播放量最多的结果
+        const uniqueResults = allResults.filter((result, index, self) =>
+          index === self.findIndex(r => r.id === result.id)
+        )
+
+        bestResult = uniqueResults.reduce((best, current) => {
+          const bestPlayCount = parseInt(best.playCount?.replace(/[^\d]/g, '') || '0')
+          const currentPlayCount = parseInt(current.playCount?.replace(/[^\d]/g, '') || '0')
+          return currentPlayCount > bestPlayCount ? current : best
+        })
+
+        console.log(`匹配成功: ${song.title} -> ${bestResult.title} (播放量: ${bestResult.playCount})`)
+
+        // 更新原始搜索结果中的信息
+        const originalIndex = searchResults.value.findIndex(r => r.id === song.id)
+        if (originalIndex !== -1) {
+          // 保存当前选中状态
+          const currentSelectedIds = new Set(selectedResults.value)
+
+          // 创建新的搜索结果数组，保留原始的一些信息，但更新关键信息
+          const updatedResults = [...searchResults.value]
+          updatedResults[originalIndex] = {
+            ...updatedResults[originalIndex],
+            duration: bestResult.duration,
+            url: bestResult.url,
+            thumbnail: bestResult.thumbnail,
+            playCount: bestResult.playCount,
+            publishTime: bestResult.publishTime,
+            description: `${updatedResults[originalIndex].description || ''} (已匹配B站: ${bestResult.title})`.trim()
+          }
+
+          // 使用 setSearchResults 方法更新状态
+          setSearchResults(updatedResults)
+
+          // 恢复选中状态
+          currentSelectedIds.forEach(id => {
+            selectedResults.value.add(id)
+          })
+        }
+
+        matchingProgress.value[song.id] = 100
+
+        // 每首歌之间间隔1秒，避免请求过于频繁
+        if (i < selectedSongs.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 1000))
+        }
+
+      } catch (error: any) {
+        console.error(`匹配失败: ${song.title} - ${song.artist}`, error)
+        matchingProgress.value[song.id] = 100
+      }
+    }
+
+    const successCount = Object.values(matchingProgress.value).filter(p => p === 100).length
+    showNotification(`自动匹配完成，成功匹配 ${successCount}/${selectedSongs.length} 首歌曲`, 'success')
+
+  } catch (error: any) {
+    console.error('自动匹配过程中发生错误:', error)
+    matchingError.value = error.message || '自动匹配失败'
+    showNotification('自动匹配失败: ' + matchingError.value, 'error')
+  } finally {
+    isAutoMatching.value = false
+    // 3秒后清除匹配进度
+    setTimeout(() => {
+      matchingProgress.value = {}
+    }, 3000)
+  }
+}
+
+// 取消自动匹配
+const cancelAutoMatch = () => {
+  isAutoMatching.value = false
+  showNotification('已取消自动匹配', 'info')
+}
+
 // 智能批量下载
 const startBatchDownload = async () => {
   if (downloadQueue.value.length === 0) return
@@ -854,6 +1006,12 @@ const startBatchDownload = async () => {
                 <Icon icon="mdi:alert-circle" class="error-icon" />
                 <span>{{ playlistError }}</span>
               </div>
+
+              <!-- 自动匹配错误提示 -->
+              <div v-if="matchingError" class="search-error">
+                <Icon icon="mdi:alert-circle" class="error-icon" />
+                <span>{{ matchingError }}</span>
+              </div>
             </div>
           </div>
         </div>
@@ -937,6 +1095,23 @@ const startBatchDownload = async () => {
                 {{ selectedResults.size === searchResults.length ? '取消全选' : '全选' }}
               </button>
               <button
+                v-if="hasSelectedItems && !isAutoMatching"
+                @click="autoMatchMusic"
+                class="auto-match-btn"
+                title="为选中的歌曲自动在B站搜索最佳匹配资源"
+              >
+                <Icon icon="mdi:auto-fix" class="btn-icon" />
+                自动匹配 ({{ selectedResults.size }})
+              </button>
+              <button
+                v-if="isAutoMatching"
+                @click="cancelAutoMatch"
+                class="cancel-match-btn"
+              >
+                <Icon icon="mdi:loading" class="spin btn-icon" />
+                匹配中... 点击取消
+              </button>
+              <button
                 v-if="hasSelectedItems"
                 @click="addToDownloadQueue"
                 class="add-to-queue-btn"
@@ -975,6 +1150,17 @@ const startBatchDownload = async () => {
                   <!-- 时长显示在图片上 -->
                   <div class="duration-overlay">
                     {{ result.duration }}
+                  </div>
+
+                  <!-- 匹配进度显示 -->
+                  <div v-if="matchingProgress[result.id] !== undefined" class="matching-overlay">
+                    <div class="matching-progress">
+                      <Icon v-if="matchingProgress[result.id] < 100" icon="mdi:loading" class="spin matching-icon" />
+                      <Icon v-else icon="mdi:check-circle" class="matching-icon success" />
+                      <span class="matching-text">
+                        {{ matchingProgress[result.id] < 100 ? '匹配中...' : '已匹配' }}
+                      </span>
+                    </div>
                   </div>
 
                   <!-- 平台标识 -->
@@ -1681,6 +1867,8 @@ const startBatchDownload = async () => {
 /* 按钮样式 */
 .select-all-btn,
 .add-to-queue-btn,
+.auto-match-btn,
+.cancel-match-btn,
 .start-all-btn,
 .pause-all-btn,
 .resume-all-btn,
@@ -1784,6 +1972,44 @@ const startBatchDownload = async () => {
 .clear-queue-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+/* 自动匹配按钮样式 */
+.auto-match-btn {
+  background: linear-gradient(135deg,
+    rgba(168, 85, 247, 0.15) 0%,
+    rgba(168, 85, 247, 0.08) 100%
+  );
+  border-color: rgba(168, 85, 247, 0.3);
+  color: rgba(168, 85, 247, 0.9);
+}
+
+.auto-match-btn:hover {
+  background: linear-gradient(135deg,
+    rgba(168, 85, 247, 0.25) 0%,
+    rgba(168, 85, 247, 0.15) 100%
+  );
+  border-color: rgba(168, 85, 247, 0.5);
+  color: rgba(168, 85, 247, 1);
+}
+
+/* 取消匹配按钮样式 */
+.cancel-match-btn {
+  background: linear-gradient(135deg,
+    rgba(251, 191, 36, 0.15) 0%,
+    rgba(251, 191, 36, 0.08) 100%
+  );
+  border-color: rgba(251, 191, 36, 0.3);
+  color: rgba(251, 191, 36, 0.9);
+}
+
+.cancel-match-btn:hover {
+  background: linear-gradient(135deg,
+    rgba(251, 191, 36, 0.25) 0%,
+    rgba(251, 191, 36, 0.15) 100%
+  );
+  border-color: rgba(251, 191, 36, 0.5);
+  color: rgba(251, 191, 36, 1);
 }
 
 /* 结果网格 */
@@ -1930,6 +2156,46 @@ const startBatchDownload = async () => {
   font-size: 0.75rem;
   font-weight: 500;
   backdrop-filter: blur(4px);
+}
+
+/* 匹配进度覆盖层 */
+.matching-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.5rem 0.5rem 0 0;
+  backdrop-filter: blur(4px);
+}
+
+.matching-progress {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  color: white;
+  text-align: center;
+}
+
+.matching-icon {
+  width: 2rem;
+  height: 2rem;
+  color: rgba(168, 85, 247, 0.9);
+}
+
+.matching-icon.success {
+  color: rgba(34, 197, 94, 0.9);
+}
+
+.matching-text {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.9);
 }
 
 .platform-badge {
