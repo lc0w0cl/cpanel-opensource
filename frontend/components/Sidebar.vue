@@ -36,7 +36,7 @@
         <span class="button-text">TODO</span>
       </NuxtLink>
       <NuxtLink to="/home/music" class="nav-button">
-        <Icon icon="material-symbols:settings-outline" class="icon" />
+        <Icon icon="material-symbols:music-video-outline" class="icon" />
         <span class="button-text">音乐</span>
       </NuxtLink>
       <NuxtLink to="/home/settings" class="nav-button">
