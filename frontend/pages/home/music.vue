@@ -56,21 +56,41 @@ const {
 } = useMusicState()
 
 // 音乐API
-const { searchMusic, downloadMusic, getAudioStreamByUrl, getPlayableAudioUrl, getFallbackAudioUrl } = useMusicApi()
+const { searchMusic, downloadMusic, getAudioStreamByUrl, getPlayableAudioUrl, getFallbackAudioUrl, parsePlaylist, getSupportedPlatforms } = useMusicApi()
 
 // 下载相关状态
 const isDownloading = ref(false)
 
+// 歌单解析相关状态
+const isParsingPlaylist = ref(false)
+const playlistInfo = ref(null)
+const playlistError = ref('')
+
 // 计算属性
 const isValidUrl = computed(() => {
-  if (searchType.value !== 'url') return true
+  if (searchType.value === 'keyword') return true
   const url = searchQuery.value.trim()
-  return url.includes('bilibili.com') || url.includes('youtube.com') || url.includes('youtu.be')
+
+  if (searchType.value === 'url') {
+    return url.includes('bilibili.com') || url.includes('youtube.com') || url.includes('youtu.be')
+  }
+
+  if (searchType.value === 'playlist') {
+    return url.includes('y.qq.com') || url.includes('music.163.com')
+  }
+
+  return true
 })
 
 // 搜索方法
 const handleSearch = async () => {
   if (!searchQuery.value.trim()) return
+
+  // 如果是歌单解析，调用歌单解析方法
+  if (searchType.value === 'playlist') {
+    await handlePlaylistParse()
+    return
+  }
 
   setSearching(true)
 
@@ -97,6 +117,66 @@ const handleSearch = async () => {
   } finally {
     setSearching(false)
   }
+}
+
+// 歌单解析方法
+const handlePlaylistParse = async () => {
+  if (!searchQuery.value.trim()) return
+
+  isParsingPlaylist.value = true
+  playlistError.value = ''
+  playlistInfo.value = null
+
+  try {
+    const playlist = await parsePlaylist({
+      url: searchQuery.value.trim(),
+      platform: 'auto'
+    })
+
+    playlistInfo.value = playlist
+
+    // 将歌单中的歌曲转换为搜索结果格式
+    const results = playlist.songs.map((song, index) => ({
+      id: `${playlist.source}_${song.sourceId}_${index}`,
+      title: song.title,
+      artist: song.artist,
+      duration: song.duration || '未知',
+      platform: playlist.source,
+      thumbnail: song.cover || playlist.cover,
+      url: song.url,
+      quality: '音频',
+      playCount: '',
+      publishTime: '',
+      description: `来自歌单: ${playlist.title}`,
+      tags: []
+    }))
+
+    setSearchResults(results)
+    setSearchError('')
+
+    showNotification(`成功解析歌单: ${playlist.title}，共 ${playlist.songCount} 首歌曲`, 'success')
+
+  } catch (error: any) {
+    console.error('歌单解析失败:', error)
+    playlistError.value = error.message || '歌单解析失败，请检查链接是否正确'
+    setSearchResults([])
+  } finally {
+    isParsingPlaylist.value = false
+  }
+}
+
+// 批量添加歌单到下载队列
+const addPlaylistToQueue = () => {
+  if (!playlistInfo.value) return
+
+  const results = searchResults.value
+  results.forEach(result => {
+    if (!downloadQueue.value.find(item => item.id === result.id)) {
+      addToDownloadQueue(result)
+    }
+  })
+
+  showNotification(`已添加 ${results.length} 首歌曲到下载队列`, 'success')
 }
 
 // 这些方法现在由 useMusicState 提供，无需重新定义
@@ -373,6 +453,45 @@ const getDownloadButtonTitle = (result: MusicSearchResult) => {
   }
   return '立即下载'
 }
+
+// 获取搜索占位符文本
+const getSearchPlaceholder = () => {
+  switch (searchType.value) {
+    case 'keyword':
+      return '输入歌曲名称、歌手或关键词...'
+    case 'url':
+      return '粘贴视频链接...'
+    case 'playlist':
+      return '粘贴歌单链接...'
+    default:
+      return '输入搜索内容...'
+  }
+}
+
+// 获取搜索按钮文本
+const getSearchButtonText = () => {
+  if (isSearching.value) return '搜索中...'
+  if (isParsingPlaylist.value) return '解析中...'
+
+  switch (searchType.value) {
+    case 'playlist':
+      return '解析歌单'
+    default:
+      return '搜索'
+  }
+}
+
+// 获取URL提示文本
+const getUrlHintText = () => {
+  switch (searchType.value) {
+    case 'url':
+      return '请输入有效的哔哩哔哩或YouTube链接'
+    case 'playlist':
+      return '请输入有效的QQ音乐或网易云音乐歌单链接'
+    default:
+      return '请输入有效的链接'
+  }
+}
 </script>
 
 <template>
@@ -413,6 +532,13 @@ const getDownloadButtonTitle = (result: MusicSearchResult) => {
                 >
                   <Icon icon="mdi:link" />
                   链接下载
+                </button>
+                <button
+                    @click="setSearchType('playlist')"
+                    :class="['tab-btn', { active: searchType === 'playlist' }]"
+                >
+                  <Icon icon="mdi:playlist-music" />
+                  歌单解析
                 </button>
               </div>
 
@@ -468,31 +594,97 @@ const getDownloadButtonTitle = (result: MusicSearchResult) => {
                   @input="setSearchQuery($event.target.value)"
                   @keyup.enter="handleSearch"
                   type="text"
-                  :placeholder="searchType === 'keyword' ? '输入歌曲名称、歌手或关键词...' : '粘贴视频链接...'"
+                  :placeholder="getSearchPlaceholder()"
                   class="search-input"
-                  :class="{ invalid: searchType === 'url' && !isValidUrl }"
+                  :class="{ invalid: !isValidUrl }"
                 />
                 <button
                   @click="handleSearch"
-                  :disabled="!searchQuery.trim() || (searchType === 'url' && !isValidUrl) || isSearching"
+                  :disabled="!searchQuery.trim() || !isValidUrl || isSearching || isParsingPlaylist"
                   class="search-btn"
                 >
-                  <Icon v-if="isSearching" icon="mdi:loading" class="spin btn-icon" />
+                  <Icon v-if="isSearching || isParsingPlaylist" icon="mdi:loading" class="spin btn-icon" />
+                  <Icon v-else-if="searchType === 'playlist'" icon="mdi:playlist-music" class="btn-icon" />
                   <Icon v-else icon="mdi:magnify" class="btn-icon" />
-                  {{ isSearching ? '搜索中...' : '搜索' }}
+                  {{ getSearchButtonText() }}
                 </button>
               </div>
 
               <!-- URL验证提示 -->
-              <div v-if="searchType === 'url' && searchQuery && !isValidUrl" class="url-hint">
+              <div v-if="searchQuery && !isValidUrl" class="url-hint">
                 <Icon icon="mdi:alert-circle" class="hint-icon" />
-                <span>请输入有效的哔哩哔哩或YouTube链接</span>
+                <span>{{ getUrlHintText() }}</span>
+              </div>
+
+              <!-- 歌单解析提示 -->
+              <div v-if="searchType === 'playlist'" class="playlist-hint">
+                <Icon icon="mdi:information" class="hint-icon" />
+                <span>支持QQ音乐和网易云音乐歌单链接</span>
               </div>
 
               <!-- 搜索错误提示 -->
               <div v-if="searchError" class="search-error">
                 <Icon icon="mdi:alert-circle" class="error-icon" />
                 <span>{{ searchError }}</span>
+              </div>
+
+              <!-- 歌单解析错误提示 -->
+              <div v-if="playlistError" class="search-error">
+                <Icon icon="mdi:alert-circle" class="error-icon" />
+                <span>{{ playlistError }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 歌单信息区域 -->
+      <div v-if="playlistInfo && searchType === 'playlist'" class="playlist-info-section">
+        <div class="playlist-card">
+          <div class="card-header">
+            <Icon icon="mdi:playlist-music" class="card-icon" />
+            <div class="card-title-section">
+              <h3 class="card-title">{{ playlistInfo.title }}</h3>
+              <p class="card-subtitle">创建者: {{ playlistInfo.creator }} · {{ playlistInfo.songCount }} 首歌曲</p>
+            </div>
+            <div class="header-actions">
+              <button
+                @click="addPlaylistToQueue"
+                class="add-playlist-btn"
+              >
+                <Icon icon="mdi:download-multiple" class="btn-icon" />
+                全部添加到下载队列
+              </button>
+            </div>
+          </div>
+
+          <div class="card-content">
+            <div class="playlist-meta">
+              <div class="playlist-cover">
+                <img :src="playlistInfo.cover" :alt="playlistInfo.title" class="cover-img" />
+                <div class="platform-badge" :class="playlistInfo.source">
+                  <Icon
+                    :icon="playlistInfo.source === 'qq' ? 'simple-icons:qqmusic' : 'simple-icons:netease'"
+                    class="platform-icon"
+                  />
+                </div>
+              </div>
+              <div class="playlist-details">
+                <p v-if="playlistInfo.description" class="playlist-description">{{ playlistInfo.description }}</p>
+                <div class="playlist-stats">
+                  <span class="stat-item">
+                    <Icon icon="mdi:music-note" />
+                    {{ playlistInfo.songCount }} 首歌曲
+                  </span>
+                  <span class="stat-item">
+                    <Icon icon="mdi:account" />
+                    {{ playlistInfo.creator }}
+                  </span>
+                  <span class="stat-item">
+                    <Icon icon="mdi:web" />
+                    {{ playlistInfo.source === 'qq' ? 'QQ音乐' : '网易云音乐' }}
+                  </span>
+                </div>
               </div>
             </div>
           </div>
@@ -505,8 +697,8 @@ const getDownloadButtonTitle = (result: MusicSearchResult) => {
           <div class="card-header">
             <Icon icon="mdi:playlist-music" class="card-icon" />
             <div class="card-title-section">
-              <h3 class="card-title">搜索结果</h3>
-              <p class="card-subtitle">找到 {{ searchResults.length }} 个结果</p>
+              <h3 class="card-title">{{ playlistInfo ? '歌单歌曲' : '搜索结果' }}</h3>
+              <p class="card-subtitle">{{ playlistInfo ? `共 ${searchResults.length} 首歌曲` : `找到 ${searchResults.length} 个结果` }}</p>
             </div>
             <div class="header-actions">
               <button
@@ -2150,6 +2342,125 @@ const getDownloadButtonTitle = (result: MusicSearchResult) => {
   border: none;
 }
 
+/* 歌单信息样式 */
+.playlist-info-section {
+  margin-bottom: 1.5rem;
+}
+
+.playlist-card {
+  background: linear-gradient(135deg,
+    rgba(255, 255, 255, 0.1) 0%,
+    rgba(255, 255, 255, 0.05) 100%
+  );
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 1rem;
+  backdrop-filter: blur(10px);
+  overflow: hidden;
+}
+
+.playlist-meta {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.playlist-cover {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.cover-img {
+  width: 120px;
+  height: 120px;
+  border-radius: 0.75rem;
+  object-fit: cover;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.playlist-details {
+  flex: 1;
+  min-width: 0;
+}
+
+.playlist-description {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.875rem;
+  line-height: 1.5;
+  margin-bottom: 1rem;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.playlist-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.stat-item {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.875rem;
+}
+
+.stat-item svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.add-playlist-btn {
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(168, 85, 247, 0.3);
+  background: linear-gradient(135deg,
+    rgba(168, 85, 247, 0.2) 0%,
+    rgba(168, 85, 247, 0.1) 100%
+  );
+  color: rgba(168, 85, 247, 1);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.add-playlist-btn:hover {
+  background: linear-gradient(135deg,
+    rgba(168, 85, 247, 0.3) 0%,
+    rgba(168, 85, 247, 0.15) 100%
+  );
+  border-color: rgba(168, 85, 247, 0.5);
+}
+
+/* 歌单解析提示样式 */
+.playlist-hint {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  padding: 0.5rem;
+  background: linear-gradient(135deg,
+    rgba(59, 130, 246, 0.1) 0%,
+    rgba(59, 130, 246, 0.05) 100%
+  );
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  border-radius: 0.5rem;
+  color: rgba(59, 130, 246, 0.9);
+  font-size: 0.875rem;
+}
+
+.playlist-hint .hint-icon {
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
+}
+
 /* 播放器响应式设计 */
 @media (max-width: 768px) {
   .player-container {
@@ -2169,6 +2480,22 @@ const getDownloadButtonTitle = (result: MusicSearchResult) => {
 
   .player-volume {
     min-width: auto;
+  }
+
+  /* 歌单响应式 */
+  .playlist-meta {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+  }
+
+  .cover-img {
+    width: 100px;
+    height: 100px;
+  }
+
+  .playlist-stats {
+    justify-content: center;
   }
 }
 </style>
