@@ -176,10 +176,113 @@ const addPlaylistToQueue = () => {
     }
   })
 
-  showNotification(`已添加 ${results.length} 首歌曲到下载队列`, 'success')
+  showNotification(`已添加 ${results.length} 首歌曲到下载队列，将通过B站搜索下载`, 'success')
+}
+
+// 批量下载歌单歌曲
+const startPlaylistBatchDownload = async () => {
+  if (!playlistInfo.value) return
+
+  const playlistSongs = downloadQueue.value.filter(item => isPlaylistSong(item))
+
+  if (playlistSongs.length === 0) {
+    showNotification('下载队列中没有歌单歌曲', 'error')
+    return
+  }
+
+  showNotification(`开始批量下载 ${playlistSongs.length} 首歌曲，将通过B站搜索最佳资源`, 'success')
+
+  // 逐个下载，避免并发过多
+  for (const song of playlistSongs) {
+    if (downloadProgress.value[song.id] === undefined) {
+      await startDownload(song)
+      // 每首歌之间间隔1秒，避免请求过于频繁
+      await new Promise(resolve => setTimeout(resolve, 1000))
+    }
+  }
 }
 
 // 这些方法现在由 useMusicState 提供，无需重新定义
+
+// 检查是否为歌单来源的歌曲
+const isPlaylistSong = (item: MusicSearchResult) => {
+  return item.description && item.description.includes('来自歌单:')
+}
+
+// 通过B站搜索下载歌单歌曲
+const downloadPlaylistSong = async (item: MusicSearchResult) => {
+  try {
+    console.log('开始搜索B站资源:', item.title, item.artist)
+
+    // 构建多个搜索关键词，提高匹配成功率
+    const searchKeywords = [
+      `${item.artist} ${item.title}`,  // 歌手 + 歌曲名
+      `${item.title} ${item.artist}`,  // 歌曲名 + 歌手
+      item.title,                      // 仅歌曲名
+      `${item.title} 音乐`,            // 歌曲名 + 音乐
+      `${item.artist} ${item.title} 官方` // 歌手 + 歌曲名 + 官方
+    ]
+
+    let bestResult = null
+    let allResults: any[] = []
+
+    // 尝试多个搜索关键词
+    for (const keyword of searchKeywords) {
+      try {
+        const searchRequest = {
+          query: keyword.trim(),
+          searchType: 'keyword' as const,
+          platform: 'bilibili' as const,
+          page: 1,
+          pageSize: 5
+        }
+
+        const searchResults = await searchMusic(searchRequest)
+        allResults.push(...searchResults)
+
+        if (searchResults.length > 0) {
+          console.log(`关键词 "${keyword}" 找到 ${searchResults.length} 个结果`)
+          break // 找到结果就停止搜索
+        }
+      } catch (error) {
+        console.log(`关键词 "${keyword}" 搜索失败:`, error)
+        continue
+      }
+    }
+
+    if (allResults.length === 0) {
+      throw new Error('未找到相关资源')
+    }
+
+    // 去重并选择播放量最多的结果
+    const uniqueResults = allResults.filter((result, index, self) =>
+      index === self.findIndex(r => r.id === result.id)
+    )
+
+    bestResult = uniqueResults.reduce((best, current) => {
+      const bestPlayCount = parseInt(best.playCount?.replace(/[^\d]/g, '') || '0')
+      const currentPlayCount = parseInt(current.playCount?.replace(/[^\d]/g, '') || '0')
+      return currentPlayCount > bestPlayCount ? current : best
+    })
+
+    console.log('选择最佳结果:', bestResult.title, '播放量:', bestResult.playCount)
+
+    // 使用找到的B站资源进行下载
+    const result = await downloadMusic(bestResult)
+
+    if (result) {
+      showNotification(`下载完成: ${item.title} (通过B站: ${bestResult.title})`, 'success')
+      return true
+    } else {
+      throw new Error('下载失败')
+    }
+
+  } catch (error: any) {
+    console.error('B站搜索下载失败:', error)
+    showNotification(`搜索下载失败: ${item.title} - ${error.message}`, 'error')
+    return false
+  }
+}
 
 // 开始下载
 const startDownload = async (item: MusicSearchResult) => {
@@ -196,8 +299,15 @@ const startDownload = async (item: MusicSearchResult) => {
       }
     }, 300)
 
-    // 调用智能下载（根据设置选择下载方式）
-    const result = await downloadMusic(item)
+    let result = false
+
+    // 如果是歌单来源的歌曲，使用B站搜索下载
+    if (isPlaylistSong(item)) {
+      result = await downloadPlaylistSong(item)
+    } else {
+      // 普通搜索结果，使用原有下载方式
+      result = await downloadMusic(item)
+    }
 
     // 清除进度模拟
     clearInterval(progressInterval)
@@ -206,16 +316,16 @@ const startDownload = async (item: MusicSearchResult) => {
       // 下载成功，设置进度为100%
       setDownloadProgress(item.id, 100)
 
-      // 获取音乐设置来显示不同的成功消息
-      const { getMusicSettings } = useMusicApi()
-      const settings = await getMusicSettings()
+      // 如果不是歌单歌曲，显示原有的成功消息
+      if (!isPlaylistSong(item)) {
+        const { getMusicSettings } = useMusicApi()
+        const settings = await getMusicSettings()
 
-      if (settings.downloadLocation === 'server') {
-        // 服务器下载成功
-        showNotification(`服务器下载完成: ${item.title}`, 'success')
-      } else {
-        // 本地下载成功
-        showNotification(`本地下载完成: ${item.title}`, 'success')
+        if (settings.downloadLocation === 'server') {
+          showNotification(`服务器下载完成: ${item.title}`, 'success')
+        } else {
+          showNotification(`本地下载完成: ${item.title}`, 'success')
+        }
       }
 
       // 3秒后从下载队列中移除
@@ -229,15 +339,17 @@ const startDownload = async (item: MusicSearchResult) => {
       removeDownloadProgress(item.id)
       console.error('下载失败:', item.title)
 
-      // 显示错误提示
-      showNotification(`下载失败: ${item.title}`, 'error')
+      if (!isPlaylistSong(item)) {
+        showNotification(`下载失败: ${item.title}`, 'error')
+      }
     }
   } catch (error) {
     console.error('下载异常:', error)
     removeDownloadProgress(item.id)
 
-    // 显示错误提示
-    showNotification(`下载异常: ${item.title}`, 'error')
+    if (!isPlaylistSong(item)) {
+      showNotification(`下载异常: ${item.title}`, 'error')
+    }
   }
 }
 
@@ -492,6 +604,39 @@ const getUrlHintText = () => {
       return '请输入有效的链接'
   }
 }
+
+// 检查下载队列中是否有歌单歌曲
+const hasPlaylistSongs = computed(() => {
+  return downloadQueue.value.some(item => isPlaylistSong(item))
+})
+
+// 智能批量下载
+const startBatchDownload = async () => {
+  if (downloadQueue.value.length === 0) return
+
+  const playlistSongs = downloadQueue.value.filter(item => isPlaylistSong(item))
+  const regularSongs = downloadQueue.value.filter(item => !isPlaylistSong(item))
+
+  if (playlistSongs.length > 0) {
+    showNotification(`开始智能下载 ${playlistSongs.length} 首歌单歌曲 + ${regularSongs.length} 首普通歌曲`, 'success')
+  }
+
+  // 先下载普通歌曲
+  for (const song of regularSongs) {
+    if (downloadProgress.value[song.id] === undefined) {
+      startDownload(song)
+    }
+  }
+
+  // 再逐个下载歌单歌曲（需要搜索，所以串行处理）
+  for (const song of playlistSongs) {
+    if (downloadProgress.value[song.id] === undefined) {
+      await startDownload(song)
+      // 每首歌之间间隔1秒，避免请求过于频繁
+      await new Promise(resolve => setTimeout(resolve, 1000))
+    }
+  }
+}
 </script>
 
 <template>
@@ -651,6 +796,7 @@ const getUrlHintText = () => {
               <button
                 @click="addPlaylistToQueue"
                 class="add-playlist-btn"
+                :title="'将通过B站搜索下载，自动选择播放量最高的资源'"
               >
                 <Icon icon="mdi:download-multiple" class="btn-icon" />
                 全部添加到下载队列
@@ -684,6 +830,12 @@ const getUrlHintText = () => {
                     <Icon icon="mdi:web" />
                     {{ playlistInfo.source === 'qq' ? 'QQ音乐' : '网易云音乐' }}
                   </span>
+                </div>
+
+                <!-- 下载说明 -->
+                <div class="download-notice">
+                  <Icon icon="mdi:information-outline" class="notice-icon" />
+                  <span>歌单歌曲将通过B站搜索下载，自动选择播放量最高的资源</span>
                 </div>
               </div>
             </div>
@@ -856,11 +1008,11 @@ const getUrlHintText = () => {
             <div class="header-actions">
               <button
                 v-if="!isDownloading"
-                @click="downloadQueue.forEach(item => startDownload(item))"
+                @click="startBatchDownload"
                 class="start-all-btn"
               >
                 <Icon icon="mdi:play" class="btn-icon" />
-                开始全部下载
+                {{ hasPlaylistSongs ? '智能批量下载' : '开始全部下载' }}
               </button>
               <button
                 @click="clearDownloadQueue"
@@ -2456,6 +2608,29 @@ const getUrlHintText = () => {
 }
 
 .playlist-hint .hint-icon {
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
+}
+
+/* 下载说明样式 */
+.download-notice {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  padding: 0.75rem;
+  background: linear-gradient(135deg,
+    rgba(34, 197, 94, 0.1) 0%,
+    rgba(34, 197, 94, 0.05) 100%
+  );
+  border: 1px solid rgba(34, 197, 94, 0.2);
+  border-radius: 0.5rem;
+  color: rgba(34, 197, 94, 0.9);
+  font-size: 0.875rem;
+}
+
+.download-notice .notice-icon {
   width: 1rem;
   height: 1rem;
   flex-shrink: 0;
