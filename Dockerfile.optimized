@@ -1,4 +1,4 @@
-# 多阶段构建 Dockerfile
+# 多阶段构建 Dockerfile - 优化版本
 # 阶段1: 构建前端
 FROM node:18-alpine AS frontend-builder
 
@@ -41,23 +41,28 @@ COPY --from=frontend-builder /app/frontend/.output/public ./src/main/resources/s
 # 构建后端应用
 RUN mvn clean package -DskipTests -B
 
-# 阶段3: 运行时镜像 - 使用预装工具的基础镜像
-FROM eclipse-temurin:17-jre-jammy
+# 阶段3: 预装依赖的基础镜像
+FROM eclipse-temurin:17-jre-jammy AS runtime-base
 
 # 设置时区
 ENV TZ=Asia/Shanghai
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
-# 快速安装ffmpeg和yt-dlp（Ubuntu 22.04有预编译包）
+# 安装系统依赖（这一层会被缓存）
 RUN apt-get update && \
     apt-get install -y \
         curl \
         python3-pip \
         ffmpeg \
         --no-install-recommends && \
-    pip3 install --no-cache-dir yt-dlp && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
+
+# 安装yt-dlp（单独一层，便于更新）
+RUN pip3 install --no-cache-dir yt-dlp
+
+# 阶段4: 最终运行时镜像
+FROM runtime-base
 
 # 创建应用用户
 RUN groupadd -r appuser && useradd -r -g appuser appuser
