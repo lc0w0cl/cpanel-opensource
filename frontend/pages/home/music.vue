@@ -56,7 +56,7 @@ const {
 } = useMusicState()
 
 // 音乐API
-const { searchMusic, downloadMusic, getAudioStreamByUrl } = useMusicApi()
+const { searchMusic, downloadMusic, getAudioStreamByUrl, getPlayableAudioUrl, getFallbackAudioUrl } = useMusicApi()
 
 // 下载相关状态
 const isDownloading = ref(false)
@@ -168,17 +168,27 @@ const playMusic = async (result: MusicSearchResult) => {
     setPlaying(false)
 
     // 获取音频流URL
-    const audioUrl = await getAudioStreamByUrl(result.url)
+    const originalAudioUrl = await getAudioStreamByUrl(result.url)
 
-    if (!audioUrl) {
+    if (!originalAudioUrl) {
       console.error('无法获取音频流')
       setLoading(false)
       setCurrentPlaying(null)
       return
     }
 
+    // 获取可播放的音频URL（如果原始URL失败会自动使用代理）
+    const playableAudioUrl = await getPlayableAudioUrl(originalAudioUrl)
+
+    if (!playableAudioUrl) {
+      console.error('无法获取可播放的音频流')
+      setLoading(false)
+      setCurrentPlaying(null)
+      return
+    }
+
     // 创建音频元素
-    const audio = new Audio(audioUrl)
+    const audio = new Audio(playableAudioUrl)
     setAudioElement(audio)
 
     // 设置音频事件监听
@@ -195,10 +205,28 @@ const playMusic = async (result: MusicSearchResult) => {
       setCurrentTime(0)
     })
 
-    audio.addEventListener('error', (e) => {
+    audio.addEventListener('error', async (e) => {
       console.error('音频播放错误:', e)
+
+      // 如果是第一次加载失败，尝试使用代理URL
+      if (!audio.src.includes('/proxy/audio-stream')) {
+        try {
+          console.log('尝试使用代理URL重新加载音频')
+          const fallbackUrl = getFallbackAudioUrl(originalAudioUrl)
+          audio.src = fallbackUrl
+          audio.load()
+          await audio.play()
+          setPlaying(true)
+          return
+        } catch (fallbackError) {
+          console.error('代理URL也加载失败:', fallbackError)
+        }
+      }
+
+      // 如果代理URL也失败了，则停止播放
       setPlaying(false)
       setLoading(false)
+      setCurrentPlaying(null)
     })
 
     // 开始播放

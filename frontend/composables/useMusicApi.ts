@@ -139,6 +139,48 @@ export const useMusicApi = () => {
   }
 
   /**
+   * 生成代理音频URL - 解决403错误
+   */
+  const getProxyAudioUrl = (originalUrl: string): string => {
+    if (!originalUrl) return ''
+
+    // 对URL进行编码
+    const encodedUrl = encodeURIComponent(originalUrl)
+
+    // 返回代理URL
+    return `${API_BASE_URL}/music/proxy/audio-stream?url=${encodedUrl}`
+  }
+
+  /**
+   * 获取可播放的音频URL - 智能选择原始URL或代理URL
+   */
+  const getPlayableAudioUrl = async (originalUrl: string): Promise<string> => {
+    if (!originalUrl) return ''
+
+    // 检查URL是否可能需要代理
+    const needsProxy = originalUrl.includes('bilivideo.cn') ||
+                      originalUrl.includes('googlevideo.com') ||
+                      originalUrl.includes('upos-sz-') ||
+                      originalUrl.includes('xy124x163x222x164xy')
+
+    if (needsProxy) {
+      console.log('检测到可能需要代理的URL，使用代理:', originalUrl)
+      return getProxyAudioUrl(originalUrl)
+    }
+
+    // 对于其他URL，先尝试原始URL
+    return originalUrl
+  }
+
+  /**
+   * 当音频加载失败时，获取代理URL作为备用
+   */
+  const getFallbackAudioUrl = (originalUrl: string): string => {
+    console.log('音频加载失败，切换到代理URL:', originalUrl)
+    return getProxyAudioUrl(originalUrl)
+  }
+
+  /**
    * 下载音乐（预留接口）
    */
   const downloadMusic = async (videoUrl: string, options?: any): Promise<boolean> => {
@@ -173,6 +215,9 @@ export const useMusicApi = () => {
     getVideoDetail,
     getAudioStream,
     getAudioStreamByUrl,
+    getProxyAudioUrl,
+    getPlayableAudioUrl,
+    getFallbackAudioUrl,
     downloadMusic
   }
 }
