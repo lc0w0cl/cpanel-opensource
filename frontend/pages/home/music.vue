@@ -146,8 +146,6 @@ const startDownload = async (item: MusicSearchResult) => {
 // 播放音乐
 const playMusic = async (result: MusicSearchResult) => {
   try {
-    setLoading(true)
-
     // 如果正在播放同一首歌，则暂停/继续
     if (currentPlaying.value?.id === result.id) {
       if (isPlaying.value) {
@@ -164,18 +162,24 @@ const playMusic = async (result: MusicSearchResult) => {
       setAudioElement(null)
     }
 
+    // 立即设置当前播放和加载状态，让播放器立即显示
+    setCurrentPlaying(result)
+    setLoading(true)
+    setPlaying(false)
+
     // 获取音频流URL
     const audioUrl = await getAudioStreamByUrl(result.url)
 
     if (!audioUrl) {
       console.error('无法获取音频流')
+      setLoading(false)
+      setCurrentPlaying(null)
       return
     }
 
     // 创建音频元素
     const audio = new Audio(audioUrl)
     setAudioElement(audio)
-    setCurrentPlaying(result)
 
     // 设置音频事件监听
     audio.addEventListener('loadedmetadata', () => {
@@ -204,6 +208,7 @@ const playMusic = async (result: MusicSearchResult) => {
 
   } catch (error) {
     console.error('播放音乐失败:', error)
+    setCurrentPlaying(null)
   } finally {
     setLoading(false)
   }
