@@ -14,7 +14,7 @@ import org.springframework.stereotype.Service;
 public class DatabaseVersionServiceImpl implements DatabaseVersionService {
 
     private static final String VERSION_KEY = "database_version";
-    private static final String CURRENT_VERSION = "1.1.0"; // 当前应用的数据库版本
+    private static final String CURRENT_VERSION = "1.2.0"; // 当前应用的数据库版本
 
     @Autowired
     private SystemConfigService systemConfigService;
@@ -46,10 +46,16 @@ public class DatabaseVersionServiceImpl implements DatabaseVersionService {
             if ("1.0.0".equals(fromVersion) && "1.1.0".equals(toVersion)) {
                 // 从1.0.0升级到1.1.0：添加TODO表
                 return upgradeFrom1_0_0To1_1_0();
+            } else if ("1.1.0".equals(fromVersion) && "1.2.0".equals(toVersion)) {
+                // 从1.1.0升级到1.2.0：添加音乐配置
+                return upgradeFrom1_1_0To1_2_0();
+            } else if ("1.0.0".equals(fromVersion) && "1.2.0".equals(toVersion)) {
+                // 从1.0.0直接升级到1.2.0：添加TODO表和音乐配置
+                return upgradeFrom1_0_0To1_2_0();
             }
-            
+
             // 可以在这里添加更多版本升级逻辑
-            
+
             log.warn("未找到从版本 {} 到 {} 的升级路径", fromVersion, toVersion);
             return false;
         } catch (Exception e) {
@@ -65,17 +71,61 @@ public class DatabaseVersionServiceImpl implements DatabaseVersionService {
     private boolean upgradeFrom1_0_0To1_1_0() {
         try {
             log.info("执行1.0.0到1.1.0的数据库升级...");
-            
+
             // 这里的升级逻辑会在DatabaseInitService中处理
             // 因为我们使用的是检查表是否存在的方式
-            
+
             // 更新版本号
             setVersion("1.1.0");
-            
+
             log.info("数据库升级完成: 1.0.0 -> 1.1.0");
             return true;
         } catch (Exception e) {
             log.error("1.0.0到1.1.0升级失败", e);
+            return false;
+        }
+    }
+
+    /**
+     * 从1.1.0升级到1.2.0
+     * 主要变更：添加音乐配置功能
+     */
+    private boolean upgradeFrom1_1_0To1_2_0() {
+        try {
+            log.info("执行1.1.0到1.2.0的数据库升级...");
+
+            // 音乐配置的初始化逻辑会在DatabaseInitService中处理
+            // 这里只需要更新版本号
+
+            // 更新版本号
+            setVersion("1.2.0");
+
+            log.info("数据库升级完成: 1.1.0 -> 1.2.0");
+            return true;
+        } catch (Exception e) {
+            log.error("1.1.0到1.2.0升级失败", e);
+            return false;
+        }
+    }
+
+    /**
+     * 从1.0.0直接升级到1.2.0
+     * 主要变更：添加TODO功能和音乐配置功能
+     */
+    private boolean upgradeFrom1_0_0To1_2_0() {
+        try {
+            log.info("执行1.0.0到1.2.0的数据库升级...");
+
+            // 所有升级逻辑会在DatabaseInitService中处理
+            // 这里只需要更新版本号
+
+            // 更新版本号
+            setVersion("1.2.0");
+
+            log.info("数据库升级完成: 1.0.0 -> 1.2.0");
+            return true;
+        } catch (Exception e) {
+            log.error("1.0.0到1.2.0升级失败", e);
             return false;
         }
     }

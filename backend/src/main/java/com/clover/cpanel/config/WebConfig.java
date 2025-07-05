@@ -68,9 +68,10 @@ public class WebConfig implements WebMvcConfigurer {
      */
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
-        // 配置文件上传路径的静态资源映射
+        // 配置文件上传路径的静态资源映射（包括音乐文件）
         registry.addResourceHandler("/uploads/**")
-                .addResourceLocations("file:./uploads/");
+                .addResourceLocations("file:./uploads/")
+                .setCachePeriod(3600); // 缓存1小时
 
         // 配置前端静态资源，支持SPA路由
         registry.addResourceHandler("/**")

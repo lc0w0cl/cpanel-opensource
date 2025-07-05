@@ -30,7 +30,19 @@ systemConfigService.setConfigValue("login_password", hashedPassword, "面板登�
 systemConfigService.setConfigValue("wallpaper_url", "/uploads/wallpaper.jpg", "自定义壁纸URL", ConfigType.THEME);
 ```
 
-### 3. 系统配置 (system)
+### 3. 音乐配置 (music)
+用于存储与音乐播放器、下载相关的配置项。
+
+**示例配置项：**
+- `music_download_location` - 音乐下载位置（local/server）
+- `music_server_download_path` - 服务器下载路径
+
+**使用方式：**
+```java
+systemConfigService.setConfigValue("music_download_location", "server", "音乐下载位置设置", ConfigType.MUSIC);
+```
+
+### 4. 系统配置 (system)
 用于存储其他系统级别的配置项（默认类型）。
 
 **使用方式：**
@@ -50,7 +62,7 @@ GET /api/system-config/configs/type/{type}
 ```
 
 **参数：**
-- `type`: 配置类型 (auth, theme, system)
+- `type`: 配置类型 (auth, theme, music, system)
 
 **响应示例：**
 ```json
@@ -89,9 +101,9 @@ POST /api/system-config/config/{key}
 
 ```sql
 -- 添加配置类型字段
-ALTER TABLE panel_system_config 
-ADD COLUMN IF NOT EXISTS config_type VARCHAR(50) NOT NULL DEFAULT 'system' 
-COMMENT '配置类型：auth(认证配置)、theme(主题配置)、system(系统配置)';
+ALTER TABLE panel_system_config
+ADD COLUMN IF NOT EXISTS config_type VARCHAR(50) NOT NULL DEFAULT 'system'
+COMMENT '配置类型：auth(认证配置)、theme(主题配置)、music(音乐配置)、system(系统配置)';
 
 -- 添加索引
 CREATE INDEX IF NOT EXISTS idx_config_type ON panel_system_config (config_type);
@@ -99,6 +111,7 @@ CREATE INDEX IF NOT EXISTS idx_config_type ON panel_system_config (config_type);
 -- 更新现有数据
 UPDATE panel_system_config SET config_type = 'auth' WHERE config_key = 'login_password';
 UPDATE panel_system_config SET config_type = 'theme' WHERE config_key IN ('wallpaper_url', 'wallpaper_blur', 'wallpaper_mask');
+UPDATE panel_system_config SET config_type = 'music' WHERE config_key IN ('music_download_location', 'music_server_download_path');
 ```
 
 ## 最佳实践
@@ -108,6 +121,7 @@ UPDATE panel_system_config SET config_type = 'theme' WHERE config_key IN ('wallp
 2. **合理分类**：
    - 认证相关的配置使用 `ConfigType.AUTH`
    - 界面主题相关的配置使用 `ConfigType.THEME`
+   - 音乐播放器相关的配置使用 `ConfigType.MUSIC`
    - 其他系统配置使用 `ConfigType.SYSTEM`
 
 3. **查询优化**：利用配置类型进行分类查询，提高查询效率。

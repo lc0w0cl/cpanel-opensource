@@ -22,7 +22,13 @@ public class ConfigType {
      * 包括：其他系统级别的配置
      */
     public static final String SYSTEM = "system";
-    
+
+    /**
+     * 音乐配置类型
+     * 包括：音乐下载设置、播放器配置等
+     */
+    public static final String MUSIC = "music";
+
     /**
      * 私有构造函数，防止实例化
      */

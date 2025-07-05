@@ -116,18 +116,27 @@ const startDownload = async (item: MusicSearchResult) => {
       }
     }, 300)
 
-    // 调用浏览器端下载
-    const success = await downloadMusic(item)
+    // 调用智能下载（根据设置选择下载方式）
+    const result = await downloadMusic(item)
 
     // 清除进度模拟
     clearInterval(progressInterval)
 
-    if (success) {
+    if (result) {
       // 下载成功，设置进度为100%
       setDownloadProgress(item.id, 100)
 
-      // 显示成功通知
-      showNotification(`下载完成: ${item.title}`, 'success')
+      // 获取音乐设置来显示不同的成功消息
+      const { getMusicSettings } = useMusicApi()
+      const settings = await getMusicSettings()
+
+      if (settings.downloadLocation === 'server') {
+        // 服务器下载成功
+        showNotification(`服务器下载完成: ${item.title}`, 'success')
+      } else {
+        // 本地下载成功
+        showNotification(`本地下载完成: ${item.title}`, 'success')
+      }
 
       // 3秒后从下载队列中移除
       setTimeout(() => {

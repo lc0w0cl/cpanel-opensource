@@ -52,6 +52,10 @@ public class SystemConfigController {
     // Logo配置相关常量
     private static final String LOGO_URL_KEY = "logo_url";
 
+    // 音乐配置相关常量
+    private static final String MUSIC_DOWNLOAD_LOCATION_KEY = "music_download_location";
+    private static final String MUSIC_SERVER_DOWNLOAD_PATH_KEY = "music_server_download_path";
+
     /**
      * 获取壁纸配置
      * @return 壁纸配置信息
@@ -362,6 +366,84 @@ public class SystemConfigController {
         } catch (Exception e) {
             log.error("获取配置列表失败", e);
             return ApiResponse.error("获取配置列表失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * 获取音乐设置配置
+     * @return 音乐设置配置
+     */
+    @GetMapping("/music")
+    public ApiResponse<Map<String, Object>> getMusicConfig() {
+        try {
+            Map<String, Object> musicConfig = new HashMap<>();
+
+            // 获取下载位置设置（默认为本地）
+            String downloadLocation = systemConfigService.getConfigValue(MUSIC_DOWNLOAD_LOCATION_KEY);
+            musicConfig.put("downloadLocation", downloadLocation != null ? downloadLocation : "local");
+
+            // 获取服务器下载路径设置（默认为 uploads/music）
+            String serverDownloadPath = systemConfigService.getConfigValue(MUSIC_SERVER_DOWNLOAD_PATH_KEY);
+            musicConfig.put("serverDownloadPath", serverDownloadPath != null ? serverDownloadPath : "uploads/music");
+
+            return ApiResponse.success(musicConfig);
+        } catch (Exception e) {
+            log.error("获取音乐配置失败", e);
+            return ApiResponse.error("获取音乐配置失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * 保存音乐设置配置
+     * @param downloadLocation 下载位置（local/server）
+     * @param serverDownloadPath 服务器下载路径
+     * @return 操作结果
+     */
+    @PostMapping("/music")
+    public ApiResponse<String> saveMusicConfig(
+            @RequestParam String downloadLocation,
+            @RequestParam(required = false) String serverDownloadPath) {
+        try {
+            // 验证下载位置参数
+            if (!"local".equals(downloadLocation) && !"server".equals(downloadLocation)) {
+                return ApiResponse.error("下载位置参数无效，只能是 local 或 server");
+            }
+
+            // 保存下载位置设置
+            boolean success1 = systemConfigService.setConfigValue(
+                MUSIC_DOWNLOAD_LOCATION_KEY,
+                downloadLocation,
+                "音乐下载位置设置",
+                ConfigType.MUSIC
+            );
+
+            // 如果是服务器下载，保存服务器路径设置
+            boolean success2 = true;
+            if ("server".equals(downloadLocation) && serverDownloadPath != null && !serverDownloadPath.trim().isEmpty()) {
+                // 清理路径，移除前后斜杠
+                String cleanPath = serverDownloadPath.trim().replaceAll("^/+|/+$", "");
+                if (cleanPath.isEmpty()) {
+                    cleanPath = "uploads/music";
+                }
+
+                success2 = systemConfigService.setConfigValue(
+                    MUSIC_SERVER_DOWNLOAD_PATH_KEY,
+                    cleanPath,
+                    "音乐服务器下载路径",
+                    ConfigType.MUSIC
+                );
+            }
+
+            if (success1 && success2) {
+                log.info("音乐配置保存成功: downloadLocation={}, serverDownloadPath={}",
+                    downloadLocation, serverDownloadPath);
+                return ApiResponse.success("音乐配置保存成功");
+            } else {
+                return ApiResponse.error("音乐配置保存失败");
+            }
+        } catch (Exception e) {
+            log.error("保存音乐配置失败", e);
+            return ApiResponse.error("保存音乐配置失败：" + e.getMessage());
         }
     }
 

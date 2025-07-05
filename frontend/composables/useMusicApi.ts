@@ -35,6 +35,12 @@ export interface ApiResponse<T> {
   data: T
 }
 
+// 音乐设置接口定义
+export interface MusicSettings {
+  downloadLocation: 'local' | 'server'
+  serverDownloadPath: string
+}
+
 /**
  * 音乐API 服务
  */
@@ -181,11 +187,101 @@ export const useMusicApi = () => {
   }
 
   /**
-   * 浏览器端直接下载音乐
+   * 获取音乐设置
+   */
+  const getMusicSettings = async (): Promise<MusicSettings> => {
+    try {
+      const response = await apiRequest(`${API_BASE_URL}/system-config/music`)
+      const result: ApiResponse<MusicSettings> = await response.json()
+
+      if (result.success) {
+        return result.data
+      } else {
+        console.error('获取音乐设置失败:', result.message)
+        // 返回默认设置
+        return {
+          downloadLocation: 'local',
+          serverDownloadPath: 'uploads/music'
+        }
+      }
+    } catch (error) {
+      console.error('获取音乐设置异常:', error)
+      // 返回默认设置
+      return {
+        downloadLocation: 'local',
+        serverDownloadPath: 'uploads/music'
+      }
+    }
+  }
+
+  /**
+   * 服务器端下载音乐
+   */
+  const downloadMusicToServer = async (musicResult: any, onProgress?: (progress: number) => void): Promise<boolean> => {
+    try {
+      console.log('开始服务器下载音乐:', musicResult.title)
+
+      onProgress?.(10)
+
+      const response = await apiRequest(`${API_BASE_URL}/music/download-to-server`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          url: musicResult.url,
+          title: musicResult.title,
+          artist: musicResult.artist,
+          platform: musicResult.platform
+        })
+      })
+
+      const result: ApiResponse<{ filePath: string; fileName: string }> = await response.json()
+
+      if (result.success) {
+        onProgress?.(100)
+        console.log('服务器下载成功:', result.data.fileName)
+        return true
+      } else {
+        console.error('服务器下载失败:', result.message)
+        return false
+      }
+    } catch (error) {
+      console.error('服务器下载异常:', error)
+      return false
+    }
+  }
+
+  /**
+   * 智能下载音乐 - 根据设置选择下载方式
    */
   const downloadMusic = async (musicResult: any, onProgress?: (progress: number) => void): Promise<boolean> => {
     try {
       console.log('开始下载音乐:', musicResult.title)
+
+      // 获取音乐设置
+      onProgress?.(5)
+      const settings = await getMusicSettings()
+
+      if (settings.downloadLocation === 'server') {
+        // 服务器下载
+        return await downloadMusicToServer(musicResult, onProgress)
+      } else {
+        // 本地下载（原有逻辑）
+        return await downloadMusicToLocal(musicResult, onProgress)
+      }
+    } catch (error) {
+      console.error('下载音乐异常:', error)
+      return false
+    }
+  }
+
+  /**
+   * 本地下载音乐（重命名原有函数）
+   */
+  const downloadMusicToLocal = async (musicResult: any, onProgress?: (progress: number) => void): Promise<boolean> => {
+    try {
+      console.log('开始本地下载音乐:', musicResult.title)
 
       // 1. 获取音频流URL
       onProgress?.(20)
@@ -203,21 +299,21 @@ export const useMusicApi = () => {
         return false
       }
 
-      // 3. 下载音频文件
+      // 3. 下载音频文件到本地
       onProgress?.(60)
       const success = await downloadAudioFile(playableUrl, musicResult.title, musicResult.artist, onProgress)
 
       if (success) {
         onProgress?.(100)
-        console.log('音乐下载成功:', musicResult.title)
+        console.log('本地下载成功:', musicResult.title)
         return true
       } else {
-        console.error('音乐下载失败:', musicResult.title)
+        console.error('本地下载失败:', musicResult.title)
         return false
       }
 
     } catch (error) {
-      console.error('下载音乐异常:', error)
+      console.error('本地下载异常:', error)
       return false
     }
   }
@@ -309,7 +405,10 @@ export const useMusicApi = () => {
     getProxyAudioUrl,
     getPlayableAudioUrl,
     getFallbackAudioUrl,
+    getMusicSettings,
     downloadMusic,
+    downloadMusicToLocal,
+    downloadMusicToServer,
     downloadAudioFile,
     generateFileName
   }

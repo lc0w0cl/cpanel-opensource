@@ -4,18 +4,24 @@ import com.clover.cpanel.common.ApiResponse;
 import com.clover.cpanel.dto.MusicSearchRequestDTO;
 import com.clover.cpanel.dto.MusicSearchResultDTO;
 import com.clover.cpanel.service.MusicSearchService;
+import com.clover.cpanel.service.SystemConfigService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.io.IOException;
-import java.io.InputStream;
+import java.io.*;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -26,6 +32,10 @@ import java.util.Map;
 public class MusicController {
 
     private final MusicSearchService musicSearchService;
+    private final SystemConfigService systemConfigService;
+
+    @Value("${server.servlet.context-path:}")
+    private String contextPath;
 
     /**
      * 搜索音乐
@@ -441,5 +451,167 @@ public class MusicController {
                cleanUrl.startsWith("i2.hdslb.com/") ||
                cleanUrl.startsWith("s1.hdslb.com/") ||
                cleanUrl.startsWith("s2.hdslb.com/");
+    }
+
+    /**
+     * 下载音乐到服务器
+     */
+    @PostMapping("/download-to-server")
+    public ApiResponse<Map<String, String>> downloadMusicToServer(@RequestBody Map<String, String> request) {
+        try {
+            String url = request.get("url");
+            String title = request.get("title");
+            String artist = request.get("artist");
+            String platform = request.get("platform");
+
+            log.info("开始服务器下载音乐: title={}, artist={}, url={}", title, artist, url);
+
+            // 参数验证
+            if (url == null || url.trim().isEmpty()) {
+                return ApiResponse.error("视频URL不能为空");
+            }
+            if (title == null || title.trim().isEmpty()) {
+                return ApiResponse.error("音乐标题不能为空");
+            }
+
+            // 获取音乐下载设置
+            String serverDownloadPath = systemConfigService.getConfigValue("music_server_download_path");
+            if (serverDownloadPath == null || serverDownloadPath.trim().isEmpty()) {
+                serverDownloadPath = "uploads/music";
+            }
+
+            // 1. 获取音频流URL
+            String audioUrl = musicSearchService.getAudioStreamUrlByUrl(url);
+            if (audioUrl == null || audioUrl.trim().isEmpty()) {
+                return ApiResponse.error("无法获取音频流URL");
+            }
+
+            // 2. 生成文件名
+            String fileName = generateServerFileName(title, artist, audioUrl);
+
+            // 3. 创建下载目录
+            Path downloadDir = Paths.get(serverDownloadPath);
+            if (!Files.exists(downloadDir)) {
+                Files.createDirectories(downloadDir);
+                log.info("创建下载目录: {}", downloadDir.toAbsolutePath());
+            }
+
+            // 4. 下载文件到服务器
+            Path filePath = downloadDir.resolve(fileName);
+            boolean success = downloadAudioToServer(audioUrl, filePath);
+
+            if (success) {
+                // 构建访问URL
+                String accessUrl = buildFileAccessUrl(serverDownloadPath, fileName);
+
+                Map<String, String> result = new HashMap<>();
+                result.put("fileName", fileName);
+                result.put("filePath", filePath.toString());
+                result.put("accessUrl", accessUrl);
+
+                log.info("服务器下载成功: {}", fileName);
+                return ApiResponse.success(result);
+            } else {
+                return ApiResponse.error("下载到服务器失败");
+            }
+
+        } catch (Exception e) {
+            log.error("服务器下载音乐时发生错误", e);
+            return ApiResponse.error("服务器下载失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 下载音频文件到服务器
+     */
+    private boolean downloadAudioToServer(String audioUrl, Path filePath) {
+        try {
+            log.info("开始下载音频文件: {} -> {}", audioUrl, filePath);
+
+            // 创建连接
+            URL url = new URL(audioUrl);
+            HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+
+            // 设置请求头
+            connection.setRequestMethod("GET");
+            connection.setRequestProperty("User-Agent",
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
+
+            // 根据URL设置Referer
+            if (audioUrl.contains("bilivideo.cn") || audioUrl.contains("bilibili.com")) {
+                connection.setRequestProperty("Referer", "https://www.bilibili.com/");
+            } else if (audioUrl.contains("youtube.com") || audioUrl.contains("googlevideo.com")) {
+                connection.setRequestProperty("Referer", "https://www.youtube.com/");
+            }
+
+            connection.setRequestProperty("Accept", "audio/webm,audio/ogg,audio/wav,audio/*;q=0.9,*/*;q=0.8");
+            connection.setRequestProperty("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8");
+            connection.setConnectTimeout(30000);
+            connection.setReadTimeout(60000);
+
+            // 检查响应状态
+            int responseCode = connection.getResponseCode();
+            if (responseCode != HttpURLConnection.HTTP_OK) {
+                log.error("音频下载失败，状态码: {}, URL: {}", responseCode, audioUrl);
+                return false;
+            }
+
+            // 下载文件
+            try (InputStream inputStream = connection.getInputStream()) {
+                Files.copy(inputStream, filePath, StandardCopyOption.REPLACE_EXISTING);
+                log.info("音频文件下载完成: {}, 大小: {} bytes", filePath, Files.size(filePath));
+                return true;
+            }
+
+        } catch (Exception e) {
+            log.error("下载音频文件到服务器失败: {}", audioUrl, e);
+            return false;
+        }
+    }
+
+    /**
+     * 生成服务器文件名
+     */
+    private String generateServerFileName(String title, String artist, String audioUrl) {
+        // 清理文件名中的非法字符
+        String cleanTitle = title.replaceAll("[<>:\"/\\\\|?*]", "").trim();
+        String cleanArtist = artist != null ? artist.replaceAll("[<>:\"/\\\\|?*]", "").trim() : "";
+
+        // 根据URL推断文件扩展名
+        String extension = ".mp3"; // 默认扩展名
+        if (audioUrl.contains(".m4a")) {
+            extension = ".m4a";
+        } else if (audioUrl.contains(".webm")) {
+            extension = ".webm";
+        } else if (audioUrl.contains(".ogg")) {
+            extension = ".ogg";
+        }
+
+        // 生成文件名：艺术家 - 歌曲名.扩展名
+        if (cleanArtist != null && !cleanArtist.isEmpty() && !cleanArtist.equals(cleanTitle)) {
+            return cleanArtist + " - " + cleanTitle + extension;
+        } else {
+            return cleanTitle + extension;
+        }
+    }
+
+    /**
+     * 构建文件访问URL
+     */
+    private String buildFileAccessUrl(String serverDownloadPath, String fileName) {
+        // 构建相对于contextPath的URL
+        String relativePath = serverDownloadPath + "/" + fileName;
+
+        // 确保路径以/开头
+        if (!relativePath.startsWith("/")) {
+            relativePath = "/" + relativePath;
+        }
+
+        // 添加contextPath
+        if (contextPath != null && !contextPath.isEmpty()) {
+            return contextPath + relativePath;
+        } else {
+            return relativePath;
+        }
     }
 }

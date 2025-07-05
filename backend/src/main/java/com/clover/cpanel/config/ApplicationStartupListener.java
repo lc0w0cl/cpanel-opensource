@@ -37,6 +37,7 @@ public class ApplicationStartupListener implements ApplicationListener<Applicati
             // 输出启动成功信息
             log.info("🎉 CPanel应用启动成功！");
             log.info("📊 TODO功能已就绪，数据将自动持久化到数据库");
+            log.info("🎵 音乐设置功能已就绪，支持本地和服务器下载配置");
 
         } catch (Exception e) {
             log.error("❌ 应用初始化操作失败", e);

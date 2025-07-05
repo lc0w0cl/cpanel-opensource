@@ -49,6 +49,7 @@ const isGroupManagementCollapsed = ref(true)
 const isPasswordSettingsCollapsed = ref(true)
 const isSystemConfigCollapsed = ref(true)
 const isThemeSettingsCollapsed = ref(true)
+const isMusicSettingsCollapsed = ref(true)
 const isBackupRestoreCollapsed = ref(true)
 const isSystemInfoCollapsed = ref(true)
 
@@ -71,6 +72,12 @@ const currentWallpaper = ref('')
 const wallpaperBlur = ref(5)
 const wallpaperMask = ref(30)
 const wallpaperResetting = ref(false)
+
+// 音乐设置相关
+const musicDownloadLocation = ref('local') // 'local' 或 'server'
+const musicServerDownloadPath = ref('uploads/music')
+const musicSettingsLoading = ref(false)
+const musicSettingsSaving = ref(false)
 
 // API配置
 const config = useRuntimeConfig()
@@ -339,6 +346,7 @@ const toggleAllSections = () => {
                       isPasswordSettingsCollapsed.value &&
                       isSystemConfigCollapsed.value &&
                       isThemeSettingsCollapsed.value &&
+                      isMusicSettingsCollapsed.value &&
                       isBackupRestoreCollapsed.value &&
                       isSystemInfoCollapsed.value
 
@@ -348,6 +356,7 @@ const toggleAllSections = () => {
   isPasswordSettingsCollapsed.value = newState
   isSystemConfigCollapsed.value = newState
   isThemeSettingsCollapsed.value = newState
+  isMusicSettingsCollapsed.value = newState
   isBackupRestoreCollapsed.value = newState
   isSystemInfoCollapsed.value = newState
 }
@@ -358,6 +367,7 @@ const allSectionsCollapsed = computed(() => {
          isPasswordSettingsCollapsed.value &&
          isSystemConfigCollapsed.value &&
          isThemeSettingsCollapsed.value &&
+         isMusicSettingsCollapsed.value &&
          isBackupRestoreCollapsed.value &&
          isSystemInfoCollapsed.value
 })
@@ -588,6 +598,54 @@ const loadLogoConfig = async () => {
   }
 }
 
+// 音乐设置相关函数
+const loadMusicConfig = async () => {
+  musicSettingsLoading.value = true
+  try {
+    const response = await apiRequest(`${API_BASE_URL}/system-config/music`)
+    const result = await response.json()
+
+    if (result.success) {
+      musicDownloadLocation.value = result.data.downloadLocation || 'local'
+      musicServerDownloadPath.value = result.data.serverDownloadPath || 'uploads/music'
+    } else {
+      console.error('加载音乐配置失败:', result.message)
+    }
+  } catch (error) {
+    console.error('加载音乐配置失败:', error)
+  } finally {
+    musicSettingsLoading.value = false
+  }
+}
+
+const saveMusicConfig = async () => {
+  musicSettingsSaving.value = true
+  try {
+    const formData = new FormData()
+    formData.append('downloadLocation', musicDownloadLocation.value)
+    if (musicDownloadLocation.value === 'server') {
+      formData.append('serverDownloadPath', musicServerDownloadPath.value)
+    }
+
+    const response = await apiRequest(`${API_BASE_URL}/system-config/music`, {
+      method: 'POST',
+      body: formData
+    })
+
+    const result = await response.json()
+
+    if (result.success) {
+      console.log('音乐配置保存成功')
+    } else {
+      console.error('音乐配置保存失败:', result.message)
+    }
+  } catch (error) {
+    console.error('音乐配置保存失败:', error)
+  } finally {
+    musicSettingsSaving.value = false
+  }
+}
+
 // 动画事件处理函数
 const onEnter = (el: HTMLElement) => {
   // 获取元素的实际高度
@@ -628,6 +686,7 @@ onMounted(async () => {
   fetchCategories()
   await loadSavedWallpaper()
   await loadLogoConfig()
+  await loadMusicConfig()
 })
 </script>
 
@@ -1112,6 +1171,137 @@ onMounted(async () => {
           </ClientOnly>
         </div>
 
+        <!-- 音乐设置 -->
+        <div class="settings-item music-settings-item">
+          <ClientOnly>
+            <div class="settings-wrapper">
+              <div class="item-header" @click="isMusicSettingsCollapsed = !isMusicSettingsCollapsed">
+                <div class="header-content">
+                  <Icon icon="mdi:music" class="header-icon" />
+                  <div>
+                    <h2 class="item-title">音乐设置</h2>
+                    <p class="item-description">配置音乐下载选项</p>
+                  </div>
+                </div>
+                <div class="header-actions">
+                  <button class="collapse-btn" :class="{ collapsed: isMusicSettingsCollapsed }">
+                    <Icon icon="mdi:chevron-down" class="collapse-icon" />
+                  </button>
+                </div>
+              </div>
+
+              <Transition
+                name="expand"
+                mode="out-in"
+                @enter="onEnter"
+                @after-enter="onAfterEnter"
+                @leave="onLeave"
+                @after-leave="onAfterLeave"
+              >
+                <div v-if="!isMusicSettingsCollapsed" class="item-content">
+                  <div v-if="musicSettingsLoading" class="loading-state compact">
+                    <Icon icon="mdi:loading" class="loading-icon spin" />
+                    <p>加载中...</p>
+                  </div>
+
+                  <div v-else class="music-settings">
+                    <!-- 下载位置设置 -->
+                    <div class="config-section">
+                      <div class="section-header">
+                        <Icon icon="mdi:download" class="section-icon" />
+                        <h3 class="section-title">下载位置</h3>
+                      </div>
+
+                      <div class="download-location-settings">
+                        <div class="radio-group">
+                          <label class="radio-option" :class="{ active: musicDownloadLocation === 'local' }">
+                            <input
+                              type="radio"
+                              v-model="musicDownloadLocation"
+                              value="local"
+                              @change="saveMusicConfig"
+                              :disabled="musicSettingsSaving"
+                            />
+                            <div class="radio-content">
+                              <Icon icon="mdi:laptop" class="option-icon" />
+                              <div class="option-text">
+                                <span class="option-title">下载到本地</span>
+                                <span class="option-description">音乐文件将下载到浏览器默认下载目录</span>
+                              </div>
+                            </div>
+                          </label>
+
+                          <label class="radio-option" :class="{ active: musicDownloadLocation === 'server' }">
+                            <input
+                              type="radio"
+                              v-model="musicDownloadLocation"
+                              value="server"
+                              @change="saveMusicConfig"
+                              :disabled="musicSettingsSaving"
+                            />
+                            <div class="radio-content">
+                              <Icon icon="mdi:server" class="option-icon" />
+                              <div class="option-text">
+                                <span class="option-title">下载到服务器</span>
+                                <span class="option-description">音乐文件将保存到服务器指定目录</span>
+                              </div>
+                            </div>
+                          </label>
+                        </div>
+
+                        <!-- 服务器路径设置 -->
+                        <div v-if="musicDownloadLocation === 'server'" class="server-path-settings">
+                          <div class="form-group">
+                            <label class="form-label">服务器下载路径</label>
+                            <div class="path-input-group">
+                              <input
+                                v-model="musicServerDownloadPath"
+                                type="text"
+                                class="form-input"
+                                placeholder="例如: uploads/music"
+                                @blur="saveMusicConfig"
+                                :disabled="musicSettingsSaving"
+                              />
+                              <button
+                                class="save-path-btn"
+                                @click="saveMusicConfig"
+                                :disabled="musicSettingsSaving"
+                              >
+                                <Icon v-if="musicSettingsSaving" icon="mdi:loading" class="spin btn-icon" />
+                                <Icon v-else icon="mdi:check" class="btn-icon" />
+                                {{ musicSettingsSaving ? '保存中...' : '保存' }}
+                              </button>
+                            </div>
+                            <p class="form-hint">
+                              路径相对于服务器根目录，不需要以 / 开头或结尾
+                            </p>
+                          </div>
+                        </div>
+
+                        <!-- 保存状态提示 -->
+                        <div v-if="musicSettingsSaving" class="saving-indicator">
+                          <Icon icon="mdi:loading" class="spin" />
+                          <span>正在保存设置...</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </Transition>
+
+              <BorderBeam
+                  v-if="!isMusicSettingsCollapsed"
+                  :size="200"
+                  :duration="16"
+                  :delay="8"
+                  :border-width="1.5"
+                  color-from="#ec4899"
+                  color-to="#be185d"
+              />
+            </div>
+          </ClientOnly>
+        </div>
+
         <!-- 备份恢复 -->
         <div class="settings-item backup-restore-item">
           <ClientOnly>
@@ -1360,6 +1550,7 @@ onMounted(async () => {
 .password-settings-item,
 .group-management-item,
 .system-config-item,
+.music-settings-item,
 .backup-restore-item,
 .system-info-item {
   position: relative;
@@ -3028,5 +3219,190 @@ onMounted(async () => {
     padding: 0.5rem 1rem;
     font-size: 0.8rem;
   }
+
+  /* 移动端音乐设置优化 */
+  .path-input-group {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .save-path-btn {
+    justify-content: center;
+  }
+}
+
+/* 音乐设置样式 */
+.music-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.download-location-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.radio-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.radio-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0.5rem;
+  background: rgba(255, 255, 255, 0.02);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.radio-option:hover {
+  border-color: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.04);
+  transform: translateY(-1px);
+}
+
+.radio-option.active {
+  border-color: rgba(236, 72, 153, 0.5);
+  background: linear-gradient(135deg,
+    rgba(236, 72, 153, 0.15) 0%,
+    rgba(236, 72, 153, 0.08) 100%
+  );
+}
+
+.radio-option input[type="radio"] {
+  appearance: none;
+  width: 1.25rem;
+  height: 1.25rem;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  flex-shrink: 0;
+  margin-top: 0.125rem;
+}
+
+.radio-option input[type="radio"]:checked {
+  border-color: rgba(236, 72, 153, 0.8);
+  background: radial-gradient(circle, rgba(236, 72, 153, 0.8) 30%, transparent 30%);
+}
+
+.radio-content {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  flex: 1;
+}
+
+.option-icon {
+  width: 1.5rem;
+  height: 1.5rem;
+  color: rgba(236, 72, 153, 0.8);
+  flex-shrink: 0;
+  margin-top: 0.125rem;
+}
+
+.option-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.option-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.option-description {
+  font-size: 0.875rem;
+  color: rgba(255, 255, 255, 0.6);
+  line-height: 1.4;
+}
+
+.server-path-settings {
+  margin-top: 1rem;
+  padding: 1rem;
+  border: 1px solid rgba(236, 72, 153, 0.2);
+  border-radius: 0.5rem;
+  background: linear-gradient(135deg,
+    rgba(236, 72, 153, 0.08) 0%,
+    rgba(236, 72, 153, 0.04) 100%
+  );
+}
+
+.path-input-group {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-end;
+}
+
+.path-input-group .form-input {
+  flex: 1;
+}
+
+.save-path-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid rgba(236, 72, 153, 0.3);
+  border-radius: 0.5rem;
+  background: linear-gradient(135deg,
+    rgba(236, 72, 153, 0.2) 0%,
+    rgba(236, 72, 153, 0.1) 100%
+  );
+  color: rgba(236, 72, 153, 0.9);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  white-space: nowrap;
+}
+
+.save-path-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg,
+    rgba(236, 72, 153, 0.3) 0%,
+    rgba(236, 72, 153, 0.15) 100%
+  );
+  border-color: rgba(236, 72, 153, 0.5);
+  transform: translateY(-1px);
+}
+
+.save-path-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.form-hint {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.5);
+  margin-top: 0.5rem;
+  margin-bottom: 0;
+}
+
+.saving-indicator {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  background: linear-gradient(135deg,
+    rgba(34, 197, 94, 0.15) 0%,
+    rgba(34, 197, 94, 0.08) 100%
+  );
+  color: rgba(34, 197, 94, 0.9);
+  font-size: 0.875rem;
+  border: 1px solid rgba(34, 197, 94, 0.3);
 }
 </style>

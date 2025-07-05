@@ -101,9 +101,12 @@ public class DatabaseInitServiceImpl implements DatabaseInitService {
                 log.info("系统配置表缺少config_type字段，开始添加...");
                 addConfigTypeColumn();
             }
-            
+
+            // 检查并初始化音乐配置
+            initializeMusicConfig();
+
             // 可以在这里添加其他表结构更新检查
-            
+
         } catch (Exception e) {
             log.error("检查表结构更新时发生错误", e);
         }
@@ -164,18 +167,77 @@ public class DatabaseInitServiceImpl implements DatabaseInitService {
             // 更新登录密码配置为认证类型
             String authSql = "UPDATE panel_system_config SET config_type = 'auth' WHERE config_key = 'login_password'";
             jdbcTemplate.update(authSql);
-            
+
             // 更新壁纸相关配置为主题类型
             String themeSql = """
-                UPDATE panel_system_config 
-                SET config_type = 'theme' 
+                UPDATE panel_system_config
+                SET config_type = 'theme'
                 WHERE config_key IN ('wallpaper_url', 'wallpaper_blur', 'wallpaper_mask', 'logo_url', 'content_margin', 'content_padding')
                 """;
             jdbcTemplate.update(themeSql);
-            
+
+            // 更新音乐相关配置为音乐类型
+            String musicSql = """
+                UPDATE panel_system_config
+                SET config_type = 'music'
+                WHERE config_key IN ('music_download_location', 'music_server_download_path')
+                """;
+            jdbcTemplate.update(musicSql);
+
             log.info("现有配置数据类型更新完成");
         } catch (Exception e) {
             log.error("更新现有配置数据类型失败", e);
+        }
+    }
+
+    /**
+     * 初始化音乐配置
+     */
+    private void initializeMusicConfig() {
+        try {
+            log.info("检查音乐配置初始化状态...");
+
+            // 检查音乐下载位置配置是否存在
+            if (!checkConfigExists("music_download_location")) {
+                log.info("音乐下载位置配置不存在，开始初始化...");
+                String insertSql = """
+                    INSERT INTO panel_system_config (config_key, config_value, description, config_type, created_at, updated_at)
+                    VALUES ('music_download_location', 'local', '音乐下载位置设置', 'music', NOW(), NOW())
+                    """;
+                jdbcTemplate.update(insertSql);
+                log.info("音乐下载位置配置初始化完成");
+            }
+
+            // 检查音乐服务器下载路径配置是否存在
+            if (!checkConfigExists("music_server_download_path")) {
+                log.info("音乐服务器下载路径配置不存在，开始初始化...");
+                String insertSql = """
+                    INSERT INTO panel_system_config (config_key, config_value, description, config_type, created_at, updated_at)
+                    VALUES ('music_server_download_path', 'uploads/music', '音乐服务器下载路径', 'music', NOW(), NOW())
+                    """;
+                jdbcTemplate.update(insertSql);
+                log.info("音乐服务器下载路径配置初始化完成");
+            }
+
+            log.info("音乐配置检查完成");
+        } catch (Exception e) {
+            log.error("初始化音乐配置失败", e);
+        }
+    }
+
+    /**
+     * 检查指定配置是否存在
+     * @param configKey 配置键名
+     * @return 是否存在
+     */
+    private boolean checkConfigExists(String configKey) {
+        try {
+            String sql = "SELECT COUNT(*) FROM panel_system_config WHERE config_key = ?";
+            Integer count = jdbcTemplate.queryForObject(sql, Integer.class, configKey);
+            return count != null && count > 0;
+        } catch (Exception e) {
+            log.error("检查配置是否存在时发生错误: {}", configKey, e);
+            return false;
         }
     }
 }
