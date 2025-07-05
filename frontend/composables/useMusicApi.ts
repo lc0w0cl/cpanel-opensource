@@ -41,6 +41,36 @@ export interface MusicSettings {
   serverDownloadPath: string
 }
 
+// 歌单歌曲接口定义
+export interface PlaylistSong {
+  title: string
+  artist: string
+  album: string
+  url: string
+  cover: string
+  source: string
+  sourceId: string
+  duration?: string
+}
+
+// 歌单信息接口定义
+export interface PlaylistInfo {
+  title: string
+  creator: string
+  cover: string
+  url: string
+  source: string
+  songs: PlaylistSong[]
+  songCount: number
+  description?: string
+}
+
+// 歌单解析请求接口定义
+export interface PlaylistParseRequest {
+  url: string
+  platform?: 'qq' | 'netease' | 'auto'
+}
+
 /**
  * 音乐API 服务
  */
@@ -73,6 +103,57 @@ export const useMusicApi = () => {
     } catch (error) {
       console.error('搜索音乐异常:', error)
       throw error
+    }
+  }
+
+  /**
+   * 解析歌单
+   */
+  const parsePlaylist = async (request: PlaylistParseRequest): Promise<PlaylistInfo> => {
+    try {
+      // 歌单解析不需要认证，直接使用 fetch
+      const response = await fetch(`${API_BASE_URL}/music/parse-playlist`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          url: request.url,
+          platform: request.platform || 'auto'
+        })
+      })
+
+      const result: ApiResponse<PlaylistInfo> = await response.json()
+
+      if (result.success) {
+        return result.data
+      } else {
+        console.error('解析歌单失败:', result.message)
+        throw new Error(result.message)
+      }
+    } catch (error) {
+      console.error('解析歌单异常:', error)
+      throw error
+    }
+  }
+
+  /**
+   * 获取支持的歌单平台
+   */
+  const getSupportedPlatforms = async (): Promise<string[]> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/music/supported-platforms`)
+      const result: ApiResponse<string[]> = await response.json()
+
+      if (result.success) {
+        return result.data || []
+      } else {
+        console.error('获取支持平台失败:', result.message)
+        return []
+      }
+    } catch (error) {
+      console.error('获取支持平台异常:', error)
+      return []
     }
   }
 
@@ -399,6 +480,8 @@ export const useMusicApi = () => {
 
   return {
     searchMusic,
+    parsePlaylist,
+    getSupportedPlatforms,
     getVideoDetail,
     getAudioStream,
     getAudioStreamByUrl,

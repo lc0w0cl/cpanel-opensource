@@ -3,8 +3,11 @@ package com.clover.cpanel.controller;
 import com.clover.cpanel.common.ApiResponse;
 import com.clover.cpanel.dto.MusicSearchRequestDTO;
 import com.clover.cpanel.dto.MusicSearchResultDTO;
+import com.clover.cpanel.dto.PlaylistParseRequestDTO;
+import com.clover.cpanel.dto.PlaylistInfoDTO;
 import com.clover.cpanel.service.MusicSearchService;
 import com.clover.cpanel.service.SystemConfigService;
+import com.clover.cpanel.service.PlaylistParserService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -33,6 +36,7 @@ public class MusicController {
 
     private final MusicSearchService musicSearchService;
     private final SystemConfigService systemConfigService;
+    private final PlaylistParserService playlistParserService;
 
     @Value("${server.servlet.context-path:}")
     private String contextPath;
@@ -156,6 +160,50 @@ public class MusicController {
         } catch (Exception e) {
             log.error("通过URL获取音频流时发生错误", e);
             return ApiResponse.error("获取音频流失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 解析歌单
+     */
+    @PostMapping("/parse-playlist")
+    public ApiResponse<PlaylistInfoDTO> parsePlaylist(@RequestBody PlaylistParseRequestDTO request) {
+        try {
+            log.info("收到歌单解析请求: {}", request);
+
+            // 参数验证
+            if (request.getUrl() == null || request.getUrl().trim().isEmpty()) {
+                return ApiResponse.error("歌单URL不能为空");
+            }
+
+            // 验证URL是否支持
+            if (!playlistParserService.isSupportedUrl(request.getUrl())) {
+                return ApiResponse.error("不支持的歌单链接，目前支持QQ音乐和网易云音乐");
+            }
+
+            // 执行解析
+            PlaylistInfoDTO playlist = playlistParserService.parsePlaylist(request);
+
+            log.info("歌单解析完成: 标题={}, 歌曲数量={}", playlist.getTitle(), playlist.getSongCount());
+            return ApiResponse.success(playlist);
+
+        } catch (Exception e) {
+            log.error("解析歌单时发生错误", e);
+            return ApiResponse.error("解析歌单失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 获取支持的歌单平台
+     */
+    @GetMapping("/supported-platforms")
+    public ApiResponse<String[]> getSupportedPlatforms() {
+        try {
+            String[] platforms = playlistParserService.getSupportedPlatforms();
+            return ApiResponse.success(platforms);
+        } catch (Exception e) {
+            log.error("获取支持平台时发生错误", e);
+            return ApiResponse.error("获取支持平台失败: " + e.getMessage());
         }
     }
 
