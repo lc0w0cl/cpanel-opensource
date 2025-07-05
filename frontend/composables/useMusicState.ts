@@ -111,15 +111,8 @@ const saveState = () => {
   }
 }
 
-// 清空所有状态
-const clearAllState = () => {
-  searchResults.value = []
-  selectedResults.value.clear()
-  downloadQueue.value = []
-  downloadProgress.value = {}
-  searchQuery.value = ''
-  searchError.value = ''
-  
+// 清空播放相关状态
+const clearPlayingState = () => {
   // 停止播放
   if (audioElement.value) {
     audioElement.value.pause()
@@ -130,7 +123,33 @@ const clearAllState = () => {
   isLoading.value = false
   currentTime.value = 0
   totalDuration.value = 0
-  
+
+  // 清除播放相关的本地存储
+  if (process.client) {
+    localStorage.removeItem(STORAGE_KEYS.CURRENT_PLAYING)
+  }
+}
+
+// 清空所有状态
+const clearAllState = () => {
+  searchResults.value = []
+  selectedResults.value.clear()
+  downloadQueue.value = []
+  downloadProgress.value = {}
+  searchQuery.value = ''
+  searchError.value = ''
+
+  // 停止播放
+  if (audioElement.value) {
+    audioElement.value.pause()
+    audioElement.value = null
+  }
+  currentPlaying.value = null
+  isPlaying.value = false
+  isLoading.value = false
+  currentTime.value = 0
+  totalDuration.value = 0
+
   // 清除本地存储
   if (process.client) {
     Object.values(STORAGE_KEYS).forEach(key => {
@@ -325,6 +344,7 @@ export const useMusicState = () => {
     setVolume,
     setDownloadProgress,
     removeDownloadProgress,
+    clearPlayingState,
     clearAllState,
     saveState,
     restoreState

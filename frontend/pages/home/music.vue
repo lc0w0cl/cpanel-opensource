@@ -50,7 +50,9 @@ const {
   setTotalDuration,
   setVolume,
   setDownloadProgress,
-  removeDownloadProgress
+  removeDownloadProgress,
+  clearPlayingState,
+  clearAllState
 } = useMusicState()
 
 // 音乐API
@@ -223,14 +225,10 @@ const resumeMusic = () => {
   }
 }
 
-// 停止音乐
+// 停止音乐并关闭播放器
 const stopMusic = () => {
-  if (audioElement.value) {
-    audioElement.value.pause()
-    audioElement.value.currentTime = 0
-    setPlaying(false)
-    setCurrentTime(0)
-  }
+  // 使用 clearPlayingState 方法来清空播放相关的状态和缓存
+  clearPlayingState()
 }
 
 // 设置播放进度
