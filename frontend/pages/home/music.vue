@@ -822,6 +822,21 @@ const cancelAutoMatch = () => {
   showNotification('已取消自动匹配', 'info')
 }
 
+// 自定义搜索类型切换函数
+const handleSearchTypeChange = (type: 'keyword' | 'url' | 'playlist') => {
+  // 如果从歌单模式切换到其他模式，清理自动匹配相关状态
+  if (searchType.value === 'playlist' && type !== 'playlist') {
+    isAutoMatching.value = false
+    matchingProgress.value = {}
+    matchingError.value = ''
+    playlistInfo.value = null
+    playlistError.value = ''
+  }
+
+  // 设置新的搜索类型
+  setSearchType(type)
+}
+
 // 智能批量下载
 const startBatchDownload = async () => {
   if (downloadQueue.value.length === 0) return
@@ -893,21 +908,21 @@ const startBatchDownload = async () => {
             <div class="search-type-tabs">
               <div class="tab-buttons">
                 <button
-                    @click="setSearchType('keyword')"
+                    @click="handleSearchTypeChange('keyword')"
                     :class="['tab-btn', { active: searchType === 'keyword' }]"
                 >
                   <Icon icon="mdi:magnify" />
                   关键词搜索
                 </button>
                 <button
-                    @click="setSearchType('url')"
+                    @click="handleSearchTypeChange('url')"
                     :class="['tab-btn', { active: searchType === 'url' }]"
                 >
                   <Icon icon="mdi:link" />
                   链接下载
                 </button>
                 <button
-                    @click="setSearchType('playlist')"
+                    @click="handleSearchTypeChange('playlist')"
                     :class="['tab-btn', { active: searchType === 'playlist' }]"
                 >
                   <Icon icon="mdi:playlist-music" />
@@ -1008,7 +1023,7 @@ const startBatchDownload = async () => {
               </div>
 
               <!-- 自动匹配错误提示 -->
-              <div v-if="matchingError" class="search-error">
+              <div v-if="matchingError && playlistInfo" class="search-error">
                 <Icon icon="mdi:alert-circle" class="error-icon" />
                 <span>{{ matchingError }}</span>
               </div>
@@ -1095,7 +1110,7 @@ const startBatchDownload = async () => {
                 {{ selectedResults.size === searchResults.length ? '取消全选' : '全选' }}
               </button>
               <button
-                v-if="hasSelectedItems && !isAutoMatching"
+                v-if="hasSelectedItems && !isAutoMatching && playlistInfo"
                 @click="autoMatchMusic"
                 class="auto-match-btn"
                 title="为选中的歌曲自动在B站搜索最佳匹配资源"
@@ -1104,7 +1119,7 @@ const startBatchDownload = async () => {
                 自动匹配 ({{ selectedResults.size }})
               </button>
               <button
-                v-if="isAutoMatching"
+                v-if="isAutoMatching && playlistInfo"
                 @click="cancelAutoMatch"
                 class="cancel-match-btn"
               >
@@ -1153,7 +1168,7 @@ const startBatchDownload = async () => {
                   </div>
 
                   <!-- 匹配进度显示 -->
-                  <div v-if="matchingProgress[result.id] !== undefined" class="matching-overlay">
+                  <div v-if="matchingProgress[result.id] !== undefined && playlistInfo" class="matching-overlay">
                     <div class="matching-progress">
                       <Icon v-if="matchingProgress[result.id] < 100" icon="mdi:loading" class="spin matching-icon" />
                       <Icon v-else icon="mdi:check-circle" class="matching-icon success" />
