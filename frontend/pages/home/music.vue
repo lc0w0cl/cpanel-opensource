@@ -60,6 +60,8 @@ const { searchMusic, downloadMusic, getAudioStreamByUrl, getPlayableAudioUrl, ge
 
 // 下载相关状态
 const isDownloading = ref(false)
+const isPaused = ref(false)
+const downloadControllers = ref(new Map()) // 存储下载控制器
 
 // 歌单解析相关状态
 const isParsingPlaylist = ref(false)
@@ -166,18 +168,18 @@ const handlePlaylistParse = async () => {
 }
 
 // 批量添加歌单到下载队列
-const addPlaylistToQueue = () => {
-  if (!playlistInfo.value) return
-
-  const results = searchResults.value
-  results.forEach(result => {
-    if (!downloadQueue.value.find(item => item.id === result.id)) {
-      addToDownloadQueue(result)
-    }
-  })
-
-  showNotification(`已添加 ${results.length} 首歌曲到下载队列，将通过B站搜索下载`, 'success')
-}
+// const addPlaylistToQueue = () => {
+//   if (!playlistInfo.value) return
+//
+//   const results = searchResults.value
+//   results.forEach(result => {
+//     if (!downloadQueue.value.find(item => item.id === result.id)) {
+//       addToDownloadQueue(result)
+//     }
+//   })
+//
+//   showNotification(`已添加 ${results.length} 首歌曲到下载队列，将通过B站搜索下载`, 'success')
+// }
 
 // 批量下载歌单歌曲
 const startPlaylistBatchDownload = async () => {
@@ -210,7 +212,7 @@ const isPlaylistSong = (item: MusicSearchResult) => {
 }
 
 // 通过B站搜索下载歌单歌曲
-const downloadPlaylistSong = async (item: MusicSearchResult) => {
+const downloadPlaylistSong = async (item: MusicSearchResult, onProgress?: (progress: number) => void, abortSignal?: AbortSignal) => {
   try {
     console.log('开始搜索B站资源:', item.title, item.artist)
 
@@ -286,38 +288,40 @@ const downloadPlaylistSong = async (item: MusicSearchResult) => {
 
 // 开始下载
 const startDownload = async (item: MusicSearchResult) => {
+  // 检查是否已暂停
+  if (isPaused.value) {
+    console.log('下载已暂停，跳过:', item.title)
+    return false
+  }
+
   setDownloadProgress(item.id, 0)
+
+  // 创建下载控制器
+  const controller = new AbortController()
+  downloadControllers.value.set(item.id, controller)
 
   try {
     console.log('开始下载:', item.title)
-
-    // 模拟下载进度
-    const progressInterval = setInterval(() => {
-      const currentProgress = downloadProgress.value[item.id] || 0
-      if (currentProgress < 90) {
-        setDownloadProgress(item.id, currentProgress + Math.random() * 15)
-      }
-    }, 300)
 
     let result = false
 
     // 如果是歌单来源的歌曲，使用B站搜索下载
     if (isPlaylistSong(item)) {
-      result = await downloadPlaylistSong(item)
+      result = await downloadPlaylistSong(item, (progress) => {
+        if (!isPaused.value && !controller.signal.aborted) {
+          setDownloadProgress(item.id, progress)
+        }
+      }, controller.signal)
     } else {
       // 普通搜索结果，使用原有下载方式
-      result = await downloadMusic(item)
-    }
-
-    // 清除进度模拟
-    clearInterval(progressInterval)
-
-    if (result) {
-      // 下载成功，设置进度为100%
-      setDownloadProgress(item.id, 100)
+      result = await downloadMusic(item, (progress) => {
+        if (!isPaused.value && !controller.signal.aborted) {
+          setDownloadProgress(item.id, progress)
+        }
+      })
 
       // 如果不是歌单歌曲，显示原有的成功消息
-      if (!isPlaylistSong(item)) {
+      if (result && !isPaused.value) {
         const { getMusicSettings } = useMusicApi()
         const settings = await getMusicSettings()
 
@@ -327,29 +331,51 @@ const startDownload = async (item: MusicSearchResult) => {
           showNotification(`本地下载完成: ${item.title}`, 'success')
         }
       }
+    }
+
+    if (result && !isPaused.value) {
+      // 下载成功，设置进度为100%
+      setDownloadProgress(item.id, 100)
 
       // 3秒后从下载队列中移除
       setTimeout(() => {
         removeFromQueue(item.id)
+        downloadControllers.value.delete(item.id)
       }, 3000)
 
       console.log('下载完成:', item.title)
+    } else if (isPaused.value || controller.signal.aborted) {
+      console.log('下载被暂停或取消:', item.title)
+      return false
     } else {
       // 下载失败，移除进度
       removeDownloadProgress(item.id)
+      downloadControllers.value.delete(item.id)
       console.error('下载失败:', item.title)
 
       if (!isPlaylistSong(item)) {
         showNotification(`下载失败: ${item.title}`, 'error')
       }
     }
-  } catch (error) {
+
+    return result
+  } catch (error: any) {
     console.error('下载异常:', error)
+
+    // 如果是暂停导致的错误，不显示错误提示
+    if (error.name === 'AbortError' || isPaused.value) {
+      console.log('下载被暂停:', item.title)
+      return false
+    }
+
     removeDownloadProgress(item.id)
+    downloadControllers.value.delete(item.id)
 
     if (!isPlaylistSong(item)) {
       showNotification(`下载异常: ${item.title}`, 'error')
     }
+
+    return false
   }
 }
 
@@ -610,9 +636,49 @@ const hasPlaylistSongs = computed(() => {
   return downloadQueue.value.some(item => isPlaylistSong(item))
 })
 
+// 暂停所有下载
+const pauseAllDownloads = () => {
+  isPaused.value = true
+  isDownloading.value = false
+
+  // 暂停所有正在进行的下载
+  downloadControllers.value.forEach((controller, songId) => {
+    if (controller && !controller.signal.aborted) {
+      controller.abort()
+    }
+  })
+
+  showNotification('已暂停所有下载任务', 'info')
+  console.log('暂停所有下载，共暂停', downloadControllers.value.size, '个任务')
+}
+
+// 恢复所有下载
+const resumeAllDownloads = () => {
+  isPaused.value = false
+
+  // 重新开始未完成的下载
+  const unfinishedSongs = downloadQueue.value.filter(item => {
+    const progress = downloadProgress.value[item.id]
+    return progress === undefined || (progress < 100 && progress > 0)
+  })
+
+  if (unfinishedSongs.length > 0) {
+    showNotification(`恢复下载 ${unfinishedSongs.length} 首歌曲`, 'success')
+    startBatchDownload()
+  } else {
+    showNotification('没有需要恢复的下载任务', 'info')
+  }
+}
+
 // 智能批量下载
 const startBatchDownload = async () => {
   if (downloadQueue.value.length === 0) return
+  if (isPaused.value) {
+    showNotification('下载已暂停，请先恢复下载', 'info')
+    return
+  }
+
+  isDownloading.value = true
 
   const playlistSongs = downloadQueue.value.filter(item => isPlaylistSong(item))
   const regularSongs = downloadQueue.value.filter(item => !isPlaylistSong(item))
@@ -621,19 +687,29 @@ const startBatchDownload = async () => {
     showNotification(`开始智能下载 ${playlistSongs.length} 首歌单歌曲 + ${regularSongs.length} 首普通歌曲`, 'success')
   }
 
-  // 先下载普通歌曲
-  for (const song of regularSongs) {
-    if (downloadProgress.value[song.id] === undefined) {
-      startDownload(song)
+  try {
+    // 先下载普通歌曲
+    for (const song of regularSongs) {
+      if (isPaused.value) break
+      if (downloadProgress.value[song.id] === undefined) {
+        startDownload(song)
+      }
     }
-  }
 
-  // 再逐个下载歌单歌曲（需要搜索，所以串行处理）
-  for (const song of playlistSongs) {
-    if (downloadProgress.value[song.id] === undefined) {
-      await startDownload(song)
-      // 每首歌之间间隔1秒，避免请求过于频繁
-      await new Promise(resolve => setTimeout(resolve, 1000))
+    // 再逐个下载歌单歌曲（需要搜索，所以串行处理）
+    for (const song of playlistSongs) {
+      if (isPaused.value) break
+      if (downloadProgress.value[song.id] === undefined) {
+        await startDownload(song)
+        // 每首歌之间间隔1秒，避免请求过于频繁
+        if (!isPaused.value) {
+          await new Promise(resolve => setTimeout(resolve, 1000))
+        }
+      }
+    }
+  } finally {
+    if (!isPaused.value) {
+      isDownloading.value = false
     }
   }
 }
@@ -792,16 +868,16 @@ const startBatchDownload = async () => {
               <h3 class="card-title">{{ playlistInfo.title }}</h3>
               <p class="card-subtitle">创建者: {{ playlistInfo.creator }} · {{ playlistInfo.songCount }} 首歌曲</p>
             </div>
-            <div class="header-actions">
-              <button
-                @click="addPlaylistToQueue"
-                class="add-playlist-btn"
-                :title="'将通过B站搜索下载，自动选择播放量最高的资源'"
-              >
-                <Icon icon="mdi:download-multiple" class="btn-icon" />
-                全部添加到下载队列
-              </button>
-            </div>
+<!--            <div class="header-actions">-->
+<!--              <button-->
+<!--                @click="addPlaylistToQueue"-->
+<!--                class="add-playlist-btn"-->
+<!--                :title="'将通过B站搜索下载，自动选择播放量最高的资源'"-->
+<!--              >-->
+<!--                <Icon icon="mdi:download-multiple" class="btn-icon" />-->
+<!--                全部添加到下载队列-->
+<!--              </button>-->
+<!--            </div>-->
           </div>
 
           <div class="card-content">
@@ -1007,17 +1083,36 @@ const startBatchDownload = async () => {
             </div>
             <div class="header-actions">
               <button
-                v-if="!isDownloading"
+                v-if="!isDownloading && !isPaused"
                 @click="startBatchDownload"
                 class="start-all-btn"
               >
                 <Icon icon="mdi:play" class="btn-icon" />
                 {{ hasPlaylistSongs ? '智能批量下载' : '开始全部下载' }}
               </button>
+
+              <button
+                v-if="isDownloading && !isPaused"
+                @click="pauseAllDownloads"
+                class="pause-all-btn"
+              >
+                <Icon icon="mdi:pause" class="btn-icon" />
+                全部暂停
+              </button>
+
+              <button
+                v-if="isPaused"
+                @click="resumeAllDownloads"
+                class="resume-all-btn"
+              >
+                <Icon icon="mdi:play" class="btn-icon" />
+                恢复下载
+              </button>
+
               <button
                 @click="clearDownloadQueue"
                 class="clear-queue-btn"
-                :disabled="isDownloading"
+                :disabled="isDownloading && !isPaused"
               >
                 <Icon icon="mdi:delete-sweep" class="btn-icon" />
                 清空队列
@@ -1587,6 +1682,8 @@ const startBatchDownload = async () => {
 .select-all-btn,
 .add-to-queue-btn,
 .start-all-btn,
+.pause-all-btn,
+.resume-all-btn,
 .clear-queue-btn {
   display: flex;
   align-items: center;
@@ -1606,9 +1703,46 @@ const startBatchDownload = async () => {
 }
 
 .select-all-btn:hover,
-.start-all-btn:hover {
+.start-all-btn:hover,
+.resume-all-btn:hover {
   color: rgba(255, 255, 255, 0.9);
   border-color: rgba(255, 255, 255, 0.3);
+}
+
+/* 暂停按钮特殊样式 */
+.pause-all-btn {
+  border-color: rgba(251, 191, 36, 0.3);
+  background: linear-gradient(135deg,
+    rgba(251, 191, 36, 0.2) 0%,
+    rgba(251, 191, 36, 0.1) 100%
+  );
+  color: rgba(251, 191, 36, 1);
+}
+
+.pause-all-btn:hover {
+  border-color: rgba(251, 191, 36, 0.5);
+  background: linear-gradient(135deg,
+    rgba(251, 191, 36, 0.3) 0%,
+    rgba(251, 191, 36, 0.15) 100%
+  );
+}
+
+/* 恢复按钮特殊样式 */
+.resume-all-btn {
+  border-color: rgba(34, 197, 94, 0.3);
+  background: linear-gradient(135deg,
+    rgba(34, 197, 94, 0.2) 0%,
+    rgba(34, 197, 94, 0.1) 100%
+  );
+  color: rgba(34, 197, 94, 1);
+}
+
+.resume-all-btn:hover {
+  border-color: rgba(34, 197, 94, 0.5);
+  background: linear-gradient(135deg,
+    rgba(34, 197, 94, 0.3) 0%,
+    rgba(34, 197, 94, 0.15) 100%
+  );
 }
 
 .add-to-queue-btn {
