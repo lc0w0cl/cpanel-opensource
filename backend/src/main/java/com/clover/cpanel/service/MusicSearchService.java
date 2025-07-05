@@ -45,10 +45,18 @@ public class MusicSearchService {
                 results.addAll(bilibiliResults);
             }
             
-            // 这里可以添加YouTube搜索
+            // YouTube搜索或URL解析
             if ("youtube".equals(request.getPlatform()) || "both".equals(request.getPlatform())) {
-                // TODO: 实现YouTube搜索
-                log.info("YouTube搜索功能待实现");
+                if ("url".equals(request.getSearchType())) {
+                    // URL模式：直接解析YouTube视频URL
+                    MusicSearchResultDTO youtubeResult = parseYouTubeVideoUrl(request.getQuery());
+                    if (youtubeResult != null) {
+                        results.add(youtubeResult);
+                    }
+                } else {
+                    // 关键词模式：YouTube搜索功能待实现
+                    log.info("YouTube关键词搜索功能待实现");
+                }
             }
             
         } catch (Exception e) {
@@ -64,6 +72,17 @@ public class MusicSearchService {
     private List<MusicSearchResultDTO> searchBilibili(MusicSearchRequestDTO request) throws IOException {
         List<MusicSearchResultDTO> results = new ArrayList<>();
 
+        // 检查搜索类型
+        if ("url".equals(request.getSearchType())) {
+            // URL模式：直接解析视频URL
+            MusicSearchResultDTO videoResult = parseBilibiliVideoUrl(request.getQuery());
+            if (videoResult != null) {
+                results.add(videoResult);
+            }
+            return results;
+        }
+
+        // 关键词模式：搜索B站
         // 构建搜索URL - 添加更多参数以获得更好的搜索结果
         String encodedQuery = URLEncoder.encode(request.getQuery(), StandardCharsets.UTF_8);
         String searchUrl = BILIBILI_SEARCH_URL + "?keyword=" + encodedQuery
@@ -256,7 +275,132 @@ public class MusicSearchService {
             return null;
         }
     }
-    
+
+    /**
+     * 解析哔哩哔哩视频URL，获取视频详情
+     */
+    private MusicSearchResultDTO parseBilibiliVideoUrl(String videoUrl) {
+        try {
+            log.info("正在解析B站视频URL: {}", videoUrl);
+
+            // 验证URL格式
+            if (!videoUrl.contains("bilibili.com/video/")) {
+                log.warn("不是有效的B站视频URL: {}", videoUrl);
+                return null;
+            }
+
+            // 提取视频ID
+            String videoId = extractBilibiliVideoId(videoUrl);
+            if (videoId.isEmpty()) {
+                log.warn("无法从URL中提取视频ID: {}", videoUrl);
+                return null;
+            }
+
+            // 确保URL格式正确
+            String normalizedUrl = videoUrl;
+            if (!normalizedUrl.startsWith("http")) {
+                normalizedUrl = "https://" + normalizedUrl;
+            }
+
+            // 获取视频页面
+            Document doc = Jsoup.connect(normalizedUrl)
+                    .userAgent(USER_AGENT)
+                    .header("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8")
+                    .header("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8")
+                    .header("Accept-Encoding", "gzip, deflate, br")
+                    .header("Connection", "keep-alive")
+                    .header("Upgrade-Insecure-Requests", "1")
+                    .timeout(10000)
+                    .get();
+
+            // 提取视频信息
+            String title = "";
+            String artist = "";
+            String duration = "";
+            String thumbnail = "";
+            String playCount = "";
+            String publishTime = "";
+
+            // 获取标题
+            Element titleElement = doc.selectFirst("h1[title], .video-title, title");
+            if (titleElement != null) {
+                title = titleElement.text().trim();
+                // 移除可能的后缀
+                title = title.replaceAll("_哔哩哔哩_bilibili$", "").trim();
+            }
+
+            // 获取UP主信息
+            Element uploaderElement = doc.selectFirst(".up-name, .username, .up-detail-top .up-name a");
+            if (uploaderElement != null) {
+                artist = uploaderElement.text().trim();
+            }
+
+            // 获取时长 - 从多个可能的位置尝试
+            Element durationElement = doc.selectFirst(".duration, .video-duration, [class*='duration']");
+            if (durationElement != null) {
+                duration = durationElement.text().trim();
+            }
+
+            // 获取缩略图
+            Element thumbnailElement = doc.selectFirst("meta[property='og:image'], .player-cover img, video");
+            if (thumbnailElement != null) {
+                if (thumbnailElement.tagName().equals("meta")) {
+                    thumbnail = thumbnailElement.attr("content");
+                } else {
+                    thumbnail = thumbnailElement.attr("src");
+                    if (thumbnail.isEmpty()) {
+                        thumbnail = thumbnailElement.attr("poster");
+                    }
+                }
+                // 转换为代理URL
+                thumbnail = convertToProxyUrl(thumbnail);
+            }
+
+            // 获取播放量
+            Element playCountElement = doc.selectFirst(".view, .play-count, [class*='play']");
+            if (playCountElement != null) {
+                playCount = playCountElement.text().trim();
+            }
+
+            // 获取发布时间
+            Element publishElement = doc.selectFirst(".pubdate, .publish-time, [class*='time']");
+            if (publishElement != null) {
+                publishTime = publishElement.text().trim();
+            }
+
+            // 如果某些信息为空，设置默认值
+            if (title.isEmpty()) {
+                title = "B站视频";
+            }
+            if (artist.isEmpty()) {
+                artist = "未知UP主";
+            }
+            if (duration.isEmpty()) {
+                duration = "未知";
+            }
+
+            log.info("成功解析B站视频: 标题={}, UP主={}, 时长={}", title, artist, duration);
+
+            return MusicSearchResultDTO.builder()
+                    .id(videoId)
+                    .title(title)
+                    .artist(artist)
+                    .duration(duration)
+                    .platform("bilibili")
+                    .thumbnail(thumbnail)
+                    .url(normalizedUrl)
+                    .quality("音频")
+                    .playCount(playCount)
+                    .publishTime(publishTime)
+                    .description("直链解析")
+                    .build();
+
+        } catch (Exception e) {
+            log.error("解析B站视频URL失败: {}", videoUrl, e);
+            return null;
+        }
+    }
+
     /**
      * 从URL中提取哔哩哔哩视频ID
      */
@@ -377,5 +521,179 @@ public class MusicSearchService {
             log.error("执行yt-dlp时发生错误", e);
             return null;
         }
+    }
+
+    /**
+     * 解析YouTube视频URL，获取视频详情
+     */
+    private MusicSearchResultDTO parseYouTubeVideoUrl(String videoUrl) {
+        try {
+            log.info("正在解析YouTube视频URL: {}", videoUrl);
+
+            // 验证URL格式
+            if (!videoUrl.contains("youtube.com/watch") && !videoUrl.contains("youtu.be/")) {
+                log.warn("不是有效的YouTube视频URL: {}", videoUrl);
+                return null;
+            }
+
+            // 提取视频ID
+            String videoId = extractYouTubeVideoId(videoUrl);
+            if (videoId.isEmpty()) {
+                log.warn("无法从URL中提取YouTube视频ID: {}", videoUrl);
+                return null;
+            }
+
+            // 确保URL格式正确
+            String normalizedUrl = videoUrl;
+            if (!normalizedUrl.startsWith("http")) {
+                normalizedUrl = "https://" + normalizedUrl;
+            }
+
+            // 使用yt-dlp获取视频信息
+            ProcessBuilder processBuilder = new ProcessBuilder(
+                "yt-dlp",
+                "--dump-json",          // 输出JSON格式的视频信息
+                "--no-playlist",        // 不处理播放列表
+                normalizedUrl
+            );
+
+            processBuilder.redirectErrorStream(true);
+            Process process = processBuilder.start();
+
+            // 读取输出
+            StringBuilder output = new StringBuilder();
+            try (BufferedReader reader = new BufferedReader(
+                    new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    output.append(line).append("\n");
+                }
+            }
+
+            int exitCode = process.waitFor();
+
+            if (exitCode == 0) {
+                // 解析JSON输出
+                String jsonOutput = output.toString().trim();
+                if (jsonOutput.startsWith("{")) {
+                    // 简单的JSON解析（这里可以使用Jackson或Gson，但为了简单起见使用字符串匹配）
+                    String title = extractJsonValue(jsonOutput, "title");
+                    String uploader = extractJsonValue(jsonOutput, "uploader");
+                    String duration = extractJsonValue(jsonOutput, "duration_string");
+                    String thumbnail = extractJsonValue(jsonOutput, "thumbnail");
+                    String viewCount = extractJsonValue(jsonOutput, "view_count");
+                    String uploadDate = extractJsonValue(jsonOutput, "upload_date");
+
+                    // 格式化播放量
+                    if (viewCount != null && !viewCount.isEmpty()) {
+                        try {
+                            long views = Long.parseLong(viewCount);
+                            if (views >= 10000) {
+                                viewCount = String.format("%.1f万", views / 10000.0);
+                            } else {
+                                viewCount = String.valueOf(views);
+                            }
+                        } catch (NumberFormatException e) {
+                            // 保持原值
+                        }
+                    }
+
+                    // 格式化上传日期
+                    if (uploadDate != null && uploadDate.length() == 8) {
+                        try {
+                            String year = uploadDate.substring(0, 4);
+                            String month = uploadDate.substring(4, 6);
+                            String day = uploadDate.substring(6, 8);
+                            uploadDate = year + "-" + month + "-" + day;
+                        } catch (Exception e) {
+                            // 保持原值
+                        }
+                    }
+
+                    // 设置默认值
+                    if (title == null || title.isEmpty()) {
+                        title = "YouTube视频";
+                    }
+                    if (uploader == null || uploader.isEmpty()) {
+                        uploader = "未知作者";
+                    }
+                    if (duration == null || duration.isEmpty()) {
+                        duration = "未知";
+                    }
+
+                    log.info("成功解析YouTube视频: 标题={}, 作者={}, 时长={}", title, uploader, duration);
+
+                    return MusicSearchResultDTO.builder()
+                            .id(videoId)
+                            .title(title)
+                            .artist(uploader)
+                            .duration(duration)
+                            .platform("youtube")
+                            .thumbnail(thumbnail)
+                            .url(normalizedUrl)
+                            .quality("音频")
+                            .playCount(viewCount)
+                            .publishTime(uploadDate)
+                            .description("直链解析")
+                            .build();
+                } else {
+                    log.warn("yt-dlp返回的不是有效的JSON格式: {}", jsonOutput);
+                    return null;
+                }
+            } else {
+                log.error("yt-dlp执行失败，退出码: {}, 输出: {}", exitCode, output.toString());
+                return null;
+            }
+
+        } catch (Exception e) {
+            log.error("解析YouTube视频URL失败: {}", videoUrl, e);
+            return null;
+        }
+    }
+
+    /**
+     * 从YouTube URL中提取视频ID
+     */
+    private String extractYouTubeVideoId(String url) {
+        // 处理 youtube.com/watch?v=VIDEO_ID 格式
+        Pattern pattern1 = Pattern.compile("[?&]v=([^&]+)");
+        Matcher matcher1 = pattern1.matcher(url);
+        if (matcher1.find()) {
+            return matcher1.group(1);
+        }
+
+        // 处理 youtu.be/VIDEO_ID 格式
+        Pattern pattern2 = Pattern.compile("youtu\\.be/([^?]+)");
+        Matcher matcher2 = pattern2.matcher(url);
+        if (matcher2.find()) {
+            return matcher2.group(1);
+        }
+
+        return "";
+    }
+
+    /**
+     * 从JSON字符串中提取指定字段的值
+     */
+    private String extractJsonValue(String json, String key) {
+        try {
+            String pattern = "\"" + key + "\"\\s*:\\s*\"([^\"]+)\"";
+            Pattern p = Pattern.compile(pattern);
+            Matcher m = p.matcher(json);
+            if (m.find()) {
+                return m.group(1);
+            }
+
+            // 尝试数字值
+            String numberPattern = "\"" + key + "\"\\s*:\\s*([0-9]+)";
+            Pattern np = Pattern.compile(numberPattern);
+            Matcher nm = np.matcher(json);
+            if (nm.find()) {
+                return nm.group(1);
+            }
+        } catch (Exception e) {
+            log.debug("提取JSON值失败: key={}, error={}", key, e.getMessage());
+        }
+        return null;
     }
 }
