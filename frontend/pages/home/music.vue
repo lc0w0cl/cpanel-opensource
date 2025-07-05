@@ -103,45 +103,97 @@ const handleSearch = async () => {
 
 // 开始下载
 const startDownload = async (item: MusicSearchResult) => {
-  isDownloading.value = true
   setDownloadProgress(item.id, 0)
 
   try {
-    // 调用下载API
-    const success = await downloadMusic(item.url)
+    console.log('开始下载:', item.title)
+
+    // 模拟下载进度
+    const progressInterval = setInterval(() => {
+      const currentProgress = downloadProgress.value[item.id] || 0
+      if (currentProgress < 90) {
+        setDownloadProgress(item.id, currentProgress + Math.random() * 15)
+      }
+    }, 300)
+
+    // 调用浏览器端下载
+    const success = await downloadMusic(item)
+
+    // 清除进度模拟
+    clearInterval(progressInterval)
 
     if (success) {
-      // 模拟下载进度
-      const interval = setInterval(() => {
-        const currentProgress = downloadProgress.value[item.id] || 0
-        const newProgress = currentProgress + Math.random() * 20
-        if (newProgress >= 100) {
-          setDownloadProgress(item.id, 100)
-          clearInterval(interval)
+      // 下载成功，设置进度为100%
+      setDownloadProgress(item.id, 100)
 
-          // 检查是否所有下载完成
-          const allCompleted = downloadQueue.value.every(queueItem =>
-            downloadProgress.value[queueItem.id] === 100
-          )
-          if (allCompleted) {
-            isDownloading.value = false
-          }
-        } else {
-          setDownloadProgress(item.id, newProgress)
-        }
-      }, 200)
+      // 显示成功通知
+      showNotification(`下载完成: ${item.title}`, 'success')
+
+      // 3秒后从下载队列中移除
+      setTimeout(() => {
+        removeFromQueue(item.id)
+      }, 3000)
+
+      console.log('下载完成:', item.title)
     } else {
-      // 下载失败
+      // 下载失败，移除进度
       removeDownloadProgress(item.id)
-      isDownloading.value = false
       console.error('下载失败:', item.title)
+
+      // 显示错误提示
+      showNotification(`下载失败: ${item.title}`, 'error')
     }
   } catch (error) {
     console.error('下载异常:', error)
     removeDownloadProgress(item.id)
-    isDownloading.value = false
+
+    // 显示错误提示
+    showNotification(`下载异常: ${item.title}`, 'error')
   }
 }
+
+// 简单的通知功能
+const showNotification = (message: string, type: 'success' | 'error' = 'success') => {
+  if (!process.client) return
+
+  // 创建通知元素
+  const notification = document.createElement('div')
+  notification.textContent = message
+  notification.style.cssText = `
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    padding: 12px 20px;
+    border-radius: 8px;
+    color: white;
+    font-size: 14px;
+    font-weight: 500;
+    z-index: 10000;
+    max-width: 300px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    backdrop-filter: blur(10px);
+    transition: all 0.3s ease;
+    ${type === 'success'
+      ? 'background: linear-gradient(135deg, rgba(34, 197, 94, 0.9), rgba(34, 197, 94, 0.8));'
+      : 'background: linear-gradient(135deg, rgba(239, 68, 68, 0.9), rgba(239, 68, 68, 0.8));'
+  }
+  `
+
+  document.body.appendChild(notification)
+
+  // 3秒后自动移除
+  setTimeout(() => {
+    notification.style.opacity = '0'
+    notification.style.transform = 'translateX(100%)'
+    setTimeout(() => {
+      if (notification.parentNode) {
+        document.body.removeChild(notification)
+      }
+    }, 300)
+  }, 3000)
+}
+
+
 
 // 播放音乐
 const playMusic = async (result: MusicSearchResult) => {
@@ -285,6 +337,32 @@ const formatTime = (seconds: number) => {
   const mins = Math.floor(seconds / 60)
   const secs = Math.floor(seconds % 60)
   return `${mins}:${secs.toString().padStart(2, '0')}`
+}
+
+// 获取下载按钮文本
+const getDownloadButtonText = (result: MusicSearchResult) => {
+  const progress = downloadProgress.value[result.id]
+  if (progress !== undefined) {
+    if (progress === 100) {
+      return '已完成'
+    } else {
+      return `${Math.round(progress)}%`
+    }
+  }
+  return '下载'
+}
+
+// 获取下载按钮标题
+const getDownloadButtonTitle = (result: MusicSearchResult) => {
+  const progress = downloadProgress.value[result.id]
+  if (progress !== undefined) {
+    if (progress === 100) {
+      return '下载完成'
+    } else {
+      return `正在下载... ${Math.round(progress)}%`
+    }
+  }
+  return '立即下载'
 }
 </script>
 
@@ -526,10 +604,27 @@ const formatTime = (seconds: number) => {
                     <button
                       @click="startDownload(result)"
                       class="download-btn"
-                      title="立即下载"
+                      :class="{
+                        downloading: downloadProgress[result.id] !== undefined && downloadProgress[result.id] < 100,
+                        completed: downloadProgress[result.id] === 100
+                      }"
+                      :disabled="downloadProgress[result.id] !== undefined && downloadProgress[result.id] < 100"
+                      :title="getDownloadButtonTitle(result)"
                     >
-                      <Icon icon="mdi:download" />
-                      下载
+                      <Icon
+                        v-if="downloadProgress[result.id] !== undefined && downloadProgress[result.id] < 100"
+                        icon="mdi:loading"
+                        class="loading-icon"
+                      />
+                      <Icon
+                        v-else-if="downloadProgress[result.id] === 100"
+                        icon="mdi:check-circle"
+                      />
+                      <Icon
+                        v-else
+                        icon="mdi:download"
+                      />
+                      {{ getDownloadButtonText(result) }}
                     </button>
                     <a
                       :href="result.url"
@@ -1554,7 +1649,7 @@ const formatTime = (seconds: number) => {
 }
 
 /* 下载按钮悬停效果 */
-.download-btn:hover,
+.download-btn:hover:not(:disabled),
 .start-btn:hover {
   background: linear-gradient(135deg,
     rgba(34, 197, 94, 0.15) 0%,
@@ -1562,6 +1657,33 @@ const formatTime = (seconds: number) => {
   );
   border-color: rgba(34, 197, 94, 0.3);
   color: rgba(34, 197, 94, 0.9);
+}
+
+/* 下载按钮状态样式 */
+.download-btn.downloading {
+  background: linear-gradient(135deg,
+    rgba(59, 130, 246, 0.15) 0%,
+    rgba(59, 130, 246, 0.08) 100%
+  );
+  border-color: rgba(59, 130, 246, 0.3);
+  color: rgba(59, 130, 246, 0.9);
+  cursor: not-allowed;
+  opacity: 0.8;
+}
+
+.download-btn.completed {
+  background: linear-gradient(135deg,
+    rgba(34, 197, 94, 0.2) 0%,
+    rgba(34, 197, 94, 0.1) 100%
+  );
+  border-color: rgba(34, 197, 94, 0.4);
+  color: rgba(34, 197, 94, 1);
+}
+
+.download-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
 }
 
 /* 播放按钮样式 */

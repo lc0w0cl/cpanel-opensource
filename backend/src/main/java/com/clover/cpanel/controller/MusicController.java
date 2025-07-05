@@ -224,10 +224,6 @@ public class MusicController {
             // 设置响应头
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.parseMediaType(contentType));
-            headers.set("Access-Control-Allow-Origin", "*");
-            headers.set("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS");
-            headers.set("Access-Control-Allow-Headers", "Range");
-            headers.set("Access-Control-Expose-Headers", "Content-Range, Accept-Ranges, Content-Length");
 
             if (acceptRanges != null) {
                 headers.set("Accept-Ranges", acceptRanges);
@@ -332,9 +328,6 @@ public class MusicController {
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.parseMediaType(contentType));
             headers.set("Accept-Ranges", "bytes");
-            headers.set("Access-Control-Allow-Origin", "*");
-            headers.set("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS");
-            headers.set("Access-Control-Allow-Headers", "Range");
 
             if (contentLength > 0) {
                 headers.setContentLength(contentLength);
@@ -358,31 +351,7 @@ public class MusicController {
         }
     }
 
-    /**
-     * 处理音频代理的OPTIONS预检请求
-     */
-    @RequestMapping(value = "/proxy/audio-stream", method = RequestMethod.OPTIONS)
-    public ResponseEntity<Void> handleAudioStreamOptions() {
-        HttpHeaders headers = new HttpHeaders();
-        headers.set("Access-Control-Allow-Origin", "*");
-        headers.set("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS");
-        headers.set("Access-Control-Allow-Headers", "Range, Content-Type");
-        headers.set("Access-Control-Max-Age", "3600");
-        return new ResponseEntity<>(headers, HttpStatus.OK);
-    }
 
-    /**
-     * 处理音频代理的OPTIONS预检请求
-     */
-    @RequestMapping(value = "/proxy/audio", method = RequestMethod.OPTIONS)
-    public ResponseEntity<Void> handleAudioOptions() {
-        HttpHeaders headers = new HttpHeaders();
-        headers.set("Access-Control-Allow-Origin", "*");
-        headers.set("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS");
-        headers.set("Access-Control-Allow-Headers", "Range, Content-Type");
-        headers.set("Access-Control-Max-Age", "3600");
-        return new ResponseEntity<>(headers, HttpStatus.OK);
-    }
 
     /**
      * 图片代理接口 - 解决防盗链问题

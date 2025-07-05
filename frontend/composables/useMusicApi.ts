@@ -181,32 +181,123 @@ export const useMusicApi = () => {
   }
 
   /**
-   * 下载音乐（预留接口）
+   * 浏览器端直接下载音乐
    */
-  const downloadMusic = async (videoUrl: string, options?: any): Promise<boolean> => {
+  const downloadMusic = async (musicResult: any, onProgress?: (progress: number) => void): Promise<boolean> => {
     try {
-      const response = await fetch(`${API_BASE_URL}/music/download`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          url: videoUrl,
-          ...options
-        })
-      })
+      console.log('开始下载音乐:', musicResult.title)
 
-      const result: ApiResponse<any> = await response.json()
-
-      if (result.success) {
-        return true
-      } else {
-        console.error('下载音乐失败:', result.message)
+      // 1. 获取音频流URL
+      onProgress?.(20)
+      const audioUrl = await getAudioStreamByUrl(musicResult.url)
+      if (!audioUrl) {
+        console.error('无法获取音频流URL')
         return false
       }
+
+      // 2. 获取可播放的音频URL（处理403问题）
+      onProgress?.(40)
+      const playableUrl = await getPlayableAudioUrl(audioUrl)
+      if (!playableUrl) {
+        console.error('无法获取可播放的音频URL')
+        return false
+      }
+
+      // 3. 下载音频文件
+      onProgress?.(60)
+      const success = await downloadAudioFile(playableUrl, musicResult.title, musicResult.artist, onProgress)
+
+      if (success) {
+        onProgress?.(100)
+        console.log('音乐下载成功:', musicResult.title)
+        return true
+      } else {
+        console.error('音乐下载失败:', musicResult.title)
+        return false
+      }
+
     } catch (error) {
       console.error('下载音乐异常:', error)
       return false
+    }
+  }
+
+  /**
+   * 下载音频文件到本地
+   */
+  const downloadAudioFile = async (
+    audioUrl: string,
+    title: string,
+    artist: string,
+    onProgress?: (progress: number) => void
+  ): Promise<boolean> => {
+    try {
+      // 显示下载提示
+      console.log('正在下载音频文件...')
+      onProgress?.(70)
+
+      // 获取音频数据
+      const response = await fetch(audioUrl)
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+
+      onProgress?.(85)
+      const blob = await response.blob()
+
+      // 创建下载链接
+      const downloadUrl = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = downloadUrl
+
+      // 生成文件名
+      const fileName = generateFileName(title, artist, audioUrl)
+      link.download = fileName
+
+      // 设置链接样式（隐藏）
+      link.style.display = 'none'
+
+      // 触发下载
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+
+      // 清理URL对象
+      setTimeout(() => {
+        window.URL.revokeObjectURL(downloadUrl)
+      }, 1000)
+
+      onProgress?.(95)
+      return true
+    } catch (error) {
+      console.error('下载音频文件失败:', error)
+      return false
+    }
+  }
+
+  /**
+   * 生成下载文件名
+   */
+  const generateFileName = (title: string, artist: string, audioUrl: string): string => {
+    // 清理文件名中的非法字符
+    const cleanTitle = title.replace(/[<>:"/\\|?*]/g, '').trim()
+    const cleanArtist = artist.replace(/[<>:"/\\|?*]/g, '').trim()
+
+    // 根据URL推断文件扩展名
+    let extension = '.mp3' // 默认扩展名
+    if (audioUrl.includes('.m4a')) {
+      extension = '.m4a'
+    } else if (audioUrl.includes('.webm')) {
+      extension = '.webm'
+    } else if (audioUrl.includes('.ogg')) {
+      extension = '.ogg'
+    }
+
+    // 生成文件名：艺术家 - 歌曲名.扩展名
+    if (cleanArtist && cleanArtist !== cleanTitle) {
+      return `${cleanArtist} - ${cleanTitle}${extension}`
+    } else {
+      return `${cleanTitle}${extension}`
     }
   }
 
@@ -218,6 +309,8 @@ export const useMusicApi = () => {
     getProxyAudioUrl,
     getPlayableAudioUrl,
     getFallbackAudioUrl,
-    downloadMusic
+    downloadMusic,
+    downloadAudioFile,
+    generateFileName
   }
 }
