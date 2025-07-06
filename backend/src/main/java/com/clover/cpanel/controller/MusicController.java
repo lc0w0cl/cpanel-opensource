@@ -635,7 +635,7 @@ public class MusicController {
                 "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36");
 
             // 根据URL设置Referer
-            if (audioUrl.contains("bilivideo.cn") || audioUrl.contains("bilibili.com")) {
+            if (audioUrl.contains("bilivideo.cn") || audioUrl.contains("bilibili.com") || audioUrl.contains("bili")) {
                 connection.setRequestProperty("Referer", "https://www.bilibili.com/");
             } else if (audioUrl.contains("youtube.com") || audioUrl.contains("googlevideo.com")) {
                 connection.setRequestProperty("Referer", "https://www.youtube.com/");
