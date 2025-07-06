@@ -159,6 +159,14 @@ const currentHasResults = computed(() => {
   return currentSearchResults.value.length > 0
 })
 
+// 计算属性：当前搜索结果是否全选
+const isCurrentAllSelected = computed(() => {
+  const currentResults = currentSearchResults.value
+  if (currentResults.length === 0) return false
+
+  return currentResults.every(item => selectedResults.value.has(item.id))
+})
+
 // 计算属性：验证URL有效性
 const isValidUrl = computed(() => {
   if (searchType.value === 'keyword') return true
@@ -794,7 +802,7 @@ const resumeAllDownloads = () => {
 
 // 自动匹配选中的歌曲
 const autoMatchMusic = async () => {
-  const selectedSongs = searchResults.value.filter(result => selectedResults.value.has(result.id))
+  const selectedSongs = currentSearchResults.value.filter(result => selectedResults.value.has(result.id))
 
   if (selectedSongs.length === 0) {
     showNotification('请先选择要匹配的歌曲', 'error')
@@ -870,21 +878,31 @@ const autoMatchMusic = async () => {
         )
 
         bestResult = uniqueResults.reduce((best, current) => {
-          const bestPlayCount = parseInt(best.playCount?.replace(/[^\d]/g, '') || '0')
-          const currentPlayCount = parseInt(current.playCount?.replace(/[^\d]/g, '') || '0')
+          // 获取音质优先级
+          const bestQualityPriority = getAudioQualityPriority(best.title || '')
+          const currentQualityPriority = getAudioQualityPriority(current.title || '')
+
+          // 如果音质优先级不同，选择优先级更高的
+          if (currentQualityPriority !== bestQualityPriority) {
+            return currentQualityPriority > bestQualityPriority ? current : best
+          }
+
+          // 如果音质优先级相同，则按播放量比较
+          const bestPlayCount = parsePlayCount(best.playCount || '0')
+          const currentPlayCount = parsePlayCount(current.playCount || '0')
           return currentPlayCount > bestPlayCount ? current : best
         })
 
         console.log(`匹配成功: ${song.title} -> ${bestResult.title} (播放量: ${bestResult.playCount})`)
 
-        // 更新原始搜索结果中的信息
-        const originalIndex = searchResults.value.findIndex(r => r.id === song.id)
+        // 更新当前搜索结果中的信息
+        const originalIndex = currentSearchResults.value.findIndex(r => r.id === song.id)
         if (originalIndex !== -1) {
           // 保存当前选中状态
-          const currentSelectedIds = new Set(selectedResults.value)
+          const currentSelectedIds = Array.from(selectedResults.value)
 
           // 创建新的搜索结果数组，保留原始的一些信息，但更新关键信息
-          const updatedResults = [...searchResults.value]
+          const updatedResults = [...currentSearchResults.value]
           updatedResults[originalIndex] = {
             ...updatedResults[originalIndex],
             duration: bestResult.duration,
@@ -895,12 +913,14 @@ const autoMatchMusic = async () => {
             description: `${updatedResults[originalIndex].description || ''} (已匹配B站: ${bestResult.title})`.trim()
           }
 
-          // 使用 setSearchResults 方法更新状态
-          setSearchResults(updatedResults)
+          // 使用当前搜索结果更新方法
+          updateCurrentSearchResults(updatedResults)
 
-          // 恢复选中状态
+          // 恢复选中状态 - 使用提供的方法而不是直接操作Set
           currentSelectedIds.forEach(id => {
-            selectedResults.value.add(id)
+            if (!selectedResults.value.has(id)) {
+              toggleSelection(id)
+            }
           })
         }
 
@@ -1003,7 +1023,112 @@ const updateCurrentSearchError = (error: string) => {
 const clearCurrentSearchResults = () => {
   updateCurrentSearchResults([])
   updateCurrentSearchError('')
-  selectedResults.value.clear()
+  // 清空选中状态 - 使用提供的方法
+  if (selectedResults.value.size > 0) {
+    // 获取所有选中的ID并逐个取消选择
+    const selectedIds = Array.from(selectedResults.value)
+    selectedIds.forEach(id => {
+      if (selectedResults.value.has(id)) {
+        toggleSelection(id)
+      }
+    })
+  }
+}
+
+// 解析播放量字符串为数字
+const parsePlayCount = (playCountStr: string): number => {
+  if (!playCountStr || playCountStr === '0') return 0
+
+  const str = playCountStr.toString().toLowerCase().trim()
+
+  // 处理中文单位
+  if (str.includes('万')) {
+    const num = parseFloat(str.replace(/[万,]/g, ''))
+    return Math.floor(num * 10000)
+  } else if (str.includes('千')) {
+    const num = parseFloat(str.replace(/[千,]/g, ''))
+    return Math.floor(num * 1000)
+  } else if (str.includes('亿')) {
+    const num = parseFloat(str.replace(/[亿,]/g, ''))
+    return Math.floor(num * 100000000)
+  }
+
+  // 处理英文单位
+  if (str.includes('k')) {
+    const num = parseFloat(str.replace(/[k,]/g, ''))
+    return Math.floor(num * 1000)
+  } else if (str.includes('m')) {
+    const num = parseFloat(str.replace(/[m,]/g, ''))
+    return Math.floor(num * 1000000)
+  } else if (str.includes('b')) {
+    const num = parseFloat(str.replace(/[b,]/g, ''))
+    return Math.floor(num * 1000000000)
+  }
+
+  // 处理纯数字（可能包含逗号）
+  const cleanStr = str.replace(/[,，]/g, '')
+  const num = parseInt(cleanStr.replace(/[^\d.]/g, ''))
+  return isNaN(num) ? 0 : num
+}
+
+// 获取音质优先级（数字越大优先级越高）
+const getAudioQualityPriority = (title: string): number => {
+  if (!title) return 0
+
+  const titleLower = title.toLowerCase()
+
+  // 高优先级关键词（无损音质）
+  if (title.includes('无损') || titleLower.includes('flac') || titleLower.includes('lossless')) {
+    return 100
+  }
+
+  // 中高优先级关键词（高品质）
+  if (title.includes('高品质') || title.includes('高音质') || titleLower.includes('hq') ||
+      titleLower.includes('320k') || titleLower.includes('320kbps')) {
+    return 80
+  }
+
+  // 中等优先级关键词（官方版本）
+  if (title.includes('官方') || title.includes('正版') || titleLower.includes('official')) {
+    return 60
+  }
+
+  // 中等优先级关键词（高清）
+  if (title.includes('高清') || titleLower.includes('hd') || titleLower.includes('1080p') ||
+      titleLower.includes('4k')) {
+    return 50
+  }
+
+  // 低优先级关键词（可能影响音质）
+  if (title.includes('翻唱') || title.includes('伴奏') || title.includes('卡拉OK') ||
+      titleLower.includes('cover') || titleLower.includes('karaoke')) {
+    return -20
+  }
+
+  // 默认优先级
+  return 0
+}
+
+// 当前搜索结果的全选/取消全选
+const toggleCurrentSelectAll = () => {
+  const currentResults = currentSearchResults.value
+  const currentSelectedCount = currentResults.filter(item => selectedResults.value.has(item.id)).length
+
+  if (currentSelectedCount === currentResults.length) {
+    // 当前全部选中，取消全选
+    currentResults.forEach(item => {
+      if (selectedResults.value.has(item.id)) {
+        toggleSelection(item.id)
+      }
+    })
+  } else {
+    // 未全选，选中所有
+    currentResults.forEach(item => {
+      if (!selectedResults.value.has(item.id)) {
+        toggleSelection(item.id)
+      }
+    })
+  }
 }
 
 // 自定义搜索类型切换函数
@@ -1018,7 +1143,15 @@ const handleSearchTypeChange = (type: 'keyword' | 'url' | 'playlist') => {
   }
 
   // 清空选中的结果（因为不同搜索类型的结果不同）
-  selectedResults.value.clear()
+  if (selectedResults.value.size > 0) {
+    // 获取所有选中的ID并逐个取消选择
+    const selectedIds = Array.from(selectedResults.value)
+    selectedIds.forEach(id => {
+      if (selectedResults.value.has(id)) {
+        toggleSelection(id)
+      }
+    })
+  }
 
   // 设置新的搜索类型
   setSearchType(type)
@@ -1294,11 +1427,11 @@ const startBatchDownload = async () => {
             </div>
             <div class="header-actions">
               <button
-                @click="toggleSelectAll"
+                @click="toggleCurrentSelectAll"
                 class="select-all-btn"
               >
-                <Icon :icon="selectedResults.size === currentSearchResults.length ? 'mdi:checkbox-marked' : 'mdi:checkbox-blank-outline'" />
-                {{ selectedResults.size === currentSearchResults.length ? '取消全选' : '全选' }}
+                <Icon :icon="isCurrentAllSelected ? 'mdi:checkbox-marked' : 'mdi:checkbox-blank-outline'" />
+                {{ isCurrentAllSelected ? '取消全选' : '全选' }}
               </button>
               <button
                 v-if="hasSelectedItems && !isAutoMatching && playlistInfo"
