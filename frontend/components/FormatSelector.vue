@@ -118,26 +118,46 @@ const closeModal = () => {
 
 // 获取格式显示名称
 const getFormatDisplayName = (format: Format) => {
-  let name = format.ext.toUpperCase()
-  
+  let name = cleanText(format.ext || '').toUpperCase()
+
   if (format.isAudio) {
     if (format.bitrate) {
-      name += ` (${format.bitrate})`
+      const cleanBitrate = cleanText(format.bitrate)
+      if (cleanBitrate) {
+        name += ` (${cleanBitrate})`
+      }
     }
     name += ' - 音频'
   } else if (format.isVideo) {
     if (format.resolution && format.resolution !== 'audio') {
-      name += ` (${format.resolution})`
+      const cleanResolution = cleanText(format.resolution)
+      if (cleanResolution) {
+        name += ` (${cleanResolution})`
+      }
     }
     name += ' - 视频'
   }
-  
+
   return name
+}
+
+// 清理文本中的乱码字符
+const cleanText = (text: string): string => {
+  if (!text) return ''
+
+  // 移除常见的乱码字符
+  return text
+    .replace(/[^\x00-\x7F\u4e00-\u9fff\u3040-\u309f\u30a0-\u30ff]/g, '') // 保留ASCII、中文、日文字符
+    .replace(/�+/g, '') // 移除替换字符
+    .replace(/\uFFFD+/g, '') // 移除Unicode替换字符
+    .replace(/[\x00-\x1F\x7F]/g, '') // 移除控制字符
+    .trim()
 }
 
 // 获取格式描述
 const getFormatDescription = (format: Format) => {
-  return format.note || '无描述'
+  const description = format.note || '无描述'
+  return cleanText(description)
 }
 
 // 监听弹窗显示状态
@@ -284,8 +304,8 @@ watch(() => props.visible, (visible) => {
 }
 
 .format-selector-modal {
-  background: linear-gradient(135deg, 
-    rgba(30, 30, 30, 0.95) 0%, 
+  background: linear-gradient(135deg,
+    rgba(30, 30, 30, 0.95) 0%,
     rgba(20, 20, 20, 0.95) 100%
   );
   border: 1px solid rgba(255, 255, 255, 0.1);
@@ -293,10 +313,29 @@ watch(() => props.visible, (visible) => {
   max-width: 600px;
   width: 100%;
   max-height: 80vh;
+  min-height: 400px;
   display: flex;
   flex-direction: column;
   overflow: hidden;
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+  position: relative;
+}
+
+/* 滚动区域渐变遮罩 */
+.format-selector-modal::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.1) 50%,
+    transparent 100%
+  );
+  z-index: 1;
+  pointer-events: none;
 }
 
 /* 头部样式 */
@@ -310,10 +349,11 @@ watch(() => props.visible, (visible) => {
 
 .header-info {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 1rem;
   flex: 1;
   min-width: 0;
+  padding-right: 1rem;
 }
 
 .header-icon {
@@ -321,6 +361,7 @@ watch(() => props.visible, (visible) => {
   height: 1.5rem;
   color: rgba(59, 130, 246, 0.9);
   flex-shrink: 0;
+  margin-top: 0.125rem; /* 微调对齐 */
 }
 
 .modal-title {
@@ -334,9 +375,14 @@ watch(() => props.visible, (visible) => {
   font-size: 0.875rem;
   color: rgba(255, 255, 255, 0.6);
   margin: 0;
+  line-height: 1.4;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  max-height: 2.8em; /* 最多显示2行 */
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
 
 .close-btn {
@@ -364,6 +410,73 @@ watch(() => props.visible, (visible) => {
   flex: 1;
   overflow-y: auto;
   padding: 1.5rem;
+  position: relative;
+
+  /* 自定义滚动条样式 */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.3) transparent;
+}
+
+/* 滚动渐变效果 */
+.modal-content::before,
+.modal-content::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 20px;
+  pointer-events: none;
+  z-index: 2;
+  transition: opacity 0.3s ease;
+}
+
+.modal-content::before {
+  top: 0;
+  background: linear-gradient(180deg,
+    rgba(30, 30, 30, 0.8) 0%,
+    transparent 100%
+  );
+}
+
+.modal-content::after {
+  bottom: 0;
+  background: linear-gradient(0deg,
+    rgba(30, 30, 30, 0.8) 0%,
+    transparent 100%
+  );
+}
+
+/* Webkit浏览器滚动条样式 */
+.modal-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.modal-content::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 3px;
+}
+
+.modal-content::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg,
+    rgba(255, 255, 255, 0.3) 0%,
+    rgba(255, 255, 255, 0.2) 100%
+  );
+  border-radius: 3px;
+  transition: all 0.3s ease;
+}
+
+.modal-content::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg,
+    rgba(255, 255, 255, 0.5) 0%,
+    rgba(255, 255, 255, 0.4) 100%
+  );
+}
+
+.modal-content::-webkit-scrollbar-thumb:active {
+  background: linear-gradient(180deg,
+    rgba(255, 255, 255, 0.6) 0%,
+    rgba(255, 255, 255, 0.5) 100%
+  );
 }
 
 /* 状态样式 */
@@ -617,5 +730,75 @@ watch(() => props.visible, (visible) => {
 @keyframes spin {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .format-selector-overlay {
+    padding: 0.5rem;
+  }
+
+  .format-selector-modal {
+    max-width: 100%;
+    max-height: 90vh;
+    border-radius: 0.75rem;
+  }
+
+  .modal-header {
+    padding: 1rem;
+  }
+
+  .modal-content {
+    padding: 1rem;
+  }
+
+  .modal-footer {
+    padding: 1rem;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .cancel-btn,
+  .confirm-btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .header-info {
+    gap: 0.75rem;
+  }
+
+  .modal-title {
+    font-size: 1rem;
+  }
+
+  .modal-subtitle {
+    font-size: 0.8rem;
+    max-height: 3.6em; /* 移动端允许更多行 */
+    -webkit-line-clamp: 3;
+  }
+}
+
+@media (max-width: 480px) {
+  .format-selector-modal {
+    min-height: 300px;
+  }
+
+  .format-item {
+    padding: 0.75rem;
+  }
+
+  .format-name {
+    font-size: 0.8rem;
+  }
+
+  .format-desc {
+    font-size: 0.7rem;
+  }
+
+  .format-badge {
+    padding: 0.2rem 0.4rem;
+    font-size: 0.7rem;
+  }
 }
 </style>

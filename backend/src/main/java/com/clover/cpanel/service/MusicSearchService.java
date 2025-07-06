@@ -687,9 +687,9 @@ public class MusicSearchService {
                 if (parts.length >= 3) {
                     Map<String, Object> format = new HashMap<>();
 
-                    String formatId = parts[0];
-                    String ext = parts[1];
-                    String resolution = parts[2];
+                    String formatId = cleanText(parts[0]);
+                    String ext = cleanText(parts[1]);
+                    String resolution = cleanText(parts[2]);
 
                     // 跳过无效的格式ID
                     if (formatId.equals("ID") || formatId.contains("-")) {
@@ -707,7 +707,7 @@ public class MusicSearchService {
                             if (note.length() > 0) note.append(" ");
                             note.append(parts[i]);
                         }
-                        format.put("note", note.toString());
+                        format.put("note", cleanText(note.toString()));
 
                         // 判断是否为音频格式
                         String noteStr = note.toString().toLowerCase();
@@ -919,5 +919,27 @@ public class MusicSearchService {
             log.debug("提取JSON值失败: key={}, error={}", key, e.getMessage());
         }
         return null;
+    }
+
+    /**
+     * 清理文本中的乱码字符
+     */
+    private String cleanText(String text) {
+        if (text == null || text.trim().isEmpty()) {
+            return text;
+        }
+
+        try {
+            // 移除常见的乱码字符和控制字符
+            return text
+                .replaceAll("[\\p{Cntrl}&&[^\r\n\t]]", "") // 移除控制字符，保留换行和制表符
+                .replaceAll("\\uFFFD+", "") // 移除Unicode替换字符
+                .replaceAll("�+", "") // 移除替换字符
+                .replaceAll("[\\x00-\\x08\\x0B\\x0C\\x0E-\\x1F\\x7F]", "") // 移除其他控制字符
+                .trim();
+        } catch (Exception e) {
+            log.warn("清理文本时发生错误: {}", e.getMessage());
+            return text;
+        }
     }
 }
