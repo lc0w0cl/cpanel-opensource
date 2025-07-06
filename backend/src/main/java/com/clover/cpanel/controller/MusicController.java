@@ -571,10 +571,26 @@ public class MusicController {
             String fileName = generateServerFileName(title, artist, selectedFormat);
 
             // 3. 创建下载目录
-            Path downloadDir = Paths.get(serverDownloadPath);
+            Path downloadDir;
+            if (serverDownloadPath.startsWith("/")) {
+                // 绝对路径
+                downloadDir = Paths.get(serverDownloadPath);
+                log.info("使用绝对路径: {}", serverDownloadPath);
+            } else {
+                // 相对路径，相对于当前工作目录
+                downloadDir = Paths.get(serverDownloadPath);
+                log.info("使用相对路径: {}", serverDownloadPath);
+            }
+
             if (!Files.exists(downloadDir)) {
-                Files.createDirectories(downloadDir);
-                log.info("创建下载目录: {}", downloadDir.toAbsolutePath());
+                try {
+                    Files.createDirectories(downloadDir);
+                    log.info("创建下载目录成功: {}", downloadDir.toAbsolutePath());
+                } catch (Exception e) {
+                    log.error("创建下载目录失败: {}", downloadDir.toAbsolutePath(), e);
+                    return ApiResponse.error("无法创建下载目录: " + downloadDir.toAbsolutePath() +
+                        "，请检查路径是否有效以及是否有足够的权限");
+                }
             }
 
             // 4. 下载文件到服务器
@@ -714,12 +730,21 @@ public class MusicController {
      * 构建文件访问URL
      */
     private String buildFileAccessUrl(String serverDownloadPath, String fileName) {
-        // 构建相对于contextPath的URL
-        String relativePath = serverDownloadPath + "/" + fileName;
+        String relativePath;
 
-        // 确保路径以/开头
-        if (!relativePath.startsWith("/")) {
-            relativePath = "/" + relativePath;
+        if (serverDownloadPath.startsWith("/")) {
+            // 绝对路径：需要映射到Web可访问的路径
+            // 对于绝对路径，我们使用文件名作为访问路径，实际文件位置由服务器配置处理
+            log.warn("使用绝对路径 {} 保存文件，Web访问可能需要额外配置", serverDownloadPath);
+            relativePath = "/downloads/" + fileName; // 使用通用的下载路径
+        } else {
+            // 相对路径：构建相对于contextPath的URL
+            relativePath = serverDownloadPath + "/" + fileName;
+
+            // 确保路径以/开头
+            if (!relativePath.startsWith("/")) {
+                relativePath = "/" + relativePath;
+            }
         }
 
         // 添加contextPath

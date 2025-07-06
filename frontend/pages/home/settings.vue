@@ -1311,7 +1311,7 @@ onMounted(async () => {
                                 v-model="musicServerDownloadPath"
                                 type="text"
                                 class="form-input"
-                                placeholder="例如: uploads/music"
+                                placeholder="例如: uploads/music 或 /music/download"
                                 @blur="saveMusicConfig"
                                 :disabled="musicSettingsSaving"
                               />
@@ -1326,7 +1326,8 @@ onMounted(async () => {
                               </button>
                             </div>
                             <p class="form-hint">
-                              路径相对于服务器根目录，不需要以 / 开头或结尾
+                              支持相对路径（如 uploads/music）或绝对路径（如 /music/download）。
+                              请确保服务器对指定路径有读写权限。
                             </p>
                           </div>
                         </div>

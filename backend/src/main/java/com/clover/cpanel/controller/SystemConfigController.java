@@ -424,8 +424,26 @@ public class SystemConfigController {
             // 如果是服务器下载，保存服务器路径设置
             boolean success2 = true;
             if ("server".equals(downloadLocation) && serverDownloadPath != null && !serverDownloadPath.trim().isEmpty()) {
-                // 清理路径，移除前后斜杠
-                String cleanPath = serverDownloadPath.trim().replaceAll("^/+|/+$", "");
+                // 清理路径，移除多余的斜杠但保留绝对路径标识
+                String cleanPath = serverDownloadPath.trim();
+
+                // 安全验证：防止路径遍历攻击
+                if (cleanPath.contains("..") || cleanPath.contains("~")) {
+                    return ApiResponse.error("路径包含非法字符，不允许使用 .. 或 ~ 等特殊路径");
+                }
+
+                // 标准化路径分隔符（Windows兼容性）
+                cleanPath = cleanPath.replace("\\", "/");
+
+                // 移除重复的斜杠
+                cleanPath = cleanPath.replaceAll("/+", "/");
+
+                // 移除末尾斜杠（但保留根路径的斜杠）
+                if (cleanPath.length() > 1 && cleanPath.endsWith("/")) {
+                    cleanPath = cleanPath.substring(0, cleanPath.length() - 1);
+                }
+
+                // 如果路径为空，使用默认路径
                 if (cleanPath.isEmpty()) {
                     cleanPath = "uploads/music";
                 }
