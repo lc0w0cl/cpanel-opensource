@@ -3,6 +3,7 @@ import { ref, computed } from 'vue'
 import { Icon } from '@iconify/vue'
 import { useMusicApi, type MusicSearchResult } from '~/composables/useMusicApi'
 import { useMusicState } from '~/composables/useMusicState'
+import FormatSelector from '~/components/FormatSelector.vue'
 
 // 使用音乐状态管理
 const {
@@ -56,7 +57,7 @@ const {
 } = useMusicState()
 
 // 音乐API
-const { searchMusic, downloadMusic, getAudioStreamByUrl, getPlayableAudioUrl, getFallbackAudioUrl, parsePlaylist, getSupportedPlatforms } = useMusicApi()
+const { searchMusic, downloadMusic, getAudioStreamByUrl, getPlayableAudioUrl, getFallbackAudioUrl, parsePlaylist, getSupportedPlatforms, getAvailableFormats, detectPlatform } = useMusicApi()
 
 // 下载相关状态
 const isDownloading = ref(false)
@@ -72,6 +73,10 @@ const playlistError = ref('')
 const isAutoMatching = ref(false)
 const matchingProgress = ref<Record<string, number>>({})
 const matchingError = ref('')
+
+// 格式选择相关状态
+const showFormatSelector = ref(false)
+const currentDownloadItem = ref<MusicSearchResult | null>(null)
 
 // 计算属性
 const isValidUrl = computed(() => {
@@ -289,6 +294,33 @@ const downloadPlaylistSong = async (item: MusicSearchResult, onProgress?: (progr
     showNotification(`搜索下载失败: ${item.title} - ${error.message}`, 'error')
     return false
   }
+}
+
+// 显示格式选择弹窗
+const showFormatSelection = (item: MusicSearchResult) => {
+  // 确保平台信息正确，如果没有平台信息则根据URL检测
+  if (!item.platform) {
+    item.platform = detectPlatform(item.url)
+  }
+  currentDownloadItem.value = item
+  showFormatSelector.value = true
+}
+
+// 处理格式选择
+const handleFormatSelect = async (format: any) => {
+  showFormatSelector.value = false
+
+  if (currentDownloadItem.value) {
+    // 这里暂时还是使用原有的下载逻辑，后续可以根据选择的格式进行下载
+    await startDownload(currentDownloadItem.value)
+    currentDownloadItem.value = null
+  }
+}
+
+// 关闭格式选择弹窗
+const closeFormatSelector = () => {
+  showFormatSelector.value = false
+  currentDownloadItem.value = null
 }
 
 // 开始下载
@@ -1232,7 +1264,7 @@ const startBatchDownload = async () => {
                       {{ currentPlaying?.id === result.id && isPlaying ? '暂停' : '播放' }}
                     </button>
                     <button
-                      @click="startDownload(result)"
+                      @click="showFormatSelection(result)"
                       class="download-btn"
                       :class="{
                         downloading: downloadProgress[result.id] !== undefined && downloadProgress[result.id] < 100,
@@ -1373,7 +1405,7 @@ const startBatchDownload = async () => {
                 <div class="download-actions">
                   <button
                     v-if="downloadProgress[item.id] === undefined"
-                    @click="startDownload(item)"
+                    @click="showFormatSelection(item)"
                     class="start-btn"
                     title="开始下载"
                   >
@@ -1492,6 +1524,17 @@ const startBatchDownload = async () => {
       </div>
     </div>
   </div>
+
+  <!-- 格式选择弹窗 -->
+  <FormatSelector
+    :visible="showFormatSelector"
+    :video-url="currentDownloadItem?.url || ''"
+    :platform="currentDownloadItem?.platform || ''"
+    :title="currentDownloadItem?.title || ''"
+    :artist="currentDownloadItem?.artist || ''"
+    @close="closeFormatSelector"
+    @select="handleFormatSelect"
+  />
 </template>
 
 <style scoped>

@@ -180,7 +180,7 @@ public class DatabaseInitServiceImpl implements DatabaseInitService {
             String musicSql = """
                 UPDATE panel_system_config
                 SET config_type = 'music'
-                WHERE config_key IN ('music_download_location', 'music_server_download_path')
+                WHERE config_key IN ('music_download_location', 'music_server_download_path', 'bilibili_cookie', 'youtube_cookie')
                 """;
             jdbcTemplate.update(musicSql);
 
@@ -217,6 +217,28 @@ public class DatabaseInitServiceImpl implements DatabaseInitService {
                     """;
                 jdbcTemplate.update(insertSql);
                 log.info("音乐服务器下载路径配置初始化完成");
+            }
+
+            // 检查Bilibili cookie配置是否存在
+            if (!checkConfigExists("bilibili_cookie")) {
+                log.info("Bilibili cookie配置不存在，开始初始化...");
+                String insertSql = """
+                    INSERT INTO panel_system_config (config_key, config_value, description, config_type, created_at, updated_at)
+                    VALUES ('bilibili_cookie', '', 'Bilibili平台cookie配置', 'music', NOW(), NOW())
+                    """;
+                jdbcTemplate.update(insertSql);
+                log.info("Bilibili cookie配置初始化完成");
+            }
+
+            // 检查YouTube cookie配置是否存在
+            if (!checkConfigExists("youtube_cookie")) {
+                log.info("YouTube cookie配置不存在，开始初始化...");
+                String insertSql = """
+                    INSERT INTO panel_system_config (config_key, config_value, description, config_type, created_at, updated_at)
+                    VALUES ('youtube_cookie', '', 'YouTube平台cookie配置', 'music', NOW(), NOW())
+                    """;
+                jdbcTemplate.update(insertSql);
+                log.info("YouTube cookie配置初始化完成");
             }
 
             log.info("音乐配置检查完成");

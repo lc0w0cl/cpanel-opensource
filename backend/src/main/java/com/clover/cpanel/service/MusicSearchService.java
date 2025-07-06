@@ -7,6 +7,7 @@ import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -16,7 +17,9 @@ import java.io.InputStreamReader;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -32,6 +35,8 @@ public class MusicSearchService {
 
     @Value("${music.proxy.base-url:http://localhost:8080}")
     private String proxyBaseUrl;
+    @Autowired
+    private SystemConfigService systemConfigService;
     
     /**
      * 搜索音乐
@@ -520,6 +525,185 @@ public class MusicSearchService {
         } catch (Exception e) {
             log.error("执行yt-dlp时发生错误", e);
             return null;
+        }
+    }
+
+    /**
+     * 获取可用格式列表（通过视频URL和平台）
+     */
+    public List<Map<String, Object>> getAvailableFormats(String videoUrl, String platform) {
+        try {
+            log.info("正在获取可用格式列表: {}, 平台: {}", videoUrl, platform);
+
+            // 根据平台获取对应的cookie配置
+            String cookieValue = getCookieByPlatform(platform);
+
+            // 构建yt-dlp命令，使用-F参数获取格式列表
+            List<String> command = new ArrayList<>();
+            command.add("yt-dlp");
+            command.add("-F");                  // 列出所有可用格式
+            command.add("--no-playlist");       // 不处理播放列表
+
+            // 如果有cookie，添加Cookie头
+            if (cookieValue != null && !cookieValue.trim().isEmpty()) {
+                command.add("--add-header");
+                command.add("Cookie: " + cookieValue.trim());
+                log.info("使用{}平台cookie: {}", platform, cookieValue.substring(0, Math.min(50, cookieValue.length())) + "...");
+            } else {
+                log.info("{}平台未配置cookie，使用默认方式", platform);
+            }
+
+            command.add(videoUrl);
+
+            ProcessBuilder processBuilder = new ProcessBuilder(command);
+
+            processBuilder.redirectErrorStream(true);
+            Process process = processBuilder.start();
+
+            // 读取输出
+            StringBuilder output = new StringBuilder();
+            try (BufferedReader reader = new BufferedReader(
+                    new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    output.append(line).append("\n");
+                }
+            }
+
+            // 等待进程完成
+            int exitCode = process.waitFor();
+
+            if (exitCode == 0) {
+                return parseFormatOutput(output.toString());
+            } else {
+                log.error("yt-dlp获取格式列表失败，退出码: {}, 输出: {}", exitCode, output.toString());
+                return new ArrayList<>();
+            }
+
+        } catch (Exception e) {
+            log.error("获取可用格式列表时发生错误", e);
+            return new ArrayList<>();
+        }
+    }
+
+    /**
+     * 根据平台获取对应的cookie配置
+     */
+    private String getCookieByPlatform(String platform) {
+        try {
+            String cookieKey;
+            switch (platform.toLowerCase()) {
+                case "bilibili":
+                    cookieKey = "bilibili_cookie";
+                    break;
+                case "youtube":
+                    cookieKey = "youtube_cookie";
+                    break;
+                default:
+                    log.warn("未知平台: {}, 不使用cookie", platform);
+                    return null;
+            }
+
+            String cookieValue = systemConfigService.getConfigValue(cookieKey);
+            log.debug("获取{}平台cookie配置: {}", platform, cookieValue != null ? "已配置" : "未配置");
+            return cookieValue;
+        } catch (Exception e) {
+            log.error("获取{}平台cookie配置失败", platform, e);
+            return null;
+        }
+    }
+
+    /**
+     * 解析yt-dlp格式输出
+     */
+    private List<Map<String, Object>> parseFormatOutput(String output) {
+        List<Map<String, Object>> formats = new ArrayList<>();
+
+        try {
+            String[] lines = output.split("\n");
+            boolean formatSectionStarted = false;
+
+            for (String line : lines) {
+                line = line.trim();
+
+                // 跳过空行和注释行
+                if (line.isEmpty() || line.startsWith("[")) {
+                    continue;
+                }
+
+                // 检查是否到达格式列表部分
+                if (line.contains("ID") && line.contains("EXT") && line.contains("RESOLUTION")) {
+                    formatSectionStarted = true;
+                    continue;
+                }
+
+                // 如果还没到格式列表部分，继续跳过
+                if (!formatSectionStarted) {
+                    continue;
+                }
+
+                // 解析格式行
+                String[] parts = line.split("\\s+");
+                if (parts.length >= 3) {
+                    Map<String, Object> format = new HashMap<>();
+
+                    String formatId = parts[0];
+                    String ext = parts[1];
+                    String resolution = parts[2];
+
+                    // 跳过无效的格式ID
+                    if (formatId.equals("ID") || formatId.contains("-")) {
+                        continue;
+                    }
+
+                    format.put("formatId", formatId);
+                    format.put("ext", ext);
+                    format.put("resolution", resolution);
+
+                    // 解析其他信息
+                    if (parts.length > 3) {
+                        StringBuilder note = new StringBuilder();
+                        for (int i = 3; i < parts.length; i++) {
+                            if (note.length() > 0) note.append(" ");
+                            note.append(parts[i]);
+                        }
+                        format.put("note", note.toString());
+
+                        // 判断是否为音频格式
+                        String noteStr = note.toString().toLowerCase();
+                        boolean isAudio = noteStr.contains("audio only") ||
+                                         ext.matches("m4a|mp3|ogg|webm|flac|aac|opus");
+                        format.put("isAudio", isAudio);
+
+                        // 判断是否为视频格式
+                        boolean isVideo = !isAudio && !resolution.equals("audio");
+                        format.put("isVideo", isVideo);
+
+                        // 提取比特率信息
+                        if (noteStr.contains("k")) {
+                            String[] noteParts = noteStr.split("\\s+");
+                            for (String part : noteParts) {
+                                if (part.endsWith("k") && part.length() > 1) {
+                                    try {
+                                        String bitrateStr = part.substring(0, part.length() - 1);
+                                        format.put("bitrate", bitrateStr + "k");
+                                        break;
+                                    } catch (Exception ignored) {}
+                                }
+                            }
+                        }
+                    }
+
+                    formats.add(format);
+                }
+            }
+
+            log.info("解析到 {} 个可用格式", formats.size());
+            return formats;
+
+        } catch (Exception e) {
+            log.error("解析格式输出时发生错误", e);
+            return new ArrayList<>();
         }
     }
 

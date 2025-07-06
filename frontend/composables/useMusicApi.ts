@@ -453,6 +453,53 @@ export const useMusicApi = () => {
   }
 
   /**
+   * 获取可用格式列表
+   */
+  const getAvailableFormats = async (videoUrl: string, platform: string): Promise<any[]> => {
+    try {
+      console.log('获取可用格式列表:', videoUrl, '平台:', platform)
+
+      const response = await apiRequest(`${API_BASE_URL}/music/formats`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          url: videoUrl,
+          platform: platform
+        })
+      })
+
+      const result: ApiResponse<any[]> = await response.json()
+
+      if (result.success) {
+        console.log('获取到格式列表:', result.data)
+        return result.data || []
+      } else {
+        console.error('获取格式列表失败:', result.message)
+        throw new Error(result.message)
+      }
+    } catch (error) {
+      console.error('获取格式列表异常:', error)
+      throw error
+    }
+  }
+
+  /**
+   * 检测URL的平台
+   */
+  const detectPlatform = (url: string): string => {
+    if (url.includes('bilibili.com') || url.includes('b23.tv')) {
+      return 'bilibili'
+    } else if (url.includes('youtube.com') || url.includes('youtu.be')) {
+      return 'youtube'
+    } else {
+      // 默认返回bilibili，因为大部分情况下是bilibili
+      return 'bilibili'
+    }
+  }
+
+  /**
    * 生成下载文件名
    */
   const generateFileName = (title: string, artist: string, audioUrl: string): string => {
@@ -493,6 +540,8 @@ export const useMusicApi = () => {
     downloadMusicToLocal,
     downloadMusicToServer,
     downloadAudioFile,
+    getAvailableFormats,
+    detectPlatform,
     generateFileName
   }
 }

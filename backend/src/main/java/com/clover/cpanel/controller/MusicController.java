@@ -164,6 +164,38 @@ public class MusicController {
     }
 
     /**
+     * 获取可用格式列表
+     */
+    @PostMapping("/formats")
+    public ApiResponse<List<Map<String, Object>>> getAvailableFormats(@RequestBody Map<String, String> request) {
+        try {
+            String url = request.get("url");
+            String platform = request.get("platform");
+            log.info("获取可用格式列表: {}, 平台: {}", url, platform);
+
+            if (url == null || url.trim().isEmpty()) {
+                return ApiResponse.error("URL不能为空");
+            }
+
+            if (platform == null || platform.trim().isEmpty()) {
+                return ApiResponse.error("平台标识不能为空");
+            }
+
+            List<Map<String, Object>> formats = musicSearchService.getAvailableFormats(url, platform);
+
+            if (formats != null && !formats.isEmpty()) {
+                return ApiResponse.success(formats);
+            } else {
+                return ApiResponse.error("无法获取格式列表");
+            }
+
+        } catch (Exception e) {
+            log.error("获取可用格式列表时发生错误", e);
+            return ApiResponse.error("获取格式列表失败: " + e.getMessage());
+        }
+    }
+
+    /**
      * 解析歌单
      */
     @PostMapping("/parse-playlist")
