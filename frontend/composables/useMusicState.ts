@@ -325,9 +325,18 @@ export const useMusicState = () => {
   }
 
   // 下载队列管理
-  const addToDownloadQueue = () => {
-    const selectedItems = searchResults.value.filter(item => selectedResults.value.has(item.id))
-    downloadQueue.value.push(...selectedItems)
+  const addToDownloadQueue = (sourceResults?: MusicSearchResult[]) => {
+    // 如果提供了源结果，使用提供的结果；否则使用全局搜索结果
+    const sourceItems = sourceResults || searchResults.value
+    const selectedItems = sourceItems.filter(item => selectedResults.value.has(item.id))
+
+    // 避免重复添加
+    selectedItems.forEach(item => {
+      if (!downloadQueue.value.find(queueItem => queueItem.id === item.id)) {
+        downloadQueue.value.push(item)
+      }
+    })
+
     selectedResults.value.clear()
     saveState()
   }

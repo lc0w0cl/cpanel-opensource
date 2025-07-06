@@ -1462,7 +1462,12 @@ const startBatchDownload = async () => {
               </button>
               <button
                 v-if="hasSelectedItems"
-                @click="addToDownloadQueue"
+                @click="() => {
+                  console.log('添加到下载队列 - 当前搜索结果数量:', currentSearchResults.length)
+                  console.log('添加到下载队列 - 选中项数量:', selectedResults.size)
+                  addToDownloadQueue(currentSearchResults)
+                  console.log('添加后下载队列数量:', downloadQueue.length)
+                }"
                 class="add-to-queue-btn"
               >
                 <Icon icon="mdi:download-multiple" class="btn-icon" />
