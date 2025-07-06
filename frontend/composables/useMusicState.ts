@@ -23,10 +23,30 @@ const volume = ref(1)
 
 // 搜索状态
 const searchQuery = ref('')
-const searchType = ref<'keyword' | 'url'>('keyword')
+const searchType = ref<'keyword' | 'url' | 'playlist'>('keyword')
 const platform = ref<'bilibili' | 'youtube' | 'both'>('both')
 const isSearching = ref(false)
 const searchError = ref('')
+
+// 独立的搜索内容状态
+const keywordSearchQuery = ref('')
+const urlSearchQuery = ref('')
+const playlistSearchQuery = ref('')
+
+// 独立的搜索结果状态
+const keywordSearchResults = ref<MusicSearchResult[]>([])
+const urlSearchResults = ref<MusicSearchResult[]>([])
+const playlistSearchResults = ref<MusicSearchResult[]>([])
+
+// 独立的搜索状态
+const keywordSearching = ref(false)
+const urlSearching = ref(false)
+const playlistSearching = ref(false)
+
+// 独立的搜索错误状态
+const keywordSearchError = ref('')
+const urlSearchError = ref('')
+const playlistSearchError = ref('')
 
 // 状态持久化键名
 const STORAGE_KEYS = {
@@ -36,7 +56,22 @@ const STORAGE_KEYS = {
   SEARCH_PLATFORM: 'music_search_platform',
   DOWNLOAD_QUEUE: 'music_download_queue',
   VOLUME: 'music_volume',
-  CURRENT_PLAYING: 'music_current_playing'
+  CURRENT_PLAYING: 'music_current_playing',
+
+  // 独立搜索内容
+  KEYWORD_SEARCH_QUERY: 'music_keyword_search_query',
+  URL_SEARCH_QUERY: 'music_url_search_query',
+  PLAYLIST_SEARCH_QUERY: 'music_playlist_search_query',
+
+  // 独立搜索结果
+  KEYWORD_SEARCH_RESULTS: 'music_keyword_search_results',
+  URL_SEARCH_RESULTS: 'music_url_search_results',
+  PLAYLIST_SEARCH_RESULTS: 'music_playlist_search_results',
+
+  // 独立搜索错误
+  KEYWORD_SEARCH_ERROR: 'music_keyword_search_error',
+  URL_SEARCH_ERROR: 'music_url_search_error',
+  PLAYLIST_SEARCH_ERROR: 'music_playlist_search_error'
 }
 
 // 从 localStorage 恢复状态
@@ -58,7 +93,7 @@ const restoreState = () => {
 
     const savedType = localStorage.getItem(STORAGE_KEYS.SEARCH_TYPE)
     if (savedType) {
-      searchType.value = savedType as 'keyword' | 'url'
+      searchType.value = savedType as 'keyword' | 'url' | 'playlist'
     }
 
     const savedPlatform = localStorage.getItem(STORAGE_KEYS.SEARCH_PLATFORM)
@@ -84,6 +119,54 @@ const restoreState = () => {
       currentPlaying.value = JSON.parse(savedPlaying)
     }
 
+    // 恢复独立搜索内容
+    const savedKeywordQuery = localStorage.getItem(STORAGE_KEYS.KEYWORD_SEARCH_QUERY)
+    if (savedKeywordQuery) {
+      keywordSearchQuery.value = savedKeywordQuery
+    }
+
+    const savedUrlQuery = localStorage.getItem(STORAGE_KEYS.URL_SEARCH_QUERY)
+    if (savedUrlQuery) {
+      urlSearchQuery.value = savedUrlQuery
+    }
+
+    const savedPlaylistQuery = localStorage.getItem(STORAGE_KEYS.PLAYLIST_SEARCH_QUERY)
+    if (savedPlaylistQuery) {
+      playlistSearchQuery.value = savedPlaylistQuery
+    }
+
+    // 恢复独立搜索结果
+    const savedKeywordResults = localStorage.getItem(STORAGE_KEYS.KEYWORD_SEARCH_RESULTS)
+    if (savedKeywordResults) {
+      keywordSearchResults.value = JSON.parse(savedKeywordResults)
+    }
+
+    const savedUrlResults = localStorage.getItem(STORAGE_KEYS.URL_SEARCH_RESULTS)
+    if (savedUrlResults) {
+      urlSearchResults.value = JSON.parse(savedUrlResults)
+    }
+
+    const savedPlaylistResults = localStorage.getItem(STORAGE_KEYS.PLAYLIST_SEARCH_RESULTS)
+    if (savedPlaylistResults) {
+      playlistSearchResults.value = JSON.parse(savedPlaylistResults)
+    }
+
+    // 恢复独立搜索错误
+    const savedKeywordError = localStorage.getItem(STORAGE_KEYS.KEYWORD_SEARCH_ERROR)
+    if (savedKeywordError) {
+      keywordSearchError.value = savedKeywordError
+    }
+
+    const savedUrlError = localStorage.getItem(STORAGE_KEYS.URL_SEARCH_ERROR)
+    if (savedUrlError) {
+      urlSearchError.value = savedUrlError
+    }
+
+    const savedPlaylistError = localStorage.getItem(STORAGE_KEYS.PLAYLIST_SEARCH_ERROR)
+    if (savedPlaylistError) {
+      playlistSearchError.value = savedPlaylistError
+    }
+
   } catch (error) {
     console.error('恢复音乐状态失败:', error)
   }
@@ -100,7 +183,22 @@ const saveState = () => {
     localStorage.setItem(STORAGE_KEYS.SEARCH_PLATFORM, platform.value)
     localStorage.setItem(STORAGE_KEYS.DOWNLOAD_QUEUE, JSON.stringify(downloadQueue.value))
     localStorage.setItem(STORAGE_KEYS.VOLUME, volume.value.toString())
-    
+
+    // 保存独立搜索内容
+    localStorage.setItem(STORAGE_KEYS.KEYWORD_SEARCH_QUERY, keywordSearchQuery.value)
+    localStorage.setItem(STORAGE_KEYS.URL_SEARCH_QUERY, urlSearchQuery.value)
+    localStorage.setItem(STORAGE_KEYS.PLAYLIST_SEARCH_QUERY, playlistSearchQuery.value)
+
+    // 保存独立搜索结果
+    localStorage.setItem(STORAGE_KEYS.KEYWORD_SEARCH_RESULTS, JSON.stringify(keywordSearchResults.value))
+    localStorage.setItem(STORAGE_KEYS.URL_SEARCH_RESULTS, JSON.stringify(urlSearchResults.value))
+    localStorage.setItem(STORAGE_KEYS.PLAYLIST_SEARCH_RESULTS, JSON.stringify(playlistSearchResults.value))
+
+    // 保存独立搜索错误
+    localStorage.setItem(STORAGE_KEYS.KEYWORD_SEARCH_ERROR, keywordSearchError.value)
+    localStorage.setItem(STORAGE_KEYS.URL_SEARCH_ERROR, urlSearchError.value)
+    localStorage.setItem(STORAGE_KEYS.PLAYLIST_SEARCH_ERROR, playlistSearchError.value)
+
     if (currentPlaying.value) {
       localStorage.setItem(STORAGE_KEYS.CURRENT_PLAYING, JSON.stringify(currentPlaying.value))
     } else {
@@ -135,6 +233,21 @@ const clearAllState = () => {
   searchResults.value = []
   selectedResults.value.clear()
   downloadQueue.value = []
+
+  // 清空独立搜索内容
+  keywordSearchQuery.value = ''
+  urlSearchQuery.value = ''
+  playlistSearchQuery.value = ''
+
+  // 清空独立搜索结果
+  keywordSearchResults.value = []
+  urlSearchResults.value = []
+  playlistSearchResults.value = []
+
+  // 清空独立搜索错误
+  keywordSearchError.value = ''
+  urlSearchError.value = ''
+  playlistSearchError.value = ''
   downloadProgress.value = {}
   searchQuery.value = ''
   searchError.value = ''
@@ -298,6 +411,64 @@ export const useMusicState = () => {
     delete downloadProgress.value[id]
   }
 
+  // 独立搜索状态管理方法
+  const setKeywordSearchQuery = (query: string) => {
+    keywordSearchQuery.value = query
+    saveState()
+  }
+
+  const setUrlSearchQuery = (query: string) => {
+    urlSearchQuery.value = query
+    saveState()
+  }
+
+  const setPlaylistSearchQuery = (query: string) => {
+    playlistSearchQuery.value = query
+    saveState()
+  }
+
+  const setKeywordSearchResults = (results: MusicSearchResult[]) => {
+    keywordSearchResults.value = results
+    saveState()
+  }
+
+  const setUrlSearchResults = (results: MusicSearchResult[]) => {
+    urlSearchResults.value = results
+    saveState()
+  }
+
+  const setPlaylistSearchResults = (results: MusicSearchResult[]) => {
+    playlistSearchResults.value = results
+    saveState()
+  }
+
+  const setKeywordSearching = (searching: boolean) => {
+    keywordSearching.value = searching
+  }
+
+  const setUrlSearching = (searching: boolean) => {
+    urlSearching.value = searching
+  }
+
+  const setPlaylistSearching = (searching: boolean) => {
+    playlistSearching.value = searching
+  }
+
+  const setKeywordSearchError = (error: string) => {
+    keywordSearchError.value = error
+    saveState()
+  }
+
+  const setUrlSearchError = (error: string) => {
+    urlSearchError.value = error
+    saveState()
+  }
+
+  const setPlaylistSearchError = (error: string) => {
+    playlistSearchError.value = error
+    saveState()
+  }
+
   return {
     // 只读状态
     searchResults: readonly(searchResults),
@@ -316,6 +487,20 @@ export const useMusicState = () => {
     platform: readonly(platform),
     isSearching: readonly(isSearching),
     searchError: readonly(searchError),
+
+    // 独立搜索状态
+    keywordSearchQuery: readonly(keywordSearchQuery),
+    urlSearchQuery: readonly(urlSearchQuery),
+    playlistSearchQuery: readonly(playlistSearchQuery),
+    keywordSearchResults: readonly(keywordSearchResults),
+    urlSearchResults: readonly(urlSearchResults),
+    playlistSearchResults: readonly(playlistSearchResults),
+    keywordSearching: readonly(keywordSearching),
+    urlSearching: readonly(urlSearching),
+    playlistSearching: readonly(playlistSearching),
+    keywordSearchError: readonly(keywordSearchError),
+    urlSearchError: readonly(urlSearchError),
+    playlistSearchError: readonly(playlistSearchError),
     
     // 计算属性
     hasResults,
@@ -347,6 +532,20 @@ export const useMusicState = () => {
     clearPlayingState,
     clearAllState,
     saveState,
-    restoreState
+    restoreState,
+
+    // 独立搜索状态管理方法
+    setKeywordSearchQuery,
+    setUrlSearchQuery,
+    setPlaylistSearchQuery,
+    setKeywordSearchResults,
+    setUrlSearchResults,
+    setPlaylistSearchResults,
+    setKeywordSearching,
+    setUrlSearching,
+    setPlaylistSearching,
+    setKeywordSearchError,
+    setUrlSearchError,
+    setPlaylistSearchError
   }
 }

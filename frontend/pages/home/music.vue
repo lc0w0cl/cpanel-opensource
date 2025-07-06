@@ -56,6 +56,34 @@ const {
   clearAllState
 } = useMusicState()
 
+// 获取独立搜索状态
+const {
+  keywordSearchQuery,
+  urlSearchQuery,
+  playlistSearchQuery,
+  keywordSearchResults,
+  urlSearchResults,
+  playlistSearchResults,
+  keywordSearching,
+  urlSearching,
+  playlistSearching,
+  keywordSearchError,
+  urlSearchError,
+  playlistSearchError,
+  setKeywordSearchQuery,
+  setUrlSearchQuery,
+  setPlaylistSearchQuery,
+  setKeywordSearchResults,
+  setUrlSearchResults,
+  setPlaylistSearchResults,
+  setKeywordSearching,
+  setUrlSearching,
+  setPlaylistSearching,
+  setKeywordSearchError,
+  setUrlSearchError,
+  setPlaylistSearchError
+} = useMusicState()
+
 // 音乐API
 const { searchMusic, downloadMusic, getAudioStreamByUrl, getPlayableAudioUrl, getFallbackAudioUrl, parsePlaylist, getSupportedPlatforms, getAvailableFormats, detectPlatform } = useMusicApi()
 
@@ -78,25 +106,7 @@ const matchingError = ref('')
 const showFormatSelector = ref(false)
 const currentDownloadItem = ref<MusicSearchResult | null>(null)
 
-// 独立的搜索内容变量
-const keywordSearchQuery = ref('')  // 关键词搜索内容
-const urlSearchQuery = ref('')      // 链接下载内容
-const playlistSearchQuery = ref('') // 歌单解析内容
-
-// 独立的搜索结果变量
-const keywordSearchResults = ref<MusicSearchResult[]>([])  // 关键词搜索结果
-const urlSearchResults = ref<MusicSearchResult[]>([])      // 链接下载结果
-const playlistSearchResults = ref<MusicSearchResult[]>([]) // 歌单解析结果
-
-// 独立的搜索状态变量
-const keywordSearching = ref(false)  // 关键词搜索状态
-const urlSearching = ref(false)      // 链接下载状态
-const playlistSearching = ref(false) // 歌单解析状态
-
-// 独立的搜索错误变量
-const keywordSearchError = ref('')  // 关键词搜索错误
-const urlSearchError = ref('')      // 链接下载错误
-const playlistSearchError = ref('') // 歌单解析错误
+// 注意：独立搜索状态现在从 useMusicState() 获取，已在上面导入
 
 // 计算属性：获取当前搜索内容
 const currentSearchQuery = computed(() => {
@@ -963,13 +973,13 @@ const cancelAutoMatch = () => {
 const updateCurrentSearchQuery = (value: string) => {
   switch (searchType.value) {
     case 'keyword':
-      keywordSearchQuery.value = value
+      setKeywordSearchQuery(value)
       break
     case 'url':
-      urlSearchQuery.value = value
+      setUrlSearchQuery(value)
       break
     case 'playlist':
-      playlistSearchQuery.value = value
+      setPlaylistSearchQuery(value)
       break
   }
 }
@@ -978,13 +988,13 @@ const updateCurrentSearchQuery = (value: string) => {
 const updateCurrentSearching = (value: boolean) => {
   switch (searchType.value) {
     case 'keyword':
-      keywordSearching.value = value
+      setKeywordSearching(value)
       break
     case 'url':
-      urlSearching.value = value
+      setUrlSearching(value)
       break
     case 'playlist':
-      playlistSearching.value = value
+      setPlaylistSearching(value)
       break
   }
 }
@@ -993,13 +1003,13 @@ const updateCurrentSearching = (value: boolean) => {
 const updateCurrentSearchResults = (results: MusicSearchResult[]) => {
   switch (searchType.value) {
     case 'keyword':
-      keywordSearchResults.value = results
+      setKeywordSearchResults(results)
       break
     case 'url':
-      urlSearchResults.value = results
+      setUrlSearchResults(results)
       break
     case 'playlist':
-      playlistSearchResults.value = results
+      setPlaylistSearchResults(results)
       break
   }
 }
@@ -1008,13 +1018,13 @@ const updateCurrentSearchResults = (results: MusicSearchResult[]) => {
 const updateCurrentSearchError = (error: string) => {
   switch (searchType.value) {
     case 'keyword':
-      keywordSearchError.value = error
+      setKeywordSearchError(error)
       break
     case 'url':
-      urlSearchError.value = error
+      setUrlSearchError(error)
       break
     case 'playlist':
-      playlistSearchError.value = error
+      setPlaylistSearchError(error)
       break
   }
 }
