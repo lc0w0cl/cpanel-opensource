@@ -16,6 +16,7 @@ export interface MusicSearchResult {
   publishTime?: string
   description?: string
   tags?: string[]
+  playlistName?: string
 }
 
 // 搜索请求接口定义
@@ -51,6 +52,7 @@ export interface PlaylistSong {
   source: string
   sourceId: string
   duration?: string
+  playlistName?: string
 }
 
 // 歌单信息接口定义
@@ -314,7 +316,8 @@ export const useMusicApi = () => {
           title: musicResult.title,
           artist: musicResult.artist,
           platform: musicResult.platform,
-          selectedFormat: selectedFormat
+          selectedFormat: selectedFormat,
+          playlistName: musicResult.playlistName
         })
       })
 

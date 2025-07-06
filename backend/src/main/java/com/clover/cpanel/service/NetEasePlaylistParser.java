@@ -155,7 +155,7 @@ public class NetEasePlaylistParser {
         if (result.has("tracks")) {
             JsonNode tracks = result.get("tracks");
             for (JsonNode trackNode : tracks) {
-                PlaylistSongDTO song = parseSong(trackNode);
+                PlaylistSongDTO song = parseSong(trackNode, title);
                 if (song != null) {
                     songs.add(song);
                 }
@@ -177,7 +177,7 @@ public class NetEasePlaylistParser {
     /**
      * 解析单首歌曲信息
      */
-    private PlaylistSongDTO parseSong(JsonNode trackNode) {
+    private PlaylistSongDTO parseSong(JsonNode trackNode, String playlistName) {
         try {
             String songName = trackNode.has("name") ? trackNode.get("name").asText() : "未知歌曲";
             String songId = trackNode.has("id") ? trackNode.get("id").asText() : "0";
@@ -226,6 +226,7 @@ public class NetEasePlaylistParser {
                     .source("netease")
                     .sourceId(songId)
                     .duration(duration)
+                    .playlistName(playlistName)
                     .build();
                     
         } catch (Exception e) {

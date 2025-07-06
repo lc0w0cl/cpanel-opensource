@@ -53,4 +53,9 @@ public class PlaylistSongDTO {
      * 时长
      */
     private String duration;
+
+    /**
+     * 歌单名称
+     */
+    private String playlistName;
 }

@@ -544,6 +544,7 @@ public class MusicController {
             String artist = (String) request.get("artist");
             String platform = (String) request.get("platform");
             Map<String, Object> selectedFormat = (Map<String, Object>) request.get("selectedFormat");
+            String playlistName = (String) request.get("playlistName");
 
             log.info("开始服务器下载音乐: title={}, artist={}, url={}", title, artist, url);
 
@@ -571,15 +572,27 @@ public class MusicController {
             String fileName = generateServerFileName(title, artist, selectedFormat);
 
             // 3. 创建下载目录
-            Path downloadDir;
+            Path baseDownloadDir;
             if (serverDownloadPath.startsWith("/")) {
                 // 绝对路径
-                downloadDir = Paths.get(serverDownloadPath);
+                baseDownloadDir = Paths.get(serverDownloadPath);
                 log.info("使用绝对路径: {}", serverDownloadPath);
             } else {
                 // 相对路径，相对于当前工作目录
-                downloadDir = Paths.get(serverDownloadPath);
+                baseDownloadDir = Paths.get(serverDownloadPath);
                 log.info("使用相对路径: {}", serverDownloadPath);
+            }
+
+            // 如果有歌单名称，创建歌单子目录
+            Path downloadDir = baseDownloadDir;
+            if (playlistName != null && !playlistName.trim().isEmpty()) {
+                // 清理歌单名称，移除不合法的文件名字符
+                String cleanPlaylistName = playlistName.trim()
+                    .replaceAll("[\\\\/:*?\"<>|]", "_")  // 替换Windows不允许的字符
+                    .replaceAll("\\s+", "_");           // 替换空格为下划线
+
+                downloadDir = baseDownloadDir.resolve(cleanPlaylistName);
+                log.info("检测到歌单名称: {}，将下载到子目录: {}", playlistName, downloadDir.toAbsolutePath());
             }
 
             if (!Files.exists(downloadDir)) {
@@ -598,8 +611,15 @@ public class MusicController {
             boolean success = downloadAudioToServer(audioUrl, filePath);
 
             if (success) {
-                // 构建访问URL
-                String accessUrl = buildFileAccessUrl(serverDownloadPath, fileName);
+                // 构建访问URL，考虑歌单子目录
+                String relativePath = fileName;
+                if (playlistName != null && !playlistName.trim().isEmpty()) {
+                    String cleanPlaylistName = playlistName.trim()
+                        .replaceAll("[\\\\/:*?\"<>|]", "_")
+                        .replaceAll("\\s+", "_");
+                    relativePath = cleanPlaylistName + "/" + fileName;
+                }
+                String accessUrl = buildFileAccessUrl(serverDownloadPath, relativePath);
 
                 Map<String, String> result = new HashMap<>();
                 result.put("fileName", fileName);

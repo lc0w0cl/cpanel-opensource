@@ -167,7 +167,7 @@ public class QQMusicPlaylistParser {
         if (cdlist.has("songlist")) {
             JsonNode songlist = cdlist.get("songlist");
             for (JsonNode songNode : songlist) {
-                PlaylistSongDTO song = parseSong(songNode);
+                PlaylistSongDTO song = parseSong(songNode, title);
                 if (song != null) {
                     songs.add(song);
                 }
@@ -189,7 +189,7 @@ public class QQMusicPlaylistParser {
     /**
      * 解析单首歌曲信息
      */
-    private PlaylistSongDTO parseSong(JsonNode songNode) {
+    private PlaylistSongDTO parseSong(JsonNode songNode, String playlistName) {
         try {
             String songName = songNode.has("songname") ? songNode.get("songname").asText() : "未知歌曲";
             String songId = songNode.has("songid") ? songNode.get("songid").asText() : "0";
@@ -223,6 +223,7 @@ public class QQMusicPlaylistParser {
                     .cover(coverUrl)
                     .source("qq")
                     .sourceId(songId)
+                    .playlistName(playlistName)
                     .build();
 
         } catch (Exception e) {

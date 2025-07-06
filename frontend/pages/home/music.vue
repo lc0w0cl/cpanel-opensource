@@ -260,7 +260,8 @@ const handlePlaylistParse = async () => {
       playCount: '',
       publishTime: '',
       description: `来自歌单: ${playlist.title}`,
-      tags: []
+      tags: [],
+      playlistName: playlist.title
     }))
 
     updateCurrentSearchResults(results)
@@ -321,6 +322,11 @@ const startPlaylistBatchDownload = async () => {
 
 // 检查是否为歌单来源的歌曲
 const isPlaylistSong = (item: MusicSearchResult) => {
+  // 优先使用 playlistName 字段判断
+  if (item.playlistName) {
+    return true
+  }
+  // 兼容旧的判断方式
   return item.description && item.description.includes('来自歌单:')
 }
 
@@ -353,7 +359,12 @@ const downloadPlaylistSong = async (item: MusicSearchResult, onProgress?: (progr
         }
 
         const searchResults = await searchMusic(searchRequest)
-        allResults.push(...searchResults)
+        // 为搜索结果添加歌单名称
+        const resultsWithPlaylistName = searchResults.map(result => ({
+          ...result,
+          playlistName: item.playlistName
+        }))
+        allResults.push(...resultsWithPlaylistName)
 
         if (searchResults.length > 0) {
           console.log(`关键词 "${keyword}" 找到 ${searchResults.length} 个结果`)
@@ -862,7 +873,12 @@ const autoMatchMusic = async () => {
             }
 
             const searchResults = await searchMusic(searchRequest)
-            allResults.push(...searchResults)
+            // 为搜索结果添加歌单名称
+            const resultsWithPlaylistName = searchResults.map(result => ({
+              ...result,
+              playlistName: song.playlistName
+            }))
+            allResults.push(...resultsWithPlaylistName)
 
             if (searchResults.length > 0) {
               console.log(`关键词 "${keyword}" 找到 ${searchResults.length} 个结果`)
@@ -1167,7 +1183,7 @@ const handleSearchTypeChange = (type: 'keyword' | 'url' | 'playlist') => {
   setSearchType(type)
 }
 
-// 智能批量下载
+// 全部下载
 const startBatchDownload = async () => {
   if (downloadQueue.value.length === 0) return
   if (isPaused.value) {
@@ -1176,35 +1192,26 @@ const startBatchDownload = async () => {
   }
 
   isDownloading.value = true
-
-  const playlistSongs = downloadQueue.value.filter(item => isPlaylistSong(item))
-  const regularSongs = downloadQueue.value.filter(item => !isPlaylistSong(item))
-
-  if (playlistSongs.length > 0) {
-    showNotification(`开始智能下载 ${playlistSongs.length} 首歌单歌曲 + ${regularSongs.length} 首普通歌曲`, 'success')
-  }
+  showNotification(`开始下载 ${downloadQueue.value.length} 首歌曲`, 'success')
 
   try {
-    // 先下载普通歌曲
-    for (const song of regularSongs) {
+    // 下载所有歌曲
+    for (const song of downloadQueue.value) {
       if (isPaused.value) break
       if (downloadProgress.value[song.id] === undefined) {
         // 对于批量下载，使用默认格式
         const defaultFormat = { isAudio: true, ext: 'mp3' }
-        startDownload(song, defaultFormat)
-      }
-    }
 
-    // 再逐个下载歌单歌曲（需要搜索，所以串行处理）
-    for (const song of playlistSongs) {
-      if (isPaused.value) break
-      if (downloadProgress.value[song.id] === undefined) {
-        // 对于批量下载，使用默认格式
-        const defaultFormat = { isAudio: true, ext: 'mp3' }
-        await startDownload(song, defaultFormat)
-        // 每首歌之间间隔1秒，避免请求过于频繁
-        if (!isPaused.value) {
-          await new Promise(resolve => setTimeout(resolve, 1000))
+        // 如果是歌单歌曲，需要串行处理（需要搜索）
+        if (isPlaylistSong(song)) {
+          await startDownload(song, defaultFormat)
+          // 每首歌之间间隔1秒，避免请求过于频繁
+          if (!isPaused.value) {
+            await new Promise(resolve => setTimeout(resolve, 1000))
+          }
+        } else {
+          // 普通歌曲可以并行下载
+          startDownload(song, defaultFormat)
         }
       }
     }
@@ -1628,7 +1635,7 @@ const startBatchDownload = async () => {
                 class="start-all-btn"
               >
                 <Icon icon="mdi:play" class="btn-icon" />
-                {{ hasPlaylistSongs ? '智能批量下载' : '开始全部下载' }}
+                开始全部下载
               </button>
 
               <button
