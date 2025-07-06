@@ -56,6 +56,10 @@ public class SystemConfigController {
     private static final String MUSIC_DOWNLOAD_LOCATION_KEY = "music_download_location";
     private static final String MUSIC_SERVER_DOWNLOAD_PATH_KEY = "music_server_download_path";
 
+    // Cookie配置相关常量
+    private static final String BILIBILI_COOKIE_KEY = "bilibili_cookie";
+    private static final String YOUTUBE_COOKIE_KEY = "youtube_cookie";
+
     /**
      * 获取壁纸配置
      * @return 壁纸配置信息
@@ -708,6 +712,69 @@ public class SystemConfigController {
         } catch (Exception e) {
             log.error("应用壁纸失败", e);
             return ApiResponse.error("应用壁纸失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * 获取Cookie配置
+     * @return Cookie配置
+     */
+    @GetMapping("/cookies")
+    public ApiResponse<Map<String, Object>> getCookieConfig() {
+        try {
+            Map<String, Object> cookieConfig = new HashMap<>();
+
+            // 获取Bilibili Cookie设置
+            String bilibiliCookie = systemConfigService.getConfigValue(BILIBILI_COOKIE_KEY);
+            cookieConfig.put("bilibiliCookie", bilibiliCookie != null ? bilibiliCookie : "");
+
+            // 获取YouTube Cookie设置
+            String youtubeCookie = systemConfigService.getConfigValue(YOUTUBE_COOKIE_KEY);
+            cookieConfig.put("youtubeCookie", youtubeCookie != null ? youtubeCookie : "");
+
+            return ApiResponse.success(cookieConfig);
+        } catch (Exception e) {
+            log.error("获取Cookie配置失败", e);
+            return ApiResponse.error("获取Cookie配置失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * 保存Cookie配置
+     * @param bilibiliCookie Bilibili Cookie值
+     * @param youtubeCookie YouTube Cookie值
+     * @return 操作结果
+     */
+    @PostMapping("/cookies")
+    public ApiResponse<String> saveCookieConfig(
+            @RequestParam(required = false, defaultValue = "") String bilibiliCookie,
+            @RequestParam(required = false, defaultValue = "") String youtubeCookie) {
+        try {
+            // 保存Bilibili Cookie设置
+            boolean success1 = systemConfigService.setConfigValue(
+                BILIBILI_COOKIE_KEY,
+                bilibiliCookie != null ? bilibiliCookie.trim() : "",
+                "Bilibili Cookie配置",
+                ConfigType.MUSIC
+            );
+
+            // 保存YouTube Cookie设置
+            boolean success2 = systemConfigService.setConfigValue(
+                YOUTUBE_COOKIE_KEY,
+                youtubeCookie != null ? youtubeCookie.trim() : "",
+                "YouTube Cookie配置",
+                ConfigType.MUSIC
+            );
+
+            if (success1 && success2) {
+                log.info("Cookie配置保存成功");
+                return ApiResponse.success("Cookie配置保存成功");
+            } else {
+                return ApiResponse.error("Cookie配置保存失败");
+            }
+        } catch (Exception e) {
+            log.error("保存Cookie配置失败", e);
+            return ApiResponse.error("保存Cookie配置失败：" + e.getMessage());
         }
     }
 }

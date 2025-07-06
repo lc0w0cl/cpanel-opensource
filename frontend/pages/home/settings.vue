@@ -79,6 +79,12 @@ const musicServerDownloadPath = ref('uploads/music')
 const musicSettingsLoading = ref(false)
 const musicSettingsSaving = ref(false)
 
+// Cookie设置相关
+const bilibiliCookie = ref('')
+const youtubeCookie = ref('')
+const cookieSettingsLoading = ref(false)
+const cookieSettingsSaving = ref(false)
+
 // API配置
 const config = useRuntimeConfig()
 const API_BASE_URL = `${config.public.apiBaseUrl}/api`
@@ -618,6 +624,26 @@ const loadMusicConfig = async () => {
   }
 }
 
+// Cookie设置相关函数
+const loadCookieConfig = async () => {
+  cookieSettingsLoading.value = true
+  try {
+    const response = await apiRequest(`${API_BASE_URL}/system-config/cookies`)
+    const result = await response.json()
+
+    if (result.success) {
+      bilibiliCookie.value = result.data.bilibiliCookie || ''
+      youtubeCookie.value = result.data.youtubeCookie || ''
+    } else {
+      console.error('加载Cookie配置失败:', result.message)
+    }
+  } catch (error) {
+    console.error('加载Cookie配置失败:', error)
+  } finally {
+    cookieSettingsLoading.value = false
+  }
+}
+
 const saveMusicConfig = async () => {
   musicSettingsSaving.value = true
   try {
@@ -643,6 +669,32 @@ const saveMusicConfig = async () => {
     console.error('音乐配置保存失败:', error)
   } finally {
     musicSettingsSaving.value = false
+  }
+}
+
+const saveCookieConfig = async () => {
+  cookieSettingsSaving.value = true
+  try {
+    const formData = new FormData()
+    formData.append('bilibiliCookie', bilibiliCookie.value)
+    formData.append('youtubeCookie', youtubeCookie.value)
+
+    const response = await apiRequest(`${API_BASE_URL}/system-config/cookies`, {
+      method: 'POST',
+      body: formData
+    })
+
+    const result = await response.json()
+
+    if (result.success) {
+      console.log('Cookie配置保存成功')
+    } else {
+      console.error('Cookie配置保存失败:', result.message)
+    }
+  } catch (error) {
+    console.error('Cookie配置保存失败:', error)
+  } finally {
+    cookieSettingsSaving.value = false
   }
 }
 
@@ -687,6 +739,7 @@ onMounted(async () => {
   await loadSavedWallpaper()
   await loadLogoConfig()
   await loadMusicConfig()
+  await loadCookieConfig()
 })
 </script>
 
@@ -1285,6 +1338,82 @@ onMounted(async () => {
                         </div>
                       </div>
                     </div>
+
+                    <!-- Cookie设置 -->
+                    <div class="config-section">
+                      <div class="section-header">
+                        <Icon icon="mdi:cookie" class="section-icon" />
+                        <h3 class="section-title">Cookie设置</h3>
+                      </div>
+
+                      <div v-if="cookieSettingsLoading" class="loading-state compact">
+                        <Icon icon="mdi:loading" class="loading-icon spin" />
+                        <p>加载中...</p>
+                      </div>
+
+                      <div v-else class="cookie-settings">
+                        <!-- Bilibili Cookie设置 -->
+                        <div class="cookie-group">
+                          <div class="cookie-header">
+                            <Icon icon="mdi:play-circle" class="platform-icon bilibili-icon" />
+                            <h4 class="cookie-title">Bilibili Cookie</h4>
+                          </div>
+                          <div class="form-group">
+                            <label class="form-label">Cookie值</label>
+                            <textarea
+                              v-model="bilibiliCookie"
+                              class="cookie-textarea"
+                              placeholder="请输入Bilibili的Cookie值..."
+                              rows="3"
+                              :disabled="cookieSettingsSaving"
+                            ></textarea>
+                            <p class="form-hint">
+                              用于访问Bilibili需要登录的内容，提高解析成功率
+                            </p>
+                          </div>
+                        </div>
+
+                        <!-- YouTube Cookie设置 -->
+                        <div class="cookie-group">
+                          <div class="cookie-header">
+                            <Icon icon="mdi:youtube" class="platform-icon youtube-icon" />
+                            <h4 class="cookie-title">YouTube Cookie</h4>
+                          </div>
+                          <div class="form-group">
+                            <label class="form-label">Cookie值</label>
+                            <textarea
+                              v-model="youtubeCookie"
+                              class="cookie-textarea"
+                              placeholder="请输入YouTube的Cookie值..."
+                              rows="3"
+                              :disabled="cookieSettingsSaving"
+                            ></textarea>
+                            <p class="form-hint">
+                              用于访问YouTube需要登录的内容，提高解析成功率
+                            </p>
+                          </div>
+                        </div>
+
+                        <!-- Cookie保存按钮 -->
+                        <div class="cookie-actions">
+                          <button
+                            class="save-cookie-btn"
+                            @click="saveCookieConfig"
+                            :disabled="cookieSettingsSaving"
+                          >
+                            <Icon v-if="cookieSettingsSaving" icon="mdi:loading" class="spin btn-icon" />
+                            <Icon v-else icon="mdi:content-save" class="btn-icon" />
+                            {{ cookieSettingsSaving ? '保存中...' : '保存Cookie设置' }}
+                          </button>
+                        </div>
+
+                        <!-- Cookie保存状态提示 -->
+                        <div v-if="cookieSettingsSaving" class="saving-indicator">
+                          <Icon icon="mdi:loading" class="spin" />
+                          <span>正在保存Cookie设置...</span>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </Transition>
@@ -1567,6 +1696,20 @@ onMounted(async () => {
 }
 
 .theme-settings-item .item-content {
+  padding: 2rem; /* 增加内边距 */
+}
+
+/* 音乐设置项 - 扩大宽度，和主题设置一样长 */
+.music-settings-item {
+  position: relative;
+  grid-column: 1 / -1; /* 占据整行 */
+}
+
+.music-settings-item .settings-wrapper {
+  max-width: none; /* 移除最大宽度限制 */
+}
+
+.music-settings-item .item-content {
   padding: 2rem; /* 增加内边距 */
 }
 
@@ -3404,5 +3547,129 @@ onMounted(async () => {
   color: rgba(34, 197, 94, 0.9);
   font-size: 0.875rem;
   border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+/* Cookie设置样式 */
+.cookie-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.cookie-group {
+  padding: 1.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0.75rem;
+  background: linear-gradient(135deg,
+    rgba(255, 255, 255, 0.02) 0%,
+    rgba(255, 255, 255, 0.01) 100%
+  );
+  transition: all 0.3s ease;
+}
+
+.cookie-group:hover {
+  border-color: rgba(255, 255, 255, 0.2);
+  background: linear-gradient(135deg,
+    rgba(255, 255, 255, 0.04) 0%,
+    rgba(255, 255, 255, 0.02) 100%
+  );
+}
+
+.cookie-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.platform-icon {
+  width: 1.5rem;
+  height: 1.5rem;
+  flex-shrink: 0;
+}
+
+.bilibili-icon {
+  color: #00a1d6;
+}
+
+.youtube-icon {
+  color: #ff0000;
+}
+
+.cookie-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+  margin: 0;
+}
+
+.cookie-textarea {
+  width: 100%;
+  min-height: 80px;
+  padding: 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 0.5rem;
+  background: rgba(0, 0, 0, 0.2);
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 0.875rem;
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  resize: vertical;
+  transition: all 0.3s ease;
+}
+
+.cookie-textarea:focus {
+  outline: none;
+  border-color: rgba(59, 130, 246, 0.5);
+  background: rgba(0, 0, 0, 0.3);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.cookie-textarea:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.cookie-textarea::placeholder {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.cookie-actions {
+  display: flex;
+  justify-content: center;
+  margin-top: 1.5rem;
+}
+
+.save-cookie-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.875rem 1.5rem;
+  border: none;
+  border-radius: 0.5rem;
+  background: linear-gradient(135deg,
+    rgba(59, 130, 246, 0.2) 0%,
+    rgba(59, 130, 246, 0.1) 100%
+  );
+  color: rgba(59, 130, 246, 0.9);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.save-cookie-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg,
+    rgba(59, 130, 246, 0.3) 0%,
+    rgba(59, 130, 246, 0.15) 100%
+  );
+  border-color: rgba(59, 130, 246, 0.5);
+  transform: translateY(-1px);
+}
+
+.save-cookie-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
 }
 </style>
