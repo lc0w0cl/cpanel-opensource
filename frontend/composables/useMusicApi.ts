@@ -298,7 +298,7 @@ export const useMusicApi = () => {
   /**
    * 服务器端下载音乐
    */
-  const downloadMusicToServer = async (musicResult: any, onProgress?: (progress: number) => void): Promise<boolean> => {
+  const downloadMusicToServer = async (musicResult: any, onProgress?: (progress: number) => void, selectedFormat?: any): Promise<boolean> => {
     try {
       console.log('开始服务器下载音乐:', musicResult.title)
 
@@ -313,7 +313,8 @@ export const useMusicApi = () => {
           url: musicResult.url,
           title: musicResult.title,
           artist: musicResult.artist,
-          platform: musicResult.platform
+          platform: musicResult.platform,
+          selectedFormat: selectedFormat
         })
       })
 
@@ -336,7 +337,7 @@ export const useMusicApi = () => {
   /**
    * 智能下载音乐 - 根据设置选择下载方式
    */
-  const downloadMusic = async (musicResult: any, onProgress?: (progress: number) => void): Promise<boolean> => {
+  const downloadMusic = async (musicResult: any, onProgress?: (progress: number) => void, selectedFormat?: any): Promise<boolean> => {
     try {
       console.log('开始下载音乐:', musicResult.title)
 
@@ -346,10 +347,10 @@ export const useMusicApi = () => {
 
       if (settings.downloadLocation === 'server') {
         // 服务器下载
-        return await downloadMusicToServer(musicResult, onProgress)
+        return await downloadMusicToServer(musicResult, onProgress, selectedFormat)
       } else {
         // 本地下载（原有逻辑）
-        return await downloadMusicToLocal(musicResult, onProgress)
+        return await downloadMusicToLocal(musicResult, onProgress, selectedFormat)
       }
     } catch (error) {
       console.error('下载音乐异常:', error)
@@ -360,7 +361,7 @@ export const useMusicApi = () => {
   /**
    * 本地下载音乐（重命名原有函数）
    */
-  const downloadMusicToLocal = async (musicResult: any, onProgress?: (progress: number) => void): Promise<boolean> => {
+  const downloadMusicToLocal = async (musicResult: any, onProgress?: (progress: number) => void, selectedFormat?: any): Promise<boolean> => {
     try {
       console.log('开始本地下载音乐:', musicResult.title)
 
@@ -382,7 +383,7 @@ export const useMusicApi = () => {
 
       // 3. 下载音频文件到本地
       onProgress?.(60)
-      const success = await downloadAudioFile(playableUrl, musicResult.title, musicResult.artist, onProgress)
+      const success = await downloadAudioFile(playableUrl, musicResult.title, musicResult.artist, onProgress, selectedFormat)
 
       if (success) {
         onProgress?.(100)
@@ -406,7 +407,8 @@ export const useMusicApi = () => {
     audioUrl: string,
     title: string,
     artist: string,
-    onProgress?: (progress: number) => void
+    onProgress?: (progress: number) => void,
+    selectedFormat?: any
   ): Promise<boolean> => {
     try {
       // 显示下载提示
@@ -428,7 +430,7 @@ export const useMusicApi = () => {
       link.href = downloadUrl
 
       // 生成文件名
-      const fileName = generateFileName(title, artist, audioUrl)
+      const fileName = generateFileName(title, artist, selectedFormat)
       link.download = fileName
 
       // 设置链接样式（隐藏）
@@ -502,19 +504,49 @@ export const useMusicApi = () => {
   /**
    * 生成下载文件名
    */
-  const generateFileName = (title: string, artist: string, audioUrl: string): string => {
+  const generateFileName = (title: string, artist: string, selectedFormat?: any): string => {
     // 清理文件名中的非法字符
     const cleanTitle = title.replace(/[<>:"/\\|?*]/g, '').trim()
     const cleanArtist = artist.replace(/[<>:"/\\|?*]/g, '').trim()
 
-    // 根据URL推断文件扩展名
+    // 根据选择的格式确定文件扩展名
     let extension = '.mp3' // 默认扩展名
-    if (audioUrl.includes('.m4a')) {
-      extension = '.m4a'
-    } else if (audioUrl.includes('.webm')) {
-      extension = '.webm'
-    } else if (audioUrl.includes('.ogg')) {
-      extension = '.ogg'
+
+    if (selectedFormat) {
+      if (selectedFormat.isAudio) {
+        // 音频格式处理
+        if (selectedFormat.ext === 'flac') {
+          extension = '.flac'
+        } else if (selectedFormat.ext === 'm4a') {
+          // extension = '.m4a'
+        } else if (selectedFormat.ext === 'webm') {
+          extension = '.webm'
+        } else if (selectedFormat.ext === 'ogg') {
+          extension = '.ogg'
+        } else if (selectedFormat.ext === 'aac') {
+          extension = '.aac'
+        } else if (selectedFormat.ext === 'opus') {
+          extension = '.opus'
+        } else {
+          extension = '.mp3' // 音频默认mp3
+        }
+      } else if (selectedFormat.isVideo) {
+        // 视频格式处理
+        if (selectedFormat.ext === 'mp4') {
+          extension = '.mp4'
+        } else if (selectedFormat.ext === 'webm') {
+          extension = '.webm'
+        } else if (selectedFormat.ext === 'mkv') {
+          extension = '.mkv'
+        } else if (selectedFormat.ext === 'avi') {
+          extension = '.avi'
+        } else {
+          extension = '.mp4' // 视频默认mp4
+        }
+      } else {
+        // 如果格式类型不明确，根据扩展名判断
+        extension = '.' + selectedFormat.ext
+      }
     }
 
     // 生成文件名：艺术家 - 歌曲名.扩展名

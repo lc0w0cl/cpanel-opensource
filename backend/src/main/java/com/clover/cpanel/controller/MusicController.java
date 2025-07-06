@@ -537,12 +537,13 @@ public class MusicController {
      * 下载音乐到服务器
      */
     @PostMapping("/download-to-server")
-    public ApiResponse<Map<String, String>> downloadMusicToServer(@RequestBody Map<String, String> request) {
+    public ApiResponse<Map<String, String>> downloadMusicToServer(@RequestBody Map<String, Object> request) {
         try {
-            String url = request.get("url");
-            String title = request.get("title");
-            String artist = request.get("artist");
-            String platform = request.get("platform");
+            String url = (String) request.get("url");
+            String title = (String) request.get("title");
+            String artist = (String) request.get("artist");
+            String platform = (String) request.get("platform");
+            Map<String, Object> selectedFormat = (Map<String, Object>) request.get("selectedFormat");
 
             log.info("开始服务器下载音乐: title={}, artist={}, url={}", title, artist, url);
 
@@ -567,7 +568,7 @@ public class MusicController {
             }
 
             // 2. 生成文件名
-            String fileName = generateServerFileName(title, artist, audioUrl);
+            String fileName = generateServerFileName(title, artist, selectedFormat);
 
             // 3. 创建下载目录
             Path downloadDir = Paths.get(serverDownloadPath);
@@ -652,19 +653,53 @@ public class MusicController {
     /**
      * 生成服务器文件名
      */
-    private String generateServerFileName(String title, String artist, String audioUrl) {
+    private String generateServerFileName(String title, String artist, Map<String, Object> selectedFormat) {
         // 清理文件名中的非法字符
         String cleanTitle = title.replaceAll("[<>:\"/\\\\|?*]", "").trim();
         String cleanArtist = artist != null ? artist.replaceAll("[<>:\"/\\\\|?*]", "").trim() : "";
 
-        // 根据URL推断文件扩展名
+        // 根据选择的格式确定文件扩展名
         String extension = ".mp3"; // 默认扩展名
-        if (audioUrl.contains(".m4a")) {
-            extension = ".m4a";
-        } else if (audioUrl.contains(".webm")) {
-            extension = ".webm";
-        } else if (audioUrl.contains(".ogg")) {
-            extension = ".ogg";
+
+        if (selectedFormat != null) {
+            Boolean isAudio = (Boolean) selectedFormat.get("isAudio");
+            Boolean isVideo = (Boolean) selectedFormat.get("isVideo");
+            String ext = (String) selectedFormat.get("ext");
+
+            if (Boolean.TRUE.equals(isAudio)) {
+                // 音频格式处理
+                if ("flac".equals(ext)) {
+                    extension = ".flac";
+                } else if ("m4a".equals(ext)) {
+                    extension = ".m4a";
+                } else if ("webm".equals(ext)) {
+                    extension = ".webm";
+                } else if ("ogg".equals(ext)) {
+                    extension = ".ogg";
+                } else if ("aac".equals(ext)) {
+                    extension = ".aac";
+                } else if ("opus".equals(ext)) {
+                    extension = ".opus";
+                } else {
+                    extension = ".mp3"; // 音频默认mp3
+                }
+            } else if (Boolean.TRUE.equals(isVideo)) {
+                // 视频格式处理
+                if ("mp4".equals(ext)) {
+                    extension = ".mp4";
+                } else if ("webm".equals(ext)) {
+                    extension = ".webm";
+                } else if ("mkv".equals(ext)) {
+                    extension = ".mkv";
+                } else if ("avi".equals(ext)) {
+                    extension = ".avi";
+                } else {
+                    extension = ".mp4"; // 视频默认mp4
+                }
+            } else if (ext != null) {
+                // 如果格式类型不明确，根据扩展名判断
+                extension = "." + ext;
+            }
         }
 
         // 生成文件名：艺术家 - 歌曲名.扩展名

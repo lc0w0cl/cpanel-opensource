@@ -207,7 +207,9 @@ const startPlaylistBatchDownload = async () => {
   // 逐个下载，避免并发过多
   for (const song of playlistSongs) {
     if (downloadProgress.value[song.id] === undefined) {
-      await startDownload(song)
+      // 对于批量下载，使用默认格式（音频优先flac，如果没有则mp3）
+      const defaultFormat = { isAudio: true, ext: 'mp3' }
+      await startDownload(song, defaultFormat)
       // 每首歌之间间隔1秒，避免请求过于频繁
       await new Promise(resolve => setTimeout(resolve, 1000))
     }
@@ -311,8 +313,8 @@ const handleFormatSelect = async (format: any) => {
   showFormatSelector.value = false
 
   if (currentDownloadItem.value) {
-    // 这里暂时还是使用原有的下载逻辑，后续可以根据选择的格式进行下载
-    await startDownload(currentDownloadItem.value)
+    // 将选择的格式信息传递给下载函数
+    await startDownload(currentDownloadItem.value, format)
     currentDownloadItem.value = null
   }
 }
@@ -324,7 +326,7 @@ const closeFormatSelector = () => {
 }
 
 // 开始下载
-const startDownload = async (item: MusicSearchResult) => {
+const startDownload = async (item: MusicSearchResult, selectedFormat?: any) => {
   // 检查是否已暂停
   if (isPaused.value) {
     console.log('下载已暂停，跳过:', item.title)
@@ -355,7 +357,7 @@ const startDownload = async (item: MusicSearchResult) => {
         if (!isPaused.value && !controller.signal.aborted) {
           setDownloadProgress(item.id, progress)
         }
-      })
+      }, selectedFormat)
 
       // 如果不是歌单歌曲，显示原有的成功消息
       if (result && !isPaused.value) {
@@ -891,7 +893,9 @@ const startBatchDownload = async () => {
     for (const song of regularSongs) {
       if (isPaused.value) break
       if (downloadProgress.value[song.id] === undefined) {
-        startDownload(song)
+        // 对于批量下载，使用默认格式
+        const defaultFormat = { isAudio: true, ext: 'mp3' }
+        startDownload(song, defaultFormat)
       }
     }
 
@@ -899,7 +903,9 @@ const startBatchDownload = async () => {
     for (const song of playlistSongs) {
       if (isPaused.value) break
       if (downloadProgress.value[song.id] === undefined) {
-        await startDownload(song)
+        // 对于批量下载，使用默认格式
+        const defaultFormat = { isAudio: true, ext: 'mp3' }
+        await startDownload(song, defaultFormat)
         // 每首歌之间间隔1秒，避免请求过于频繁
         if (!isPaused.value) {
           await new Promise(resolve => setTimeout(resolve, 1000))
