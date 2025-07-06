@@ -243,6 +243,48 @@ WHERE config_key = 'youtube_cookie';
 2. 手动测试yt-dlp命令验证cookie有效性
 3. 检查数据库中cookie配置是否正确
 
+## Cookie传递方式修复
+
+### 问题
+原始实现使用`--add-header "Cookie: ..."`方式可能在某些情况下不生效。
+
+### 解决方案
+改用临时cookie文件方式：
+
+1. **创建临时文件**: 为每个请求创建唯一的临时cookie文件
+2. **直接写入**: 将cookie字符串直接写入文件，无需格式转换
+3. **文件传递**: 使用`--cookies`参数传递文件路径
+4. **自动清理**: 在finally块中删除临时文件
+
+### 实现代码
+```java
+// 创建临时cookie文件
+File tempCookieFile = createTempCookieFile(cookieValue.trim(), platform);
+command.add("--cookies");
+command.add(tempCookieFile.getAbsolutePath());
+
+// 简化的文件创建方法
+private File createTempCookieFile(String cookieValue, String platform) throws Exception {
+    File tempFile = File.createTempFile("yt-dlp-cookies-" + platform + "-", ".txt");
+    try (FileWriter writer = new FileWriter(tempFile, StandardCharsets.UTF_8)) {
+        writer.write(cookieValue); // 直接写入cookie内容
+    }
+    return tempFile;
+}
+
+// 自动清理
+finally {
+    if (tempCookieFile != null && tempCookieFile.exists()) {
+        tempCookieFile.delete();
+    }
+}
+```
+
+### Cookie文件内容示例
+```
+SESSDATA=abc123; bili_jct=xyz789; DedeUserID=123456
+```
+
 ## 总结
 
-通过实现平台特定的cookie配置，系统现在能够更精确地处理不同平台的内容获取需求。这种设计提高了格式获取的成功率，同时保持了良好的用户体验和系统的可维护性。
+通过实现平台特定的cookie配置和临时文件方式的修复，系统现在能够更精确、更可靠地处理不同平台的内容获取需求。这种设计提高了格式获取的成功率，同时保持了良好的用户体验和系统的可维护性。

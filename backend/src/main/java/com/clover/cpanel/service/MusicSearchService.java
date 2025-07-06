@@ -12,6 +12,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.URLEncoder;
@@ -532,6 +534,7 @@ public class MusicSearchService {
      * 获取可用格式列表（通过视频URL和平台）
      */
     public List<Map<String, Object>> getAvailableFormats(String videoUrl, String platform) {
+        File tempCookieFile = null;
         try {
             log.info("正在获取可用格式列表: {}, 平台: {}", videoUrl, platform);
 
@@ -544,11 +547,17 @@ public class MusicSearchService {
             command.add("-F");                  // 列出所有可用格式
             command.add("--no-playlist");       // 不处理播放列表
 
-            // 如果有cookie，添加Cookie头
+            // 如果有cookie，创建临时cookie文件
             if (cookieValue != null && !cookieValue.trim().isEmpty()) {
-                command.add("--add-header");
-                command.add("Cookie: " + cookieValue.trim());
-                log.info("使用{}平台cookie: {}", platform, cookieValue.substring(0, Math.min(50, cookieValue.length())) + "...");
+                try {
+                    // 创建临时cookie文件
+                    tempCookieFile = createTempCookieFile(cookieValue.trim(), platform);
+                    command.add("--cookies");
+                    command.add(tempCookieFile.getAbsolutePath());
+                    log.info("使用{}平台cookie文件: {}", platform, tempCookieFile.getAbsolutePath());
+                } catch (Exception e) {
+                    log.error("创建{}平台cookie文件失败，使用默认方式", platform, e);
+                }
             } else {
                 log.info("{}平台未配置cookie，使用默认方式", platform);
             }
@@ -583,6 +592,19 @@ public class MusicSearchService {
         } catch (Exception e) {
             log.error("获取可用格式列表时发生错误", e);
             return new ArrayList<>();
+        } finally {
+            // 清理临时cookie文件
+            if (tempCookieFile != null && tempCookieFile.exists()) {
+                try {
+                    if (tempCookieFile.delete()) {
+                        log.debug("临时cookie文件已删除: {}", tempCookieFile.getAbsolutePath());
+                    } else {
+                        log.warn("无法删除临时cookie文件: {}", tempCookieFile.getAbsolutePath());
+                    }
+                } catch (Exception e) {
+                    log.error("删除临时cookie文件时发生错误", e);
+                }
+            }
         }
     }
 
@@ -612,6 +634,24 @@ public class MusicSearchService {
             return null;
         }
     }
+
+    /**
+     * 创建临时cookie文件
+     */
+    private File createTempCookieFile(String cookieValue, String platform) throws Exception {
+        // 创建临时文件
+        File tempFile = File.createTempFile("yt-dlp-cookies-" + platform + "-", ".txt");
+
+        try (FileWriter writer = new FileWriter(tempFile, StandardCharsets.UTF_8)) {
+            // 直接写入cookie内容
+            writer.write(cookieValue);
+        }
+
+        log.debug("创建临时cookie文件: {}", tempFile.getAbsolutePath());
+        return tempFile;
+    }
+
+
 
     /**
      * 解析yt-dlp格式输出
