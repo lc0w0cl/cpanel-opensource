@@ -78,10 +78,91 @@ const matchingError = ref('')
 const showFormatSelector = ref(false)
 const currentDownloadItem = ref<MusicSearchResult | null>(null)
 
-// 计算属性
+// 独立的搜索内容变量
+const keywordSearchQuery = ref('')  // 关键词搜索内容
+const urlSearchQuery = ref('')      // 链接下载内容
+const playlistSearchQuery = ref('') // 歌单解析内容
+
+// 独立的搜索结果变量
+const keywordSearchResults = ref<MusicSearchResult[]>([])  // 关键词搜索结果
+const urlSearchResults = ref<MusicSearchResult[]>([])      // 链接下载结果
+const playlistSearchResults = ref<MusicSearchResult[]>([]) // 歌单解析结果
+
+// 独立的搜索状态变量
+const keywordSearching = ref(false)  // 关键词搜索状态
+const urlSearching = ref(false)      // 链接下载状态
+const playlistSearching = ref(false) // 歌单解析状态
+
+// 独立的搜索错误变量
+const keywordSearchError = ref('')  // 关键词搜索错误
+const urlSearchError = ref('')      // 链接下载错误
+const playlistSearchError = ref('') // 歌单解析错误
+
+// 计算属性：获取当前搜索内容
+const currentSearchQuery = computed(() => {
+  switch (searchType.value) {
+    case 'keyword':
+      return keywordSearchQuery.value
+    case 'url':
+      return urlSearchQuery.value
+    case 'playlist':
+      return playlistSearchQuery.value
+    default:
+      return ''
+  }
+})
+
+// 计算属性：获取当前搜索结果
+const currentSearchResults = computed(() => {
+  switch (searchType.value) {
+    case 'keyword':
+      return keywordSearchResults.value
+    case 'url':
+      return urlSearchResults.value
+    case 'playlist':
+      return playlistSearchResults.value
+    default:
+      return []
+  }
+})
+
+// 计算属性：获取当前搜索状态
+const currentSearching = computed(() => {
+  switch (searchType.value) {
+    case 'keyword':
+      return keywordSearching.value
+    case 'url':
+      return urlSearching.value
+    case 'playlist':
+      return playlistSearching.value
+    default:
+      return false
+  }
+})
+
+// 计算属性：获取当前搜索错误
+const currentSearchError = computed(() => {
+  switch (searchType.value) {
+    case 'keyword':
+      return keywordSearchError.value
+    case 'url':
+      return urlSearchError.value
+    case 'playlist':
+      return playlistSearchError.value
+    default:
+      return ''
+  }
+})
+
+// 计算属性：是否有搜索结果
+const currentHasResults = computed(() => {
+  return currentSearchResults.value.length > 0
+})
+
+// 计算属性：验证URL有效性
 const isValidUrl = computed(() => {
   if (searchType.value === 'keyword') return true
-  const url = searchQuery.value.trim()
+  const url = currentSearchQuery.value.trim()
 
   if (searchType.value === 'url') {
     return url.includes('bilibili.com') || url.includes('youtube.com') || url.includes('youtu.be')
@@ -96,7 +177,7 @@ const isValidUrl = computed(() => {
 
 // 搜索方法
 const handleSearch = async () => {
-  if (!searchQuery.value.trim()) return
+  if (!currentSearchQuery.value.trim()) return
 
   // 如果是歌单解析，调用歌单解析方法
   if (searchType.value === 'playlist') {
@@ -104,12 +185,13 @@ const handleSearch = async () => {
     return
   }
 
-  setSearching(true)
+  updateCurrentSearching(true)
+  updateCurrentSearchError('')
 
   try {
     // 构建搜索请求
     const searchRequest = {
-      query: searchQuery.value.trim(),
+      query: currentSearchQuery.value.trim(),
       searchType: searchType.value,
       platform: platform.value,
       page: 1,
@@ -119,29 +201,29 @@ const handleSearch = async () => {
     // 使用音乐API搜索
     const results = await searchMusic(searchRequest)
 
-    setSearchResults(results)
-    setSearchError('')
+    updateCurrentSearchResults(results)
+    updateCurrentSearchError('')
 
   } catch (error: any) {
     console.error('搜索请求失败:', error)
-    setSearchError(error.message || '网络请求失败，请检查网络连接')
-    setSearchResults([])
+    updateCurrentSearchError(error.message || '网络请求失败，请检查网络连接')
+    updateCurrentSearchResults([])
   } finally {
-    setSearching(false)
+    updateCurrentSearching(false)
   }
 }
 
 // 歌单解析方法
 const handlePlaylistParse = async () => {
-  if (!searchQuery.value.trim()) return
+  if (!currentSearchQuery.value.trim()) return
 
-  isParsingPlaylist.value = true
-  playlistError.value = ''
+  updateCurrentSearching(true)
+  updateCurrentSearchError('')
   playlistInfo.value = null
 
   try {
     const playlist = await parsePlaylist({
-      url: searchQuery.value.trim(),
+      url: currentSearchQuery.value.trim(),
       platform: 'auto'
     })
 
@@ -163,17 +245,18 @@ const handlePlaylistParse = async () => {
       tags: []
     }))
 
-    setSearchResults(results)
-    setSearchError('')
+    updateCurrentSearchResults(results)
+    updateCurrentSearchError('')
 
     showNotification(`成功解析歌单: ${playlist.title}，共 ${playlist.songCount} 首歌曲`, 'success')
 
   } catch (error: any) {
     console.error('歌单解析失败:', error)
     playlistError.value = error.message || '歌单解析失败，请检查链接是否正确'
-    setSearchResults([])
+    updateCurrentSearchResults([])
+    updateCurrentSearchError(error.message || '歌单解析失败')
   } finally {
-    isParsingPlaylist.value = false
+    updateCurrentSearching(false)
   }
 }
 
@@ -856,6 +939,73 @@ const cancelAutoMatch = () => {
   showNotification('已取消自动匹配', 'info')
 }
 
+// 更新当前搜索内容
+const updateCurrentSearchQuery = (value: string) => {
+  switch (searchType.value) {
+    case 'keyword':
+      keywordSearchQuery.value = value
+      break
+    case 'url':
+      urlSearchQuery.value = value
+      break
+    case 'playlist':
+      playlistSearchQuery.value = value
+      break
+  }
+}
+
+// 更新当前搜索状态
+const updateCurrentSearching = (value: boolean) => {
+  switch (searchType.value) {
+    case 'keyword':
+      keywordSearching.value = value
+      break
+    case 'url':
+      urlSearching.value = value
+      break
+    case 'playlist':
+      playlistSearching.value = value
+      break
+  }
+}
+
+// 更新当前搜索结果
+const updateCurrentSearchResults = (results: MusicSearchResult[]) => {
+  switch (searchType.value) {
+    case 'keyword':
+      keywordSearchResults.value = results
+      break
+    case 'url':
+      urlSearchResults.value = results
+      break
+    case 'playlist':
+      playlistSearchResults.value = results
+      break
+  }
+}
+
+// 更新当前搜索错误
+const updateCurrentSearchError = (error: string) => {
+  switch (searchType.value) {
+    case 'keyword':
+      keywordSearchError.value = error
+      break
+    case 'url':
+      urlSearchError.value = error
+      break
+    case 'playlist':
+      playlistSearchError.value = error
+      break
+  }
+}
+
+// 清空当前搜索结果
+const clearCurrentSearchResults = () => {
+  updateCurrentSearchResults([])
+  updateCurrentSearchError('')
+  selectedResults.value.clear()
+}
+
 // 自定义搜索类型切换函数
 const handleSearchTypeChange = (type: 'keyword' | 'url' | 'playlist') => {
   // 如果从歌单模式切换到其他模式，清理自动匹配相关状态
@@ -866,6 +1016,9 @@ const handleSearchTypeChange = (type: 'keyword' | 'url' | 'playlist') => {
     playlistInfo.value = null
     playlistError.value = ''
   }
+
+  // 清空选中的结果（因为不同搜索类型的结果不同）
+  selectedResults.value.clear()
 
   // 设置新的搜索类型
   setSearchType(type)
@@ -970,8 +1123,8 @@ const startBatchDownload = async () => {
 
               <div class="tab-actions">
                 <button
-                    v-if="hasResults"
-                    @click="clearSearchResults"
+                    v-if="currentHasResults"
+                    @click="clearCurrentSearchResults"
                     class="clear-btn"
                 >
                   <Icon icon="mdi:broom" class="btn-icon" />
@@ -1016,8 +1169,8 @@ const startBatchDownload = async () => {
             <div class="search-input-section">
               <div class="search-input-wrapper">
                 <input
-                  :value="searchQuery"
-                  @input="setSearchQuery($event.target.value)"
+                  :value="currentSearchQuery"
+                  @input="updateCurrentSearchQuery($event.target.value)"
                   @keyup.enter="handleSearch"
                   type="text"
                   :placeholder="getSearchPlaceholder()"
@@ -1026,10 +1179,10 @@ const startBatchDownload = async () => {
                 />
                 <button
                   @click="handleSearch"
-                  :disabled="!searchQuery.trim() || !isValidUrl || isSearching || isParsingPlaylist"
+                  :disabled="!currentSearchQuery.trim() || !isValidUrl || currentSearching"
                   class="search-btn"
                 >
-                  <Icon v-if="isSearching || isParsingPlaylist" icon="mdi:loading" class="spin btn-icon" />
+                  <Icon v-if="currentSearching" icon="mdi:loading" class="spin btn-icon" />
                   <Icon v-else-if="searchType === 'playlist'" icon="mdi:playlist-music" class="btn-icon" />
                   <Icon v-else icon="mdi:magnify" class="btn-icon" />
                   {{ getSearchButtonText() }}
@@ -1037,7 +1190,7 @@ const startBatchDownload = async () => {
               </div>
 
               <!-- URL验证提示 -->
-              <div v-if="searchQuery && !isValidUrl" class="url-hint">
+              <div v-if="currentSearchQuery && !isValidUrl" class="url-hint">
                 <Icon icon="mdi:alert-circle" class="hint-icon" />
                 <span>{{ getUrlHintText() }}</span>
               </div>
@@ -1131,21 +1284,21 @@ const startBatchDownload = async () => {
       </div>
 
       <!-- 搜索结果区域 -->
-      <div v-if="hasResults" class="results-section">
+      <div v-if="currentHasResults" class="results-section">
         <div class="results-card">
           <div class="card-header">
             <Icon icon="mdi:playlist-music" class="card-icon" />
             <div class="card-title-section">
               <h3 class="card-title">{{ playlistInfo ? '歌单歌曲' : '搜索结果' }}</h3>
-              <p class="card-subtitle">{{ playlistInfo ? `共 ${searchResults.length} 首歌曲` : `找到 ${searchResults.length} 个结果` }}</p>
+              <p class="card-subtitle">{{ playlistInfo ? `共 ${currentSearchResults.length} 首歌曲` : `找到 ${currentSearchResults.length} 个结果` }}</p>
             </div>
             <div class="header-actions">
               <button
                 @click="toggleSelectAll"
                 class="select-all-btn"
               >
-                <Icon :icon="selectedResults.size === searchResults.length ? 'mdi:checkbox-marked' : 'mdi:checkbox-blank-outline'" />
-                {{ selectedResults.size === searchResults.length ? '取消全选' : '全选' }}
+                <Icon :icon="selectedResults.size === currentSearchResults.length ? 'mdi:checkbox-marked' : 'mdi:checkbox-blank-outline'" />
+                {{ selectedResults.size === currentSearchResults.length ? '取消全选' : '全选' }}
               </button>
               <button
                 v-if="hasSelectedItems && !isAutoMatching && playlistInfo"
@@ -1178,7 +1331,7 @@ const startBatchDownload = async () => {
           <div class="card-content">
             <div class="results-grid">
               <div
-                v-for="result in searchResults"
+                v-for="result in currentSearchResults"
                 :key="result.id"
                 class="result-card"
                 :class="{ selected: selectedResults.has(result.id) }"
@@ -1446,7 +1599,7 @@ const startBatchDownload = async () => {
       </div>
 
       <!-- 空状态 -->
-      <div v-if="!hasResults && !isSearching" class="empty-state">
+      <div v-if="!currentHasResults && !currentSearching" class="empty-state">
         <div class="empty-icon">
           <Icon icon="mdi:music-note-outline" />
         </div>
