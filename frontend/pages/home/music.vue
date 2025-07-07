@@ -834,6 +834,11 @@ const autoMatchMusic = async () => {
   matchingError.value = ''
   matchingProgress.value = {}
 
+  // 立即将所有选中的歌曲设置为loading状态
+  selectedSongs.forEach(song => {
+    matchingProgress.value[song.id] = 0
+  })
+
   try {
     showNotification(`开始自动匹配 ${selectedSongs.length} 首歌曲，将在B站搜索最佳资源`, 'success')
 
@@ -844,9 +849,7 @@ const autoMatchMusic = async () => {
       if (!isAutoMatching.value) break // 检查是否被取消
 
       try {
-        // 设置匹配进度
-        matchingProgress.value[song.id] = 0
-
+        // 歌曲已经在loading状态，开始实际匹配
         console.log(`开始匹配第 ${i + 1}/${selectedSongs.length} 首: ${song.title} - ${song.artist}`)
 
         // 构建多个搜索关键词，提高匹配成功率
@@ -890,13 +893,17 @@ const autoMatchMusic = async () => {
           }
         }
 
-        matchingProgress.value[song.id] = 50
+        // 搜索完成，更新进度
+        updateMatchingProgress(song.id, 50)
 
         if (allResults.length === 0) {
           console.warn(`未找到匹配结果: ${song.title} - ${song.artist}`)
-          matchingProgress.value[song.id] = 100
+          updateMatchingProgress(song.id, 100)
           continue
         }
+
+        // 开始处理结果，更新进度
+        updateMatchingProgress(song.id, 70)
 
         // 去重并选择播放量最多的结果
         const uniqueResults = allResults.filter((result, index, self) =>
@@ -920,6 +927,9 @@ const autoMatchMusic = async () => {
         })
 
         console.log(`匹配成功: ${song.title} -> ${bestResult.title} (播放量: ${bestResult.playCount})`)
+
+        // 开始更新结果，更新进度
+        updateMatchingProgress(song.id, 90)
 
         // 更新当前搜索结果中的信息
         const originalIndex = currentSearchResults.value.findIndex(r => r.id === song.id)
@@ -950,7 +960,13 @@ const autoMatchMusic = async () => {
           })
         }
 
-        matchingProgress.value[song.id] = 100
+        // 匹配成功，设置为100%并在1秒后清除loading状态
+        updateMatchingProgress(song.id, 100)
+        setTimeout(() => {
+          if (matchingProgress.value[song.id] === 100) {
+            delete matchingProgress.value[song.id]
+          }
+        }, 1000)
 
         // 每首歌之间间隔1秒，避免请求过于频繁
         if (i < selectedSongs.length - 1) {
@@ -959,7 +975,13 @@ const autoMatchMusic = async () => {
 
       } catch (error: any) {
         console.error(`匹配失败: ${song.title} - ${song.artist}`, error)
-        matchingProgress.value[song.id] = 100
+        // 匹配失败，设置为100%并在1秒后清除loading状态
+        updateMatchingProgress(song.id, 100)
+        setTimeout(() => {
+          if (matchingProgress.value[song.id] === 100) {
+            delete matchingProgress.value[song.id]
+          }
+        }, 1000)
       }
     }
 
@@ -972,16 +994,25 @@ const autoMatchMusic = async () => {
     showNotification('自动匹配失败: ' + matchingError.value, 'error')
   } finally {
     isAutoMatching.value = false
-    // 3秒后清除匹配进度
+    // 2秒后清除所有剩余的匹配进度
     setTimeout(() => {
       matchingProgress.value = {}
-    }, 3000)
+    }, 2000)
+  }
+}
+
+// 更新匹配进度的辅助函数
+const updateMatchingProgress = (songId: string, progress: number) => {
+  if (matchingProgress.value[songId] !== undefined) {
+    matchingProgress.value[songId] = progress
   }
 }
 
 // 取消自动匹配
 const cancelAutoMatch = () => {
   isAutoMatching.value = false
+  // 清除所有匹配进度，让loading状态消失
+  matchingProgress.value = {}
   showNotification('已取消自动匹配', 'info')
 }
 
@@ -1465,7 +1496,7 @@ const startBatchDownload = async () => {
                 class="cancel-match-btn"
               >
                 <Icon icon="mdi:loading" class="spin btn-icon" />
-                匹配中... 点击取消
+                匹配中 ({{ Object.values(matchingProgress).filter(p => p < 100).length }}/{{ Object.keys(matchingProgress).length }}) 点击取消
               </button>
               <button
                 v-if="hasSelectedItems"
@@ -1516,11 +1547,15 @@ const startBatchDownload = async () => {
                   <!-- 匹配进度显示 -->
                   <div v-if="matchingProgress[result.id] !== undefined && playlistInfo" class="matching-overlay">
                     <div class="matching-progress">
-                      <Icon v-if="matchingProgress[result.id] < 100" icon="mdi:loading" class="spin matching-icon" />
+                      <Icon v-if="matchingProgress[result.id] < 100" icon="mdi:loading" class="spin matching-icon loading" />
                       <Icon v-else icon="mdi:check-circle" class="matching-icon success" />
                       <span class="matching-text">
-                        {{ matchingProgress[result.id] < 100 ? '匹配中...' : '已匹配' }}
+                        {{ matchingProgress[result.id] < 100 ? '自动匹配中...' : '匹配完成' }}
                       </span>
+                      <!-- 进度条 -->
+                      <div v-if="matchingProgress[result.id] < 100" class="progress-bar">
+                        <div class="progress-fill" :style="{ width: matchingProgress[result.id] + '%' }"></div>
+                      </div>
                     </div>
                   </div>
 
@@ -2560,6 +2595,11 @@ const startBatchDownload = async () => {
   color: rgba(168, 85, 247, 0.9);
 }
 
+.matching-icon.loading {
+  color: rgba(59, 130, 246, 0.9);
+  animation: pulse 2s infinite;
+}
+
 .matching-icon.success {
   color: rgba(34, 197, 94, 0.9);
 }
@@ -2568,6 +2608,37 @@ const startBatchDownload = async () => {
   font-size: 0.75rem;
   font-weight: 500;
   color: rgba(255, 255, 255, 0.9);
+}
+
+/* 进度条样式 */
+.progress-bar {
+  width: 60px;
+  height: 3px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 1.5px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg,
+    rgba(59, 130, 246, 0.8) 0%,
+    rgba(168, 85, 247, 0.8) 100%
+  );
+  border-radius: 1.5px;
+  transition: width 0.3s ease;
+}
+
+/* 脉冲动画 */
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(1.1);
+  }
 }
 
 .platform-badge {
