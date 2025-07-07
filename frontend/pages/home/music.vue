@@ -1601,7 +1601,7 @@ const startBatchDownload = async () => {
                 </div>
 
                 <!-- 缩略图区域 -->
-                <div class="result-thumbnail">
+                <div class="result-thumbnail" @click="toggleSelection(result.id)" style="cursor: pointer;">
                   <img :src="processImageUrl(result.thumbnail)" :alt="result.title" class="thumbnail-img" />
 
                   <!-- 时长显示在图片上 -->
