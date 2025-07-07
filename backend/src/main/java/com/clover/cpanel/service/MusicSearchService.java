@@ -35,8 +35,7 @@ public class MusicSearchService {
     private static final String BILIBILI_SEARCH_URL = "https://search.bilibili.com/all";
     private static final String USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 
-    @Value("${music.proxy.base-url:http://localhost:8080}")
-    private String proxyBaseUrl;
+
     @Autowired
     private SystemConfigService systemConfigService;
     
@@ -444,9 +443,9 @@ public class MusicSearchService {
                 cleanUrl.startsWith("s1.hdslb.com/") ||
                 cleanUrl.startsWith("s2.hdslb.com/")) {
 
-                // 构建代理URL
+                // 构建代理URL - 直接返回相对路径
                 String encodedUrl = URLEncoder.encode(originalUrl, StandardCharsets.UTF_8);
-                return String.format("%s/api/music/proxy/image?url=%s", proxyBaseUrl, encodedUrl);
+                return String.format("/api/music/proxy/image?url=%s", encodedUrl);
             }
 
             return originalUrl;

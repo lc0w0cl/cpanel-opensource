@@ -85,7 +85,7 @@ const {
 } = useMusicState()
 
 // 音乐API
-const { searchMusic, downloadMusic, getAudioStreamByUrl, getPlayableAudioUrl, getFallbackAudioUrl, parsePlaylist, getSupportedPlatforms, getAvailableFormats, detectPlatform } = useMusicApi()
+const { searchMusic, downloadMusic, getAudioStreamByUrl, getPlayableAudioUrl, getFallbackAudioUrl, parsePlaylist, getSupportedPlatforms, getAvailableFormats, detectPlatform, processImageUrl } = useMusicApi()
 
 // 下载相关状态
 const isDownloading = ref(false)
@@ -1397,7 +1397,7 @@ const startBatchDownload = async () => {
           <div class="card-content">
             <div class="playlist-meta">
               <div class="playlist-cover">
-                <img :src="playlistInfo.cover" :alt="playlistInfo.title" class="cover-img" />
+                <img :src="processImageUrl(playlistInfo.cover)" :alt="playlistInfo.title" class="cover-img" />
                 <div class="platform-badge" :class="playlistInfo.source">
                   <Icon
                     :icon="playlistInfo.source === 'qq' ? 'simple-icons:qqmusic' : 'simple-icons:netease'"
@@ -1506,7 +1506,7 @@ const startBatchDownload = async () => {
 
                 <!-- 缩略图区域 -->
                 <div class="result-thumbnail">
-                  <img :src="result.thumbnail" :alt="result.title" class="thumbnail-img" />
+                  <img :src="processImageUrl(result.thumbnail)" :alt="result.title" class="thumbnail-img" />
 
                   <!-- 时长显示在图片上 -->
                   <div class="duration-overlay">
@@ -1675,7 +1675,7 @@ const startBatchDownload = async () => {
                 class="download-item"
               >
                 <div class="download-thumbnail">
-                  <img :src="item.thumbnail" :alt="item.title" class="thumbnail-img" />
+                  <img :src="processImageUrl(item.thumbnail)" :alt="item.title" class="thumbnail-img" />
                   <div class="platform-badge" :class="item.platform">
                     <Icon
                       :icon="item.platform === 'bilibili' ? 'simple-icons:bilibili' : 'mdi:youtube'"

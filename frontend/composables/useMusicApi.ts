@@ -78,7 +78,20 @@ export interface PlaylistParseRequest {
  */
 export const useMusicApi = () => {
   const config = useRuntimeConfig()
-  const API_BASE_URL = `${config.public.apiBaseUrl}/api`
+
+  // 根据环境自动处理URL
+  const getFullUrl = (path: string) => {
+    if (path.startsWith('/')) {
+      // 相对路径，根据环境添加基础URL
+      return config.public.isDevelopment
+        ? `http://localhost:8080${path}`
+        : path
+    }
+    // 绝对路径直接返回
+    return path
+  }
+
+  const API_BASE_URL = getFullUrl('/api')
 
   /**
    * 搜索音乐
@@ -236,8 +249,9 @@ export const useMusicApi = () => {
     // 对URL进行编码
     const encodedUrl = encodeURIComponent(originalUrl)
 
-    // 返回代理URL
-    return `${API_BASE_URL}/music/proxy/audio-stream?url=${encodedUrl}`
+    // 构建代理URL - 使用相对路径，前端根据环境处理
+    const proxyPath = `/api/music/proxy/audio?url=${encodedUrl}`
+    return getFullUrl(proxyPath)
   }
 
   /**
@@ -577,6 +591,22 @@ export const useMusicApi = () => {
     downloadAudioFile,
     getAvailableFormats,
     detectPlatform,
-    generateFileName
+    generateFileName,
+    processImageUrl
+  }
+
+  /**
+   * 处理图片URL - 如果是代理URL则添加正确的基础地址
+   */
+  function processImageUrl(imageUrl: string): string {
+    if (!imageUrl) return ''
+
+    // 如果是相对路径的代理URL，使用getFullUrl处理
+    if (imageUrl.startsWith('/api/music/proxy/image')) {
+      return getFullUrl(imageUrl)
+    }
+
+    // 其他情况直接返回
+    return imageUrl
   }
 }
