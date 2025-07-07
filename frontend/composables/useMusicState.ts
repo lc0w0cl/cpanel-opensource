@@ -325,10 +325,30 @@ export const useMusicState = () => {
   }
 
   // 下载队列管理
-  const addToDownloadQueue = (sourceResults?: MusicSearchResult[]) => {
+  const addToDownloadQueue = (sourceResults?: MusicSearchResult[], onlyMatched?: boolean) => {
     // 如果提供了源结果，使用提供的结果；否则使用全局搜索结果
     const sourceItems = sourceResults || searchResults.value
-    const selectedItems = sourceItems.filter(item => selectedResults.value.has(item.id))
+    let selectedItems = sourceItems.filter(item => selectedResults.value.has(item.id))
+
+    // 如果指定只添加匹配的歌曲，则进行过滤
+    if (onlyMatched) {
+      selectedItems = selectedItems.filter(item => {
+        // 检查是否已经通过自动匹配
+        if (item.description && item.description.includes('(已匹配B站:')) {
+          return true
+        }
+
+        // 检查是否本身就是来自 bilibili/youtube 的链接或关键词搜索结果
+        // 注意：这里无法直接访问 searchType，所以通过其他方式判断
+        // 如果有 playlistName 说明是歌单歌曲，需要匹配才能下载
+        if (item.playlistName || (item.description && item.description.includes('来自歌单:'))) {
+          return false // 歌单歌曲必须匹配后才能下载
+        }
+
+        // 其他情况（关键词搜索、URL搜索）都可以下载
+        return true
+      })
+    }
 
     // 避免重复添加
     selectedItems.forEach(item => {

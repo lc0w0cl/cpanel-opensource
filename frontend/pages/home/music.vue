@@ -333,6 +333,26 @@ const isPlaylistSong = (item: MusicSearchResult) => {
   return item.description && item.description.includes('来自歌单:')
 }
 
+// 检查歌曲是否已经匹配过或者本身就是可下载的
+const isMatchedOrDownloadable = (item: MusicSearchResult) => {
+  // 1. 检查是否已经通过自动匹配
+  if (item.description && item.description.includes('(已匹配B站:')) {
+    return true
+  }
+
+  // 2. 检查是否本身就是来自 bilibili/youtube 的链接（URL搜索结果）
+  if (searchType.value === 'url' && (item.platform === 'bilibili' || item.platform === 'youtube')) {
+    return true
+  }
+
+  // 3. 检查是否是关键词搜索的结果（这些本身就是可下载的）
+  if (searchType.value === 'keyword') {
+    return true
+  }
+
+  return false
+}
+
 // 通过B站搜索下载歌单歌曲
 const downloadPlaylistSong = async (item: MusicSearchResult, onProgress?: (progress: number) => void, abortSignal?: AbortSignal) => {
   try {
@@ -1520,8 +1540,25 @@ const startBatchDownload = async () => {
                 @click="() => {
                   console.log('添加到下载队列 - 当前搜索结果数量:', currentSearchResults.length)
                   console.log('添加到下载队列 - 选中项数量:', selectedResults.size)
-                  addToDownloadQueue(currentSearchResults)
-                  console.log('添加后下载队列数量:', downloadQueue.length)
+
+                  // 过滤出已匹配或可下载的歌曲
+                  const selectedSongs = currentSearchResults.filter(result => selectedResults.has(result.id))
+                  const matchedSongs = selectedSongs.filter(song => isMatchedOrDownloadable(song))
+                  const unmatchedSongs = selectedSongs.filter(song => !isMatchedOrDownloadable(song))
+
+                  // if (unmatchedSongs.length > 0) {
+                  //   showNotification(`有 ${unmatchedSongs.length} 首歌曲未匹配，只能添加已匹配的 ${matchedSongs.length} 首歌曲到下载队列`, 'warning')
+                  // }
+
+                  if (matchedSongs.length > 0) {
+                    // 只添加已匹配的歌曲到下载队列
+                    addToDownloadQueue(currentSearchResults, true) // 传入 true 表示只添加匹配的歌曲
+                    console.log('添加后下载队列数量:', downloadQueue.length)
+                    showNotification(`成功添加 ${matchedSongs.length} 首已匹配歌曲到下载队列`, 'success')
+                  } else {
+                    // showNotification('没有已匹配的歌曲可以添加到下载队列', 'error')
+                  }
+                  showNotification(`成功添加 ${matchedSongs.length} 首已匹配歌曲到下载队列，${unmatchedSongs.length} 首未匹配，无法下载`, 'success')
                 }"
                 class="add-to-queue-btn"
               >
