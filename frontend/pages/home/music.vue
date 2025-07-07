@@ -106,6 +106,9 @@ const matchingError = ref('')
 const showFormatSelector = ref(false)
 const currentDownloadItem = ref<MusicSearchResult | null>(null)
 
+// 下载抽屉相关状态
+const showDownloadDrawer = ref(false)
+
 // 注意：独立搜索状态现在从 useMusicState() 获取，已在上面导入
 
 // 计算属性：获取当前搜索内容
@@ -1214,6 +1217,11 @@ const handleSearchTypeChange = (type: 'keyword' | 'url' | 'playlist') => {
   setSearchType(type)
 }
 
+// 切换下载抽屉
+const toggleDownloadDrawer = () => {
+  showDownloadDrawer.value = !showDownloadDrawer.value
+}
+
 // 全部下载
 const startBatchDownload = async () => {
   if (downloadQueue.value.length === 0) return
@@ -1303,6 +1311,15 @@ const startBatchDownload = async () => {
               </div>
 
               <div class="tab-actions">
+                <button
+                    v-if="downloadQueue.length > 0"
+                    @click="toggleDownloadDrawer"
+                    class="download-queue-btn"
+                    :class="{ active: showDownloadDrawer }"
+                >
+                  <Icon icon="mdi:download-multiple" class="btn-icon" />
+                  下载队列 ({{ downloadQueue.length }})
+                </button>
                 <button
                     v-if="currentHasResults"
                     @click="clearCurrentSearchResults"
@@ -1654,139 +1671,7 @@ const startBatchDownload = async () => {
         </div>
       </div>
 
-      <!-- 下载队列区域 -->
-      <div v-if="downloadQueue.length > 0" class="download-section">
-        <div class="download-card">
-          <div class="card-header">
-            <Icon icon="mdi:download-multiple" class="card-icon" />
-            <div class="card-title-section">
-              <h3 class="card-title">下载队列</h3>
-              <p class="card-subtitle">{{ downloadQueue.length }} 个待下载项目</p>
-            </div>
-            <div class="header-actions">
-              <button
-                v-if="!isDownloading && !isPaused"
-                @click="startBatchDownload"
-                class="start-all-btn"
-              >
-                <Icon icon="mdi:play" class="btn-icon" />
-                开始全部下载
-              </button>
 
-              <button
-                v-if="isDownloading && !isPaused"
-                @click="pauseAllDownloads"
-                class="pause-all-btn"
-              >
-                <Icon icon="mdi:pause" class="btn-icon" />
-                全部暂停
-              </button>
-
-              <button
-                v-if="isPaused"
-                @click="resumeAllDownloads"
-                class="resume-all-btn"
-              >
-                <Icon icon="mdi:play" class="btn-icon" />
-                恢复下载
-              </button>
-
-              <button
-                @click="clearDownloadQueue"
-                class="clear-queue-btn"
-                :disabled="isDownloading && !isPaused"
-              >
-                <Icon icon="mdi:delete-sweep" class="btn-icon" />
-                清空队列
-              </button>
-            </div>
-          </div>
-
-          <div class="card-content">
-            <div class="download-list">
-              <div
-                v-for="item in downloadQueue"
-                :key="item.id"
-                class="download-item"
-              >
-                <div class="download-thumbnail">
-                  <img :src="processImageUrl(item.thumbnail)" :alt="item.title" class="thumbnail-img" />
-                  <div class="platform-badge" :class="item.platform">
-                    <Icon
-                      :icon="item.platform === 'bilibili' ? 'simple-icons:bilibili' : 'mdi:youtube'"
-                      class="platform-icon"
-                    />
-                  </div>
-                </div>
-
-                <div class="download-info">
-                  <h4 class="download-title">{{ item.title }}</h4>
-                  <p class="download-artist">{{ item.artist }}</p>
-
-                  <!-- 元数据信息 -->
-                  <div class="download-meta">
-                    <span class="duration">
-                      <Icon icon="mdi:clock-outline" />
-                      {{ item.duration }}
-                    </span>
-                    <span v-if="item.playCount" class="play-count">
-                      <Icon icon="mdi:play" />
-                      {{ item.playCount }}
-                    </span>
-                    <span v-if="item.publishTime" class="publish-time">
-                      <Icon icon="mdi:calendar" />
-                      {{ item.publishTime }}
-                    </span>
-                  </div>
-
-                  <!-- 下载进度 -->
-                  <div v-if="downloadProgress[item.id] !== undefined" class="download-progress">
-                    <div class="progress-bar">
-                      <div
-                        class="progress-fill"
-                        :style="{ width: downloadProgress[item.id] + '%' }"
-                      ></div>
-                    </div>
-                    <span class="progress-text">{{ Math.round(downloadProgress[item.id]) }}%</span>
-                  </div>
-                </div>
-
-                <div class="download-actions">
-                  <button
-                    v-if="downloadProgress[item.id] === undefined"
-                    @click="showFormatSelection(item)"
-                    class="start-btn"
-                    title="开始下载"
-                  >
-                    <Icon icon="mdi:play" />
-                  </button>
-                  <div
-                    v-else-if="downloadProgress[item.id] < 100"
-                    class="downloading-status"
-                  >
-                    <Icon icon="mdi:loading" class="spin" />
-                  </div>
-                  <div
-                    v-else
-                    class="completed-status"
-                  >
-                    <Icon icon="mdi:check-circle" class="success-icon" />
-                  </div>
-
-                  <button
-                    @click="removeFromQueue(item.id)"
-                    class="remove-btn"
-                    title="移除"
-                    :disabled="downloadProgress[item.id] !== undefined && downloadProgress[item.id] < 100"
-                  >
-                    <Icon icon="mdi:close" />
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
 
       <!-- 空状态 -->
       <div v-if="!currentHasResults && !currentSearching" class="empty-state">
@@ -1884,6 +1769,148 @@ const startBatchDownload = async () => {
     @close="closeFormatSelector"
     @select="handleFormatSelect"
   />
+
+  <!-- 下载队列抽屉 -->
+  <div v-if="showDownloadDrawer" class="drawer-overlay" @click="showDownloadDrawer = false">
+    <div class="download-drawer" @click.stop>
+      <div class="drawer-header">
+        <div class="drawer-title-section">
+          <Icon icon="mdi:download-multiple" class="drawer-icon" />
+          <div>
+            <h3 class="drawer-title">下载队列</h3>
+            <p class="drawer-subtitle">{{ downloadQueue.length }} 个待下载项目</p>
+          </div>
+        </div>
+        <button @click="showDownloadDrawer = false" class="drawer-close-btn">
+          <Icon icon="mdi:close" />
+        </button>
+      </div>
+
+      <div class="drawer-actions">
+        <button
+          v-if="!isDownloading && !isPaused && downloadQueue.length > 0"
+          @click="startBatchDownload"
+          class="drawer-action-btn primary"
+        >
+          <Icon icon="mdi:play" class="btn-icon" />
+          开始全部下载
+        </button>
+
+        <button
+          v-if="isDownloading && !isPaused"
+          @click="pauseAllDownloads"
+          class="drawer-action-btn warning"
+        >
+          <Icon icon="mdi:pause" class="btn-icon" />
+          全部暂停
+        </button>
+
+        <button
+          v-if="isPaused"
+          @click="resumeAllDownloads"
+          class="drawer-action-btn success"
+        >
+          <Icon icon="mdi:play" class="btn-icon" />
+          恢复下载
+        </button>
+
+        <button
+          @click="clearDownloadQueue"
+          class="drawer-action-btn danger"
+          :disabled="isDownloading && !isPaused"
+        >
+          <Icon icon="mdi:delete-sweep" class="btn-icon" />
+          清空队列
+        </button>
+      </div>
+
+      <div class="drawer-content">
+        <div v-if="downloadQueue.length === 0" class="drawer-empty">
+          <Icon icon="mdi:download-off-outline" class="empty-icon" />
+          <p class="empty-text">下载队列为空</p>
+          <p class="empty-hint">选择歌曲并添加到队列开始下载</p>
+        </div>
+
+        <div v-else class="drawer-list">
+          <div
+            v-for="item in downloadQueue"
+            :key="item.id"
+            class="drawer-item"
+          >
+            <div class="item-thumbnail">
+              <img :src="processImageUrl(item.thumbnail)" :alt="item.title" class="thumbnail-img" />
+              <div class="platform-badge" :class="item.platform">
+                <Icon
+                  :icon="item.platform === 'bilibili' ? 'simple-icons:bilibili' : 'mdi:youtube'"
+                  class="platform-icon"
+                />
+              </div>
+            </div>
+
+            <div class="item-info">
+              <h4 class="item-title">{{ item.title }}</h4>
+              <p class="item-artist">{{ item.artist }}</p>
+
+              <!-- 元数据信息 -->
+              <div class="item-meta">
+                <span class="duration">
+                  <Icon icon="mdi:clock-outline" />
+                  {{ item.duration }}
+                </span>
+                <span v-if="item.playCount" class="play-count">
+                  <Icon icon="mdi:play" />
+                  {{ item.playCount }}
+                </span>
+              </div>
+
+              <!-- 下载进度 -->
+              <div v-if="downloadProgress[item.id] !== undefined" class="item-progress">
+                <div class="progress-bar">
+                  <div
+                    class="progress-fill"
+                    :style="{ width: downloadProgress[item.id] + '%' }"
+                  ></div>
+                </div>
+                <span class="progress-text">{{ Math.round(downloadProgress[item.id]) }}%</span>
+              </div>
+            </div>
+
+            <div class="item-actions">
+              <button
+                v-if="downloadProgress[item.id] === undefined"
+                @click="showFormatSelection(item)"
+                class="item-action-btn start"
+                title="开始下载"
+              >
+                <Icon icon="mdi:play" />
+              </button>
+              <div
+                v-else-if="downloadProgress[item.id] < 100"
+                class="downloading-status"
+              >
+                <Icon icon="mdi:loading" class="spin" />
+              </div>
+              <div
+                v-else
+                class="completed-status"
+              >
+                <Icon icon="mdi:check-circle" class="success-icon" />
+              </div>
+
+              <button
+                @click="removeFromQueue(item.id)"
+                class="item-action-btn remove"
+                title="移除"
+                :disabled="downloadProgress[item.id] !== undefined && downloadProgress[item.id] < 100"
+              >
+                <Icon icon="mdi:close" />
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 </template>
 
 <style scoped>
@@ -1928,6 +1955,44 @@ const startBatchDownload = async () => {
   text-align: left;
 }
 
+/* 下载队列按钮 */
+.download-queue-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  border-radius: 0.5rem;
+  background: linear-gradient(135deg,
+    rgba(34, 197, 94, 0.15) 0%,
+    rgba(34, 197, 94, 0.08) 100%
+  );
+  color: rgba(34, 197, 94, 0.9);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.download-queue-btn:hover {
+  background: linear-gradient(135deg,
+    rgba(34, 197, 94, 0.25) 0%,
+    rgba(34, 197, 94, 0.15) 100%
+  );
+  border-color: rgba(34, 197, 94, 0.5);
+  color: rgba(34, 197, 94, 1);
+  transform: translateY(-1px);
+}
+
+.download-queue-btn.active {
+  background: linear-gradient(135deg,
+    rgba(34, 197, 94, 0.3) 0%,
+    rgba(34, 197, 94, 0.2) 100%
+  );
+  border-color: rgba(34, 197, 94, 0.6);
+  color: rgba(34, 197, 94, 1);
+}
+
 /* 清空按钮 */
 .clear-btn {
   display: flex;
@@ -1955,6 +2020,478 @@ const startBatchDownload = async () => {
   border-color: rgba(239, 68, 68, 0.5);
   color: rgba(239, 68, 68, 1);
   transform: translateY(-1px);
+}
+
+/* 下载抽屉样式 */
+.drawer-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  z-index: 1000;
+  display: flex;
+  justify-content: flex-end;
+  animation: fadeIn 0.3s ease;
+}
+
+.download-drawer {
+  width: 400px;
+  max-width: 90vw;
+  height: 100vh;
+  background: linear-gradient(135deg,
+    rgba(30, 30, 30, 0.95) 0%,
+    rgba(20, 20, 20, 0.98) 100%
+  );
+  border-left: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  flex-direction: column;
+  animation: slideInRight 0.3s ease;
+  backdrop-filter: blur(20px);
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideInRight {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+/* 抽屉头部 */
+.drawer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  flex-shrink: 0;
+}
+
+.drawer-title-section {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.drawer-icon {
+  width: 1.5rem;
+  height: 1.5rem;
+  color: rgba(34, 197, 94, 0.9);
+}
+
+.drawer-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+  margin: 0;
+}
+
+.drawer-subtitle {
+  font-size: 0.875rem;
+  color: rgba(255, 255, 255, 0.6);
+  margin: 0.25rem 0 0 0;
+}
+
+.drawer-close-btn {
+  width: 2rem;
+  height: 2rem;
+  border: none;
+  border-radius: 0.5rem;
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.7);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.drawer-close-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+/* 抽屉操作按钮区域 */
+.drawer-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  flex-shrink: 0;
+}
+
+.drawer-action-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid transparent;
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex: 1;
+  min-width: 0;
+  justify-content: center;
+}
+
+.drawer-action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.drawer-action-btn.primary {
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.2), rgba(34, 197, 94, 0.1));
+  border-color: rgba(34, 197, 94, 0.3);
+  color: rgba(34, 197, 94, 0.9);
+}
+
+.drawer-action-btn.primary:hover:not(:disabled) {
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.3), rgba(34, 197, 94, 0.2));
+  border-color: rgba(34, 197, 94, 0.5);
+}
+
+.drawer-action-btn.warning {
+  background: linear-gradient(135deg, rgba(251, 191, 36, 0.2), rgba(251, 191, 36, 0.1));
+  border-color: rgba(251, 191, 36, 0.3);
+  color: rgba(251, 191, 36, 0.9);
+}
+
+.drawer-action-btn.warning:hover:not(:disabled) {
+  background: linear-gradient(135deg, rgba(251, 191, 36, 0.3), rgba(251, 191, 36, 0.2));
+  border-color: rgba(251, 191, 36, 0.5);
+}
+
+.drawer-action-btn.success {
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.2), rgba(34, 197, 94, 0.1));
+  border-color: rgba(34, 197, 94, 0.3);
+  color: rgba(34, 197, 94, 0.9);
+}
+
+.drawer-action-btn.success:hover:not(:disabled) {
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.3), rgba(34, 197, 94, 0.2));
+  border-color: rgba(34, 197, 94, 0.5);
+}
+
+.drawer-action-btn.danger {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.2), rgba(239, 68, 68, 0.1));
+  border-color: rgba(239, 68, 68, 0.3);
+  color: rgba(239, 68, 68, 0.9);
+}
+
+.drawer-action-btn.danger:hover:not(:disabled) {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.3), rgba(239, 68, 68, 0.2));
+  border-color: rgba(239, 68, 68, 0.5);
+}
+
+/* 抽屉内容区域 */
+.drawer-content {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 空状态 */
+.drawer-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem 1.5rem;
+  text-align: center;
+  flex: 1;
+}
+
+.drawer-empty .empty-icon {
+  width: 3rem;
+  height: 3rem;
+  color: rgba(255, 255, 255, 0.3);
+  margin-bottom: 1rem;
+}
+
+.drawer-empty .empty-text {
+  font-size: 1rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.7);
+  margin: 0 0 0.5rem 0;
+}
+
+.drawer-empty .empty-hint {
+  font-size: 0.875rem;
+  color: rgba(255, 255, 255, 0.5);
+  margin: 0;
+}
+
+/* 抽屉列表 */
+.drawer-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.5rem;
+}
+
+/* 自定义滚动条 */
+.drawer-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.drawer-list::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 3px;
+}
+
+.drawer-list::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 3px;
+}
+
+.drawer-list::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* 抽屉列表项 */
+.drawer-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  margin-bottom: 0.5rem;
+  border-radius: 0.5rem;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  transition: all 0.2s ease;
+}
+
+.drawer-item:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.drawer-item:last-child {
+  margin-bottom: 0;
+}
+
+/* 抽屉项缩略图 */
+.item-thumbnail {
+  position: relative;
+  width: 3rem;
+  height: 3rem;
+  flex-shrink: 0;
+  border-radius: 0.375rem;
+  overflow: hidden;
+}
+
+.item-thumbnail .thumbnail-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.item-thumbnail .platform-badge {
+  position: absolute;
+  bottom: 0.125rem;
+  right: 0.125rem;
+  width: 1rem;
+  height: 1rem;
+  border-radius: 0.125rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.item-thumbnail .platform-badge.bilibili {
+  background: rgba(0, 174, 236, 0.9);
+}
+
+.item-thumbnail .platform-badge.youtube {
+  background: rgba(255, 0, 0, 0.9);
+}
+
+.item-thumbnail .platform-icon {
+  width: 0.625rem;
+  height: 0.625rem;
+  color: white;
+}
+
+/* 抽屉项信息 */
+.item-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.item-title {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.9);
+  margin: 0 0 0.25rem 0;
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.item-artist {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.6);
+  margin: 0 0 0.5rem 0;
+  line-height: 1.2;
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.item-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.item-meta span {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.item-meta .duration {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+/* 抽屉项进度条 */
+.item-progress {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.item-progress .progress-bar {
+  flex: 1;
+  height: 0.25rem;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 0.125rem;
+  overflow: hidden;
+}
+
+.item-progress .progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, rgba(34, 197, 94, 0.8), rgba(34, 197, 94, 0.6));
+  border-radius: 0.125rem;
+  transition: width 0.3s ease;
+}
+
+.item-progress .progress-text {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.6);
+  font-weight: 500;
+  min-width: 2.5rem;
+  text-align: right;
+}
+
+/* 抽屉项操作按钮 */
+.item-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  flex-shrink: 0;
+}
+
+.item-action-btn {
+  width: 1.75rem;
+  height: 1.75rem;
+  border: none;
+  border-radius: 0.25rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.875rem;
+}
+
+.item-action-btn.start {
+  background: rgba(34, 197, 94, 0.2);
+  color: rgba(34, 197, 94, 0.9);
+}
+
+.item-action-btn.start:hover {
+  background: rgba(34, 197, 94, 0.3);
+}
+
+.item-action-btn.remove {
+  background: rgba(239, 68, 68, 0.2);
+  color: rgba(239, 68, 68, 0.9);
+}
+
+.item-action-btn.remove:hover:not(:disabled) {
+  background: rgba(239, 68, 68, 0.3);
+}
+
+.item-action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.downloading-status,
+.completed-status {
+  width: 1.75rem;
+  height: 1.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.25rem;
+}
+
+.downloading-status {
+  background: rgba(251, 191, 36, 0.2);
+  color: rgba(251, 191, 36, 0.9);
+}
+
+.completed-status {
+  background: rgba(34, 197, 94, 0.2);
+}
+
+.completed-status .success-icon {
+  color: rgba(34, 197, 94, 0.9);
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .download-drawer {
+    width: 100vw;
+    max-width: 100vw;
+  }
+
+  .drawer-actions {
+    flex-direction: column;
+  }
+
+  .drawer-action-btn {
+    flex: none;
+  }
+
+  .item-thumbnail {
+    width: 2.5rem;
+    height: 2.5rem;
+  }
+
+  .item-title {
+    font-size: 0.8rem;
+  }
+
+  .item-artist {
+    font-size: 0.7rem;
+  }
 }
 
 /* 卡片基础样式 */
