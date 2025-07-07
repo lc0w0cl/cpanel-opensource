@@ -1224,13 +1224,14 @@ const toggleCurrentSelectAll = () => {
 
 // 自定义搜索类型切换函数
 const handleSearchTypeChange = (type: 'keyword' | 'url' | 'playlist') => {
-  // 如果从歌单模式切换到其他模式，清理自动匹配相关状态
+  // 如果从歌单模式切换到其他模式，只清理自动匹配相关状态，保留歌单信息
   if (searchType.value === 'playlist' && type !== 'playlist') {
     isAutoMatching.value = false
     matchingProgress.value = {}
     matchingError.value = ''
-    setPlaylistInfo(null)
-    playlistError.value = ''
+    // 注意：不清空歌单信息，让用户可以在不同搜索模式间切换
+    // setPlaylistInfo(null)  // 已注释掉
+    // playlistError.value = ''  // 已注释掉
   }
 
   // 清空选中的结果（因为不同搜索类型的结果不同）
