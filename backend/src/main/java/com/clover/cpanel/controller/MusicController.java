@@ -22,6 +22,7 @@ import org.springframework.http.ContentDisposition;
 import java.io.*;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -689,9 +690,17 @@ public class MusicController {
      * 生成服务器文件名
      */
     private String generateServerFileName(String title, String artist, Map<String, Object> selectedFormat) {
-        // 清理文件名中的非法字符
+        // 清理文件名中的非法字符，保留中文字符
         String cleanTitle = title.replaceAll("[<>:\"/\\\\|?*]", "").trim();
         String cleanArtist = artist != null ? artist.replaceAll("[<>:\"/\\\\|?*]", "").trim() : "";
+
+        // 确保文件名不为空
+        if (cleanTitle.isEmpty()) {
+            cleanTitle = "未知标题";
+        }
+        if (cleanArtist.isEmpty()) {
+            cleanArtist = "未知艺术家";
+        }
 
         // 根据选择的格式确定文件扩展名
         String extension = ".mp3"; // 默认扩展名
@@ -765,6 +774,7 @@ public class MusicController {
             Map<String, Object> selectedFormat = (Map<String, Object>) request.get("selectedFormat");
 
             log.info("开始流式下载音乐: title={}, artist={}, url={}", title, artist, url);
+            log.debug("接收到的参数 - title: [{}], artist: [{}]", title, artist);
 
             // 参数验证
             if (url == null || url.trim().isEmpty()) {
@@ -776,6 +786,7 @@ public class MusicController {
 
             // 生成文件名
             String fileName = generateServerFileName(title, artist, selectedFormat);
+            log.info("生成的文件名: {}", fileName);
 
             // 创建流式响应体
             StreamingResponseBody stream = outputStream -> {
@@ -799,12 +810,24 @@ public class MusicController {
             String contentType = getContentTypeFromFormat(selectedFormat);
             headers.setContentType(MediaType.parseMediaType(contentType));
 
-            // 设置下载文件名
-            headers.setContentDisposition(
-                ContentDisposition.builder("attachment")
-                    .filename(fileName, StandardCharsets.UTF_8)
-                    .build()
-            );
+            // 设置下载文件名 - 使用更兼容的方式
+            try {
+                // 方法1：使用 Spring 的 ContentDisposition
+                headers.setContentDisposition(
+                    ContentDisposition.builder("attachment")
+                        .filename(fileName, StandardCharsets.UTF_8)
+                        .build()
+                );
+                log.debug("使用 Spring ContentDisposition 设置文件名: {}", fileName);
+            } catch (Exception e) {
+                // 方法2：手动设置 Content-Disposition 头
+                log.warn("Spring ContentDisposition 设置失败，使用手动方式: {}", e.getMessage());
+                String encodedFileName = java.net.URLEncoder.encode(fileName, StandardCharsets.UTF_8)
+                    .replace("+", "%20"); // 空格用 %20 而不是 +
+                headers.set("Content-Disposition",
+                    "attachment; filename*=UTF-8''" + encodedFileName);
+                log.debug("手动设置 Content-Disposition: attachment; filename*=UTF-8''{}", encodedFileName);
+            }
 
             log.info("开始流式传输文件: {}", fileName);
 
@@ -860,7 +883,24 @@ public class MusicController {
                     // 设置响应头
                     HttpHeaders headers = new HttpHeaders();
                     headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
-                    headers.setContentDispositionFormData("attachment", fileName);
+
+                    // 正确设置文件名，避免编码问题
+                    try {
+                        headers.setContentDisposition(
+                            ContentDisposition.builder("attachment")
+                                .filename(fileName, StandardCharsets.UTF_8)
+                                .build()
+                        );
+                        log.debug("使用 Spring ContentDisposition 设置文件名: {}", fileName);
+                    } catch (Exception e) {
+                        log.warn("Spring ContentDisposition 设置失败，使用手动方式: {}", e.getMessage());
+                        String encodedFileName = java.net.URLEncoder.encode(fileName, StandardCharsets.UTF_8)
+                            .replace("+", "%20");
+                        headers.set("Content-Disposition",
+                            "attachment; filename*=UTF-8''" + encodedFileName);
+                        log.debug("手动设置 Content-Disposition: attachment; filename*=UTF-8''{}", encodedFileName);
+                    }
+
                     headers.setContentLength(fileContent.length);
 
                     log.info("本地下载文件准备完成: {}, 大小: {} bytes", fileName, fileContent.length);
@@ -956,6 +996,51 @@ public class MusicController {
         }
 
         return "application/octet-stream"; // 默认二进制流
+    }
+
+    /**
+     * 测试文件名编码（用于调试）
+     */
+    @GetMapping("/test-filename-encoding")
+    public ResponseEntity<String> testFilenameEncoding(@RequestParam String filename) {
+        try {
+            log.info("测试文件名编码: {}", filename);
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.TEXT_PLAIN);
+
+            // 测试不同的编码方式
+            StringBuilder result = new StringBuilder();
+            result.append("原始文件名: ").append(filename).append("\n");
+
+            try {
+                // 方法1：Spring ContentDisposition
+                ContentDisposition cd1 = ContentDisposition.builder("attachment")
+                    .filename(filename, StandardCharsets.UTF_8)
+                    .build();
+                result.append("Spring ContentDisposition: ").append(cd1.toString()).append("\n");
+            } catch (Exception e) {
+                result.append("Spring ContentDisposition 失败: ").append(e.getMessage()).append("\n");
+            }
+
+            try {
+                // 方法2：手动编码
+                String encodedFileName = URLEncoder.encode(filename, StandardCharsets.UTF_8)
+                    .replace("+", "%20");
+                result.append("手动编码: attachment; filename*=UTF-8''").append(encodedFileName).append("\n");
+            } catch (Exception e) {
+                result.append("手动编码失败: ").append(e.getMessage()).append("\n");
+            }
+
+            return ResponseEntity.ok()
+                .headers(headers)
+                .body(result.toString());
+
+        } catch (Exception e) {
+            log.error("测试文件名编码失败", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body("测试失败: " + e.getMessage());
+        }
     }
 
     /**
