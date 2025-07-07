@@ -979,7 +979,7 @@ public class MusicSearchService {
 
             // 根据选择的格式设置下载参数
             if (selectedFormat != null) {
-                String formatId = (String) selectedFormat.get("format_id");
+                String formatId = (String) selectedFormat.get("formatId");
                 Boolean isAudio = (Boolean) selectedFormat.get("isAudio");
                 Boolean isVideo = (Boolean) selectedFormat.get("isVideo");
 
