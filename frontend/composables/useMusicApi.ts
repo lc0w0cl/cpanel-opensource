@@ -393,9 +393,9 @@ export const useMusicApi = () => {
       )
 
       if (needsFormatConversion) {
-        // 使用后端yt-dlp进行格式转换下载
-        console.log('检测到需要格式转换，使用后端下载:', selectedFormat)
-        return await downloadMusicWithFormatConversion(musicResult, onProgress, selectedFormat)
+        // 使用后端yt-dlp进行流式下载（推荐）
+        console.log('检测到需要格式转换，使用后端流式下载:', selectedFormat)
+        return await downloadMusicWithStreamConversion(musicResult, onProgress, selectedFormat)
       } else {
         // 使用原有的直接下载方式
         return await downloadMusicDirectly(musicResult, onProgress, selectedFormat)
@@ -408,11 +408,86 @@ export const useMusicApi = () => {
   }
 
   /**
-   * 使用后端yt-dlp进行格式转换下载
+   * 使用后端yt-dlp进行流式下载（推荐使用，对服务器友好）
+   */
+  const downloadMusicWithStreamConversion = async (musicResult: any, onProgress?: (progress: number) => void, selectedFormat?: any): Promise<boolean> => {
+    try {
+      console.log('使用后端流式下载:', musicResult.title)
+
+      onProgress?.(10)
+
+      const response = await apiRequest(`${API_BASE_URL}/music/download-stream`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          url: musicResult.url,
+          title: musicResult.title,
+          artist: musicResult.artist,
+          platform: musicResult.platform,
+          selectedFormat: selectedFormat
+        })
+      })
+
+      onProgress?.(30)
+
+      if (response.ok) {
+        // 从响应头获取文件名
+        const contentDisposition = response.headers.get('Content-Disposition')
+        let fileName = generateFileName(musicResult.title, musicResult.artist, selectedFormat)
+
+        if (contentDisposition) {
+          const fileNameMatch = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/)
+          if (fileNameMatch && fileNameMatch[1]) {
+            fileName = fileNameMatch[1].replace(/['"]/g, '')
+          }
+        }
+
+        onProgress?.(50)
+
+        // 获取响应流并创建Blob
+        const blob = await response.blob()
+        onProgress?.(90)
+
+        // 创建下载链接
+        const downloadUrl = window.URL.createObjectURL(blob)
+        const link = document.createElement('a')
+        link.href = downloadUrl
+        link.download = fileName
+        link.style.display = 'none'
+
+        // 触发下载
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+
+        // 清理URL对象
+        setTimeout(() => {
+          window.URL.revokeObjectURL(downloadUrl)
+        }, 1000)
+
+        onProgress?.(100)
+        console.log('流式下载成功:', fileName)
+        return true
+      } else {
+        console.error('后端流式下载失败:', response.status, response.statusText)
+        return false
+      }
+
+    } catch (error) {
+      console.error('流式下载异常:', error)
+      return false
+    }
+  }
+
+  /**
+   * 使用后端yt-dlp进行格式转换下载（旧版本，保留作为备用）
+   * @deprecated 推荐使用 downloadMusicWithStreamConversion，对服务器更友好
    */
   const downloadMusicWithFormatConversion = async (musicResult: any, onProgress?: (progress: number) => void, selectedFormat?: any): Promise<boolean> => {
     try {
-      console.log('使用后端格式转换下载:', musicResult.title)
+      console.log('使用后端格式转换下载（旧版本）:', musicResult.title)
 
       onProgress?.(10)
 
@@ -683,7 +758,8 @@ export const useMusicApi = () => {
     downloadMusic,
     downloadMusicToLocal,
     downloadMusicToServer,
-    downloadMusicWithFormatConversion,
+    downloadMusicWithStreamConversion,  // 新的流式下载方法（推荐）
+    downloadMusicWithFormatConversion,  // 旧的下载方法（备用）
     downloadMusicDirectly,
     downloadAudioFile,
     getAvailableFormats,

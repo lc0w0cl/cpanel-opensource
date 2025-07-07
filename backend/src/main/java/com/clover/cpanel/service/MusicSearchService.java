@@ -15,7 +15,9 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -941,6 +943,174 @@ public class MusicSearchService {
         } catch (Exception e) {
             log.warn("清理文本时发生错误: {}", e.getMessage());
             return text;
+        }
+    }
+
+    /**
+     * 使用yt-dlp流式下载音频到输出流（推荐使用，对服务器友好）
+     */
+    public boolean downloadAudioStreamWithYtDlp(String videoUrl, String platform, Map<String, Object> selectedFormat, OutputStream outputStream) {
+        File tempCookieFile = null;
+        try {
+            log.info("使用yt-dlp流式下载音频: {}", videoUrl);
+
+            // 根据平台获取对应的cookie配置
+            String cookieValue = getCookieByPlatform(platform);
+
+            // 构建yt-dlp下载命令
+            List<String> command = new ArrayList<>();
+            command.add("yt-dlp");
+            command.add("--no-playlist");       // 不处理播放列表
+            command.add("--no-warnings");       // 减少警告输出
+
+            // 添加cookie支持
+            if (cookieValue != null && !cookieValue.trim().isEmpty()) {
+                try {
+                    // 创建临时cookie文件
+                    tempCookieFile = File.createTempFile("yt-dlp-cookies-", ".txt");
+                    Files.write(tempCookieFile.toPath(), cookieValue.getBytes(StandardCharsets.UTF_8));
+                    command.add("--cookies");
+                    command.add(tempCookieFile.getAbsolutePath());
+                    log.debug("使用cookie文件: {}", tempCookieFile.getAbsolutePath());
+                } catch (Exception e) {
+                    log.warn("创建cookie文件失败，将不使用cookie: {}", e.getMessage());
+                }
+            }
+
+            // 根据选择的格式设置下载参数
+            if (selectedFormat != null) {
+                String formatId = (String) selectedFormat.get("format_id");
+                Boolean isAudio = (Boolean) selectedFormat.get("isAudio");
+                Boolean isVideo = (Boolean) selectedFormat.get("isVideo");
+
+                if (formatId != null && !formatId.isEmpty()) {
+                    command.add("--format");
+                    command.add(formatId);
+                    log.info("使用指定格式ID: {}", formatId);
+                } else if (Boolean.TRUE.equals(isAudio)) {
+                    command.add("--format");
+                    command.add("bestaudio/best");
+                    log.info("使用最佳音频格式");
+                } else if (Boolean.TRUE.equals(isVideo)) {
+                    command.add("--format");
+                    command.add("best");
+                    log.info("使用最佳视频格式");
+                } else {
+                    command.add("--format");
+                    command.add("bestaudio/best");
+                    log.info("默认使用最佳音频格式");
+                }
+            } else {
+                command.add("--format");
+                command.add("bestaudio/best");
+                log.info("未指定格式，使用最佳音频格式");
+            }
+
+            // 直接输出到stdout，让我们可以读取并写入到响应流
+            command.add("--output");
+            command.add("-");  // 输出到stdout
+
+            // 添加视频URL
+            command.add(videoUrl);
+
+            log.info("执行yt-dlp流式下载命令: {}", String.join(" ", command));
+
+            ProcessBuilder processBuilder = new ProcessBuilder(command);
+            processBuilder.redirectErrorStream(false); // 分离错误流和输出流
+            Process process = processBuilder.start();
+
+            // 在单独的线程中读取stderr流，区分进度信息和错误信息
+            Thread stderrReaderThread = new Thread(() -> {
+                try (BufferedReader stderrReader = new BufferedReader(
+                        new InputStreamReader(process.getErrorStream(), StandardCharsets.UTF_8))) {
+                    String line;
+                    while ((line = stderrReader.readLine()) != null) {
+                        // 区分不同类型的输出
+                        if (line.contains("[download]")) {
+                            // 下载进度信息，提取进度百分比
+                            if (line.contains("%")) {
+                                try {
+                                    // 提取进度百分比，格式如：[download]   7.2% of   60.95MiB
+                                    String[] parts = line.split("\\s+");
+                                    for (String part : parts) {
+                                        if (part.endsWith("%")) {
+                                            String percentStr = part.replace("%", "");
+                                            double percent = Double.parseDouble(percentStr);
+                                            log.debug("yt-dlp下载进度: {}%", String.format("%.1f", percent));
+                                            break;
+                                        }
+                                    }
+                                } catch (Exception e) {
+                                    // 如果解析失败，只记录原始信息
+                                    log.debug("yt-dlp下载进度: {}", line);
+                                }
+                            } else {
+                                log.debug("yt-dlp下载信息: {}", line);
+                            }
+                        } else if (line.toLowerCase().contains("error") ||
+                                   line.toLowerCase().contains("failed")) {
+                            // 真正的错误
+                            log.error("yt-dlp错误: {}", line);
+                        } else if (line.toLowerCase().contains("warning")) {
+                            // 警告信息
+                            log.warn("yt-dlp警告: {}", line);
+                        } else {
+                            // 其他信息（如格式信息等）
+                            log.debug("yt-dlp信息: {}", line);
+                        }
+                    }
+                } catch (IOException e) {
+                    log.warn("读取yt-dlp stderr流失败: {}", e.getMessage());
+                }
+            });
+            stderrReaderThread.start();
+
+            // 将yt-dlp的输出流直接传输到响应流
+            try (InputStream inputStream = process.getInputStream()) {
+                byte[] buffer = new byte[8192]; // 8KB缓冲区
+                int bytesRead;
+                long totalBytes = 0;
+
+                while ((bytesRead = inputStream.read(buffer)) != -1) {
+                    outputStream.write(buffer, 0, bytesRead);
+                    outputStream.flush(); // 确保数据立即发送
+                    totalBytes += bytesRead;
+
+                    if (totalBytes % (1024 * 1024) == 0) { // 每1MB记录一次
+                        log.debug("已传输 {} MB", totalBytes / (1024 * 1024));
+                    }
+                }
+
+                log.info("流式下载完成，总共传输: {} bytes", totalBytes);
+            }
+
+            // 等待进程完成
+            int exitCode = process.waitFor();
+
+            // 等待stderr读取线程完成
+            stderrReaderThread.join(5000); // 最多等待5秒
+
+            if (exitCode == 0) {
+                log.info("yt-dlp流式下载成功完成");
+                return true;
+            } else {
+                log.error("yt-dlp流式下载失败，退出码: {}", exitCode);
+                return false;
+            }
+
+        } catch (Exception e) {
+            log.error("使用yt-dlp流式下载音频时发生错误", e);
+            return false;
+        } finally {
+            // 清理临时cookie文件
+            if (tempCookieFile != null && tempCookieFile.exists()) {
+                try {
+                    tempCookieFile.delete();
+                    log.debug("清理临时cookie文件: {}", tempCookieFile.getAbsolutePath());
+                } catch (Exception e) {
+                    log.warn("清理临时cookie文件失败: {}", tempCookieFile.getAbsolutePath(), e);
+                }
+            }
         }
     }
 

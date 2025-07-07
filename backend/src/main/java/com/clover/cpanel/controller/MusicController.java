@@ -16,10 +16,13 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
+import org.springframework.http.ContentDisposition;
 
 import java.io.*;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -750,9 +753,77 @@ public class MusicController {
 
 
     /**
+     * 流式下载音乐（推荐使用，对服务器友好）
+     */
+    @PostMapping("/download-stream")
+    public ResponseEntity<StreamingResponseBody> downloadMusicStream(@RequestBody Map<String, Object> request) {
+        try {
+            String url = (String) request.get("url");
+            String title = (String) request.get("title");
+            String artist = (String) request.get("artist");
+            String platform = (String) request.get("platform");
+            Map<String, Object> selectedFormat = (Map<String, Object>) request.get("selectedFormat");
+
+            log.info("开始流式下载音乐: title={}, artist={}, url={}", title, artist, url);
+
+            // 参数验证
+            if (url == null || url.trim().isEmpty()) {
+                return ResponseEntity.badRequest().build();
+            }
+            if (title == null || title.trim().isEmpty()) {
+                return ResponseEntity.badRequest().build();
+            }
+
+            // 生成文件名
+            String fileName = generateServerFileName(title, artist, selectedFormat);
+
+            // 创建流式响应体
+            StreamingResponseBody stream = outputStream -> {
+                try {
+                    // 使用yt-dlp直接输出到响应流
+                    boolean success = musicSearchService.downloadAudioStreamWithYtDlp(url, platform, selectedFormat, outputStream);
+                    if (!success) {
+                        log.error("流式下载失败: {}", url);
+                        throw new RuntimeException("下载失败");
+                    }
+                } catch (Exception e) {
+                    log.error("流式下载过程中发生错误", e);
+                    throw new RuntimeException("下载过程中发生错误: " + e.getMessage());
+                }
+            };
+
+            // 设置响应头
+            HttpHeaders headers = new HttpHeaders();
+
+            // 根据格式设置正确的 Content-Type
+            String contentType = getContentTypeFromFormat(selectedFormat);
+            headers.setContentType(MediaType.parseMediaType(contentType));
+
+            // 设置下载文件名
+            headers.setContentDisposition(
+                ContentDisposition.builder("attachment")
+                    .filename(fileName, StandardCharsets.UTF_8)
+                    .build()
+            );
+
+            log.info("开始流式传输文件: {}", fileName);
+
+            return ResponseEntity.ok()
+                    .headers(headers)
+                    .body(stream);
+
+        } catch (Exception e) {
+            log.error("流式下载音乐时发生错误", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    /**
      * 下载音乐到临时文件并返回给前端（用于本地下载）
+     * @deprecated 推荐使用 /download-stream 接口，对服务器更友好
      */
     @PostMapping("/download-for-local")
+    @Deprecated
     public ResponseEntity<byte[]> downloadMusicForLocal(@RequestBody Map<String, Object> request) {
         try {
             String url = (String) request.get("url");
@@ -819,6 +890,72 @@ public class MusicController {
             log.error("为本地下载准备音乐时发生错误", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
+    }
+
+    /**
+     * 根据格式信息确定Content-Type
+     */
+    private String getContentTypeFromFormat(Map<String, Object> selectedFormat) {
+        if (selectedFormat == null) {
+            return "audio/mpeg"; // 默认mp3
+        }
+
+        String ext = (String) selectedFormat.get("ext");
+        Boolean isAudio = (Boolean) selectedFormat.get("isAudio");
+        Boolean isVideo = (Boolean) selectedFormat.get("isVideo");
+        String note = (String) selectedFormat.get("note");
+
+        // 检查是否包含flac
+        boolean containsFlac = note != null && note.toLowerCase().contains("flac");
+
+        if (Boolean.TRUE.equals(isAudio)) {
+            // 音频格式
+            if ("flac".equals(ext) || containsFlac) {
+                return "audio/flac";
+            } else if ("m4a".equals(ext)) {
+                return "audio/mp4";
+            } else if ("webm".equals(ext)) {
+                return "audio/webm";
+            } else if ("ogg".equals(ext)) {
+                return "audio/ogg";
+            } else if ("aac".equals(ext)) {
+                return "audio/aac";
+            } else if ("opus".equals(ext)) {
+                return "audio/opus";
+            } else {
+                return "audio/mpeg"; // 默认mp3
+            }
+        } else if (Boolean.TRUE.equals(isVideo)) {
+            // 视频格式
+            if ("mp4".equals(ext)) {
+                return "video/mp4";
+            } else if ("webm".equals(ext)) {
+                return "video/webm";
+            } else if ("mkv".equals(ext)) {
+                return "video/x-matroska";
+            } else if ("avi".equals(ext)) {
+                return "video/x-msvideo";
+            } else {
+                return "video/mp4"; // 默认mp4
+            }
+        } else if (ext != null) {
+            // 根据扩展名推断
+            switch (ext.toLowerCase()) {
+                case "mp3": return "audio/mpeg";
+                case "flac": return "audio/flac";
+                case "m4a": return "audio/mp4";
+                case "webm": return "audio/webm";
+                case "ogg": return "audio/ogg";
+                case "aac": return "audio/aac";
+                case "opus": return "audio/opus";
+                case "mp4": return "video/mp4";
+                case "mkv": return "video/x-matroska";
+                case "avi": return "video/x-msvideo";
+                default: return "application/octet-stream";
+            }
+        }
+
+        return "application/octet-stream"; // 默认二进制流
     }
 
     /**
