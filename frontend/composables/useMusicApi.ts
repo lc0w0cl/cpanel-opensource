@@ -83,8 +83,9 @@ export const useMusicApi = () => {
   const getFullUrl = (path: string) => {
     if (path.startsWith('/')) {
       // 相对路径，根据环境添加基础URL
-      return config.public.isDevelopment
-        ? `http://localhost:8080${path}`
+      // 使用更可靠的环境判断：检查apiBaseUrl是否为空
+      return config.public.apiBaseUrl
+        ? `${config.public.apiBaseUrl}${path}`
         : path
     }
     // 绝对路径直接返回
