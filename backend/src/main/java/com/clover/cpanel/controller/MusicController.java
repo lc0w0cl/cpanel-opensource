@@ -27,6 +27,7 @@ import java.nio.file.StandardCopyOption;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 @Slf4j
 @RestController
@@ -562,16 +563,10 @@ public class MusicController {
                 serverDownloadPath = "uploads/music";
             }
 
-            // 1. 获取音频流URL
-            String audioUrl = musicSearchService.getAudioStreamUrlByUrl(url);
-            if (audioUrl == null || audioUrl.trim().isEmpty()) {
-                return ApiResponse.error("无法获取音频流URL");
-            }
-
-            // 2. 生成文件名
+            // 1. 生成文件名
             String fileName = generateServerFileName(title, artist, selectedFormat);
 
-            // 3. 创建下载目录
+            // 2. 创建下载目录
             Path baseDownloadDir;
             if (serverDownloadPath.startsWith("/")) {
                 // 绝对路径
@@ -606,11 +601,12 @@ public class MusicController {
                 }
             }
 
-            // 4. 下载文件到服务器
+            // 3. 使用yt-dlp下载文件到服务器
             Path filePath = downloadDir.resolve(fileName);
-            boolean success = downloadAudioToServer(audioUrl, filePath);
+            boolean success = musicSearchService.downloadAudioWithYtDlp(url, platform, selectedFormat, filePath);
 
             if (success) {
+                // 文件已经按照指定的文件名保存，直接使用传入的文件名
                 // 构建访问URL，考虑歌单子目录
                 String relativePath = fileName;
                 if (playlistName != null && !playlistName.trim().isEmpty()) {
@@ -697,6 +693,11 @@ public class MusicController {
         // 根据选择的格式确定文件扩展名
         String extension = ".mp3"; // 默认扩展名
 
+        boolean containsFlac = Optional.ofNullable(selectedFormat.get("note"))
+                .map(Object::toString)
+                .filter(s -> s.contains("flac"))
+                .isPresent();
+
         if (selectedFormat != null) {
             Boolean isAudio = (Boolean) selectedFormat.get("isAudio");
             Boolean isVideo = (Boolean) selectedFormat.get("isVideo");
@@ -704,7 +705,7 @@ public class MusicController {
 
             if (Boolean.TRUE.equals(isAudio)) {
                 // 音频格式处理
-                if ("flac".equals(ext)) {
+                if ("flac".equals(ext) || containsFlac) {
                     extension = ".flac";
                 } else if ("m4a".equals(ext)) {
                     extension = ".m4a";
@@ -745,6 +746,8 @@ public class MusicController {
             return cleanTitle + extension;
         }
     }
+
+
 
     /**
      * 构建文件访问URL

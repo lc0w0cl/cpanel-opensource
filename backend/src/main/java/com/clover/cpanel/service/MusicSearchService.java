@@ -18,6 +18,8 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -939,6 +941,164 @@ public class MusicSearchService {
         } catch (Exception e) {
             log.warn("清理文本时发生错误: {}", e.getMessage());
             return text;
+        }
+    }
+
+    /**
+     * 使用yt-dlp下载音频到服务器
+     */
+    public boolean downloadAudioWithYtDlp(String videoUrl, String platform, Map<String, Object> selectedFormat, Path outputPath) {
+        File tempCookieFile = null;
+        try {
+            log.info("使用yt-dlp下载音频: {} -> {}", videoUrl, outputPath);
+
+            // 根据平台获取对应的cookie配置
+            String cookieValue = getCookieByPlatform(platform);
+
+            // 构建yt-dlp下载命令
+            List<String> command = new ArrayList<>();
+            command.add("yt-dlp");
+            command.add("--no-playlist");       // 不处理播放列表
+            command.add("--no-warnings");       // 减少警告输出
+
+            // 如果有cookie，创建临时cookie文件
+            if (cookieValue != null && !cookieValue.trim().isEmpty()) {
+                try {
+                    tempCookieFile = createTempCookieFile(cookieValue.trim(), platform);
+                    command.add("--cookies");
+                    command.add(tempCookieFile.getAbsolutePath());
+                    log.info("使用{}平台cookie文件进行下载", platform);
+                } catch (Exception e) {
+                    log.error("创建{}平台cookie文件失败，使用默认方式下载", platform, e);
+                }
+            } else {
+                log.info("{}平台未配置cookie，使用默认方式下载", platform);
+            }
+
+            // 处理格式选择
+            if (selectedFormat != null) {
+                String formatId = (String) selectedFormat.get("formatId");
+                if (formatId != null && !formatId.trim().isEmpty()) {
+                    command.add("--format");
+                    command.add(formatId);
+                    log.info("使用指定格式下载: {}", formatId);
+                } else {
+                    // 如果没有formatId，使用最佳音频格式
+                    command.add("--format");
+                    command.add("bestaudio/best");
+                    log.info("使用最佳音频格式下载");
+                }
+            } else {
+                // 默认使用最佳音频格式
+                command.add("--format");
+                command.add("bestaudio/best");
+                log.info("使用默认最佳音频格式下载");
+            }
+
+            // 设置输出文件路径 - 先下载到临时文件，然后重命名为指定文件名
+            // 获取文件名（不含扩展名）和目录
+            String fileName = outputPath.getFileName().toString();
+            String baseFileName = fileName;
+            if (fileName.contains(".")) {
+                baseFileName = fileName.substring(0, fileName.lastIndexOf("."));
+            }
+
+            // 创建临时输出模板：目录/临时文件名.%(ext)s
+            String tempFileName = baseFileName + "_temp";
+            String tempOutputTemplate = outputPath.getParent().toString() + "/" + tempFileName + ".%(ext)s";
+            command.add("--output");
+            command.add(tempOutputTemplate);
+            log.info("使用临时输出模板: {}", tempOutputTemplate);
+
+            // 添加视频URL
+            command.add(videoUrl);
+
+            log.info("执行yt-dlp下载命令: {}", String.join(" ", command));
+
+            ProcessBuilder processBuilder = new ProcessBuilder(command);
+            processBuilder.redirectErrorStream(true);
+            Process process = processBuilder.start();
+
+            // 读取输出
+            StringBuilder output = new StringBuilder();
+            try (BufferedReader reader = new BufferedReader(
+                    new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    output.append(line).append("\n");
+                    log.debug("yt-dlp输出: {}", line);
+                }
+            }
+
+            // 等待进程完成
+            int exitCode = process.waitFor();
+
+            if (exitCode == 0) {
+                // 查找临时下载的文件并重命名为指定文件名
+                String originalFileName = outputPath.getFileName().toString();
+                String tempBaseFileName;
+                if (originalFileName.contains(".")) {
+                    tempBaseFileName = originalFileName.substring(0, originalFileName.lastIndexOf("."));
+                } else {
+                    tempBaseFileName = originalFileName;
+                }
+
+                Path parentDir = outputPath.getParent();
+                String tempFilePrefix = tempBaseFileName + "_temp.";
+
+                try {
+                    if (Files.exists(parentDir)) {
+                        // 查找临时下载的文件
+                        Path tempFile = Files.list(parentDir)
+                            .filter(path -> {
+                                String name = path.getFileName().toString();
+                                return name.startsWith(tempFilePrefix);
+                            })
+                            .findFirst()
+                            .orElse(null);
+
+                        if (tempFile != null) {
+                            log.info("找到临时下载文件: {}", tempFile);
+
+                            // 重命名为指定的文件名
+                            try {
+                                Files.move(tempFile, outputPath);
+                                log.info("文件重命名成功: {} -> {}", tempFile.getFileName(), outputPath.getFileName());
+                                return true;
+                            } catch (Exception e) {
+                                log.error("文件重命名失败: {} -> {}", tempFile, outputPath, e);
+                                return false;
+                            }
+                        } else {
+                            log.warn("未找到临时下载文件，前缀: {}", tempFilePrefix);
+                            return false;
+                        }
+                    } else {
+                        log.warn("下载目录不存在: {}", parentDir);
+                        return false;
+                    }
+                } catch (Exception e) {
+                    log.error("处理下载文件时发生错误", e);
+                    return false;
+                }
+            } else {
+                log.error("yt-dlp下载失败，退出码: {}, 输出: {}", exitCode, output.toString());
+                return false;
+            }
+
+        } catch (Exception e) {
+            log.error("使用yt-dlp下载音频时发生错误", e);
+            return false;
+        } finally {
+            // 清理临时cookie文件
+            if (tempCookieFile != null && tempCookieFile.exists()) {
+                try {
+                    tempCookieFile.delete();
+                    log.debug("清理临时cookie文件: {}", tempCookieFile.getAbsolutePath());
+                } catch (Exception e) {
+                    log.warn("清理临时cookie文件失败: {}", tempCookieFile.getAbsolutePath(), e);
+                }
+            }
         }
     }
 }
