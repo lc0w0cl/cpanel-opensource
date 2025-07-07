@@ -750,6 +750,78 @@ public class MusicController {
 
 
     /**
+     * 下载音乐到临时文件并返回给前端（用于本地下载）
+     */
+    @PostMapping("/download-for-local")
+    public ResponseEntity<byte[]> downloadMusicForLocal(@RequestBody Map<String, Object> request) {
+        try {
+            String url = (String) request.get("url");
+            String title = (String) request.get("title");
+            String artist = (String) request.get("artist");
+            String platform = (String) request.get("platform");
+            Map<String, Object> selectedFormat = (Map<String, Object>) request.get("selectedFormat");
+
+            log.info("开始为本地下载准备音乐: title={}, artist={}, url={}", title, artist, url);
+
+            // 参数验证
+            if (url == null || url.trim().isEmpty()) {
+                return ResponseEntity.badRequest().build();
+            }
+            if (title == null || title.trim().isEmpty()) {
+                return ResponseEntity.badRequest().build();
+            }
+
+            // 生成临时文件名
+            String fileName = generateServerFileName(title, artist, selectedFormat);
+
+            // 创建临时目录
+            Path tempDir = Files.createTempDirectory("music-download-");
+            Path tempFilePath = tempDir.resolve(fileName);
+
+            try {
+                // 使用yt-dlp下载到临时文件
+                boolean success = musicSearchService.downloadAudioWithYtDlp(url, platform, selectedFormat, tempFilePath);
+
+                if (success && Files.exists(tempFilePath)) {
+                    // 读取文件内容
+                    byte[] fileContent = Files.readAllBytes(tempFilePath);
+
+                    // 设置响应头
+                    HttpHeaders headers = new HttpHeaders();
+                    headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
+                    headers.setContentDispositionFormData("attachment", fileName);
+                    headers.setContentLength(fileContent.length);
+
+                    log.info("本地下载文件准备完成: {}, 大小: {} bytes", fileName, fileContent.length);
+
+                    return ResponseEntity.ok()
+                            .headers(headers)
+                            .body(fileContent);
+                } else {
+                    log.error("下载失败或文件不存在: {}", tempFilePath);
+                    return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+                }
+            } finally {
+                // 清理临时文件和目录
+                try {
+                    if (Files.exists(tempFilePath)) {
+                        Files.delete(tempFilePath);
+                    }
+                    if (Files.exists(tempDir)) {
+                        Files.delete(tempDir);
+                    }
+                } catch (Exception e) {
+                    log.warn("清理临时文件失败: {}", e.getMessage());
+                }
+            }
+
+        } catch (Exception e) {
+            log.error("为本地下载准备音乐时发生错误", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    /**
      * 构建文件访问URL
      */
     private String buildFileAccessUrl(String serverDownloadPath, String fileName) {

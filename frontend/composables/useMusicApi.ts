@@ -383,6 +383,100 @@ export const useMusicApi = () => {
     try {
       console.log('开始本地下载音乐:', musicResult.title)
 
+      // 检查是否需要格式转换（如果选择了特殊格式）
+      const needsFormatConversion = selectedFormat && (
+        selectedFormat.ext === 'flac' ||
+        selectedFormat.ext === 'opus' ||
+        selectedFormat.ext === 'aac' ||
+            selectedFormat.note.includes('flac')||
+        (selectedFormat.formatId && selectedFormat.formatId !== 'best')
+      )
+
+      if (needsFormatConversion) {
+        // 使用后端yt-dlp进行格式转换下载
+        console.log('检测到需要格式转换，使用后端下载:', selectedFormat)
+        return await downloadMusicWithFormatConversion(musicResult, onProgress, selectedFormat)
+      } else {
+        // 使用原有的直接下载方式
+        return await downloadMusicDirectly(musicResult, onProgress, selectedFormat)
+      }
+
+    } catch (error) {
+      console.error('本地下载异常:', error)
+      return false
+    }
+  }
+
+  /**
+   * 使用后端yt-dlp进行格式转换下载
+   */
+  const downloadMusicWithFormatConversion = async (musicResult: any, onProgress?: (progress: number) => void, selectedFormat?: any): Promise<boolean> => {
+    try {
+      console.log('使用后端格式转换下载:', musicResult.title)
+
+      onProgress?.(10)
+
+      const response = await apiRequest(`${API_BASE_URL}/music/download-for-local`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          url: musicResult.url,
+          title: musicResult.title,
+          artist: musicResult.artist,
+          platform: musicResult.platform,
+          selectedFormat: selectedFormat
+        })
+      })
+
+      onProgress?.(70)
+
+      if (response.ok) {
+        const blob = await response.blob()
+        onProgress?.(90)
+
+        // 生成文件名
+        const fileName = generateFileName(musicResult.title, musicResult.artist, selectedFormat)
+
+        // 创建下载链接
+        const downloadUrl = window.URL.createObjectURL(blob)
+        const link = document.createElement('a')
+        link.href = downloadUrl
+        link.download = fileName
+        link.style.display = 'none'
+
+        // 触发下载
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+
+        // 清理URL对象
+        setTimeout(() => {
+          window.URL.revokeObjectURL(downloadUrl)
+        }, 1000)
+
+        onProgress?.(100)
+        console.log('格式转换下载成功:', fileName)
+        return true
+      } else {
+        console.error('后端下载失败:', response.status, response.statusText)
+        return false
+      }
+
+    } catch (error) {
+      console.error('格式转换下载异常:', error)
+      return false
+    }
+  }
+
+  /**
+   * 直接下载音频文件（原有逻辑）
+   */
+  const downloadMusicDirectly = async (musicResult: any, onProgress?: (progress: number) => void, selectedFormat?: any): Promise<boolean> => {
+    try {
+      console.log('使用直接下载方式:', musicResult.title)
+
       // 1. 获取音频流URL
       onProgress?.(20)
       const audioUrl = await getAudioStreamByUrl(musicResult.url)
@@ -405,15 +499,15 @@ export const useMusicApi = () => {
 
       if (success) {
         onProgress?.(100)
-        console.log('本地下载成功:', musicResult.title)
+        console.log('直接下载成功:', musicResult.title)
         return true
       } else {
-        console.error('本地下载失败:', musicResult.title)
+        console.error('直接下载失败:', musicResult.title)
         return false
       }
 
     } catch (error) {
-      console.error('本地下载异常:', error)
+      console.error('直接下载异常:', error)
       return false
     }
   }
@@ -533,7 +627,7 @@ export const useMusicApi = () => {
     if (selectedFormat) {
       if (selectedFormat.isAudio) {
         // 音频格式处理
-        if (selectedFormat.ext === 'flac') {
+        if (selectedFormat.ext === 'flac' || selectedFormat.note.includes('flac')) {
           extension = '.flac'
         } else if (selectedFormat.ext === 'm4a') {
           // extension = '.m4a'
@@ -589,6 +683,8 @@ export const useMusicApi = () => {
     downloadMusic,
     downloadMusicToLocal,
     downloadMusicToServer,
+    downloadMusicWithFormatConversion,
+    downloadMusicDirectly,
     downloadAudioFile,
     getAvailableFormats,
     detectPlatform,
