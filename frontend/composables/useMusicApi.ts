@@ -242,7 +242,7 @@ export const useMusicApi = () => {
   }
 
   /**
-   * 生成代理音频URL - 解决403错误
+   * 生成代理音频URL - 解决403错误，使用流式代理
    */
   const getProxyAudioUrl = (originalUrl: string): string => {
     if (!originalUrl) return ''
@@ -250,8 +250,8 @@ export const useMusicApi = () => {
     // 对URL进行编码
     const encodedUrl = encodeURIComponent(originalUrl)
 
-    // 构建代理URL - 使用相对路径，前端根据环境处理
-    const proxyPath = `/api/music/proxy/audio?url=${encodedUrl}`
+    // 构建代理URL - 使用流式代理，支持Range请求
+    const proxyPath = `/api/music/proxy/audio-stream?url=${encodedUrl}`
     return getFullUrl(proxyPath)
   }
 
