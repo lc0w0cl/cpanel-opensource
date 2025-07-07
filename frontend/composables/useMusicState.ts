@@ -4,7 +4,7 @@
  */
 
 import { ref, computed, readonly } from 'vue'
-import type { MusicSearchResult } from './useMusicApi'
+import type { MusicSearchResult, PlaylistInfo } from './useMusicApi'
 
 // 全局音乐状态
 const searchResults = ref<MusicSearchResult[]>([])
@@ -48,6 +48,9 @@ const keywordSearchError = ref('')
 const urlSearchError = ref('')
 const playlistSearchError = ref('')
 
+// 歌单信息状态
+const playlistInfo = ref<PlaylistInfo | null>(null)
+
 // 状态持久化键名
 const STORAGE_KEYS = {
   SEARCH_RESULTS: 'music_search_results',
@@ -71,7 +74,10 @@ const STORAGE_KEYS = {
   // 独立搜索错误
   KEYWORD_SEARCH_ERROR: 'music_keyword_search_error',
   URL_SEARCH_ERROR: 'music_url_search_error',
-  PLAYLIST_SEARCH_ERROR: 'music_playlist_search_error'
+  PLAYLIST_SEARCH_ERROR: 'music_playlist_search_error',
+
+  // 歌单信息
+  PLAYLIST_INFO: 'music_playlist_info'
 }
 
 // 从 localStorage 恢复状态
@@ -167,6 +173,12 @@ const restoreState = () => {
       playlistSearchError.value = savedPlaylistError
     }
 
+    // 恢复歌单信息
+    const savedPlaylistInfo = localStorage.getItem(STORAGE_KEYS.PLAYLIST_INFO)
+    if (savedPlaylistInfo) {
+      playlistInfo.value = JSON.parse(savedPlaylistInfo)
+    }
+
   } catch (error) {
     console.error('恢复音乐状态失败:', error)
   }
@@ -198,6 +210,13 @@ const saveState = () => {
     localStorage.setItem(STORAGE_KEYS.KEYWORD_SEARCH_ERROR, keywordSearchError.value)
     localStorage.setItem(STORAGE_KEYS.URL_SEARCH_ERROR, urlSearchError.value)
     localStorage.setItem(STORAGE_KEYS.PLAYLIST_SEARCH_ERROR, playlistSearchError.value)
+
+    // 保存歌单信息
+    if (playlistInfo.value) {
+      localStorage.setItem(STORAGE_KEYS.PLAYLIST_INFO, JSON.stringify(playlistInfo.value))
+    } else {
+      localStorage.removeItem(STORAGE_KEYS.PLAYLIST_INFO)
+    }
 
     if (currentPlaying.value) {
       localStorage.setItem(STORAGE_KEYS.CURRENT_PLAYING, JSON.stringify(currentPlaying.value))
@@ -251,6 +270,9 @@ const clearAllState = () => {
   downloadProgress.value = {}
   searchQuery.value = ''
   searchError.value = ''
+
+  // 清空歌单信息
+  playlistInfo.value = null
 
   // 停止播放
   if (audioElement.value) {
@@ -498,6 +520,17 @@ export const useMusicState = () => {
     saveState()
   }
 
+  // 歌单信息管理
+  const setPlaylistInfo = (info: PlaylistInfo | null) => {
+    playlistInfo.value = info
+    saveState()
+  }
+
+  const clearPlaylistInfo = () => {
+    playlistInfo.value = null
+    saveState()
+  }
+
   return {
     // 只读状态
     searchResults: readonly(searchResults),
@@ -530,7 +563,10 @@ export const useMusicState = () => {
     keywordSearchError: readonly(keywordSearchError),
     urlSearchError: readonly(urlSearchError),
     playlistSearchError: readonly(playlistSearchError),
-    
+
+    // 歌单信息
+    playlistInfo: readonly(playlistInfo),
+
     // 计算属性
     hasResults,
     hasSelectedItems,
@@ -575,6 +611,10 @@ export const useMusicState = () => {
     setPlaylistSearching,
     setKeywordSearchError,
     setUrlSearchError,
-    setPlaylistSearchError
+    setPlaylistSearchError,
+
+    // 歌单信息管理方法
+    setPlaylistInfo,
+    clearPlaylistInfo
   }
 }

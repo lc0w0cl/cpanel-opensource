@@ -53,7 +53,12 @@ const {
   setDownloadProgress,
   removeDownloadProgress,
   clearPlayingState,
-  clearAllState
+  clearAllState,
+
+  // 歌单信息
+  playlistInfo,
+  setPlaylistInfo,
+  clearPlaylistInfo
 } = useMusicState()
 
 // 获取独立搜索状态
@@ -94,7 +99,6 @@ const downloadControllers = ref(new Map()) // 存储下载控制器
 
 // 歌单解析相关状态
 const isParsingPlaylist = ref(false)
-const playlistInfo = ref(null)
 const playlistError = ref('')
 
 // 自动匹配相关状态
@@ -240,7 +244,7 @@ const handlePlaylistParse = async () => {
 
   updateCurrentSearching(true)
   updateCurrentSearchError('')
-  playlistInfo.value = null
+  setPlaylistInfo(null)
 
   try {
     const playlist = await parsePlaylist({
@@ -248,7 +252,7 @@ const handlePlaylistParse = async () => {
       platform: 'auto'
     })
 
-    playlistInfo.value = playlist
+    setPlaylistInfo(playlist)
 
     // 将歌单中的歌曲转换为搜索结果格式
     const results = playlist.songs.map((song, index) => ({
@@ -1103,6 +1107,13 @@ const updateCurrentSearchError = (error: string) => {
 const clearCurrentSearchResults = () => {
   updateCurrentSearchResults([])
   updateCurrentSearchError('')
+
+  // 如果是歌单模式，清空歌单信息
+  if (searchType.value === 'playlist') {
+    setPlaylistInfo(null)
+    playlistError.value = ''
+  }
+
   // 清空选中状态 - 使用提供的方法
   if (selectedResults.value.size > 0) {
     // 获取所有选中的ID并逐个取消选择
@@ -1218,7 +1229,7 @@ const handleSearchTypeChange = (type: 'keyword' | 'url' | 'playlist') => {
     isAutoMatching.value = false
     matchingProgress.value = {}
     matchingError.value = ''
-    playlistInfo.value = null
+    setPlaylistInfo(null)
     playlistError.value = ''
   }
 
