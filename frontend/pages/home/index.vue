@@ -104,6 +104,68 @@ onUnmounted(() => {
 
       <!-- 系统信息展示 -->
       <div v-else-if="systemInfo" class="system-info-grid">
+        <!-- 系统概览 - 独占第一行 -->
+        <Motion
+          :initial="{ opacity: 0, y: 20 }"
+          :animate="{ opacity: 1, y: 0 }"
+          :transition="{ duration: 0.5, delay: 0.0 }"
+          class="system-overview-wrapper"
+        >
+          <div class="system-overview-card">
+            <div class="system-header">
+              <div class="system-icon-wrapper">
+                <div class="system-icon-bg">
+                  <Icon icon="material-symbols:computer" class="system-icon" />
+                </div>
+              </div>
+              <div class="system-main-info">
+                <h2 class="system-title">{{ systemInfo.system.osName }}</h2>
+                <div class="system-meta">
+                  <span class="system-version">版本 {{ systemInfo.system.osVersion }}</span>
+                  <span class="system-arch">{{ systemInfo.system.architecture }}</span>
+                  <span class="system-hostname">{{ systemInfo.system.hostname }}</span>
+                </div>
+              </div>
+              <div class="system-uptime">
+                <div class="uptime-label">运行时间</div>
+                <div class="uptime-value">{{ formatUptime(systemInfo.system.uptime) }}</div>
+              </div>
+            </div>
+
+            <div class="system-specs">
+              <div class="spec-card">
+                <div class="spec-icon">
+                  <Icon icon="material-symbols:memory" />
+                </div>
+                <div class="spec-content">
+                  <div class="spec-label">处理器</div>
+                  <div class="spec-value">{{ systemInfo.cpu.model }}</div>
+                </div>
+              </div>
+
+              <div class="spec-card">
+                <div class="spec-icon">
+                  <Icon icon="material-symbols:developer-board" />
+                </div>
+                <div class="spec-content">
+                  <div class="spec-label">核心配置</div>
+                  <div class="spec-value">{{ systemInfo.cpu.cores }} 核心 / {{ systemInfo.cpu.logicalProcessors }} 线程</div>
+                </div>
+              </div>
+
+              <div class="spec-card">
+                <div class="spec-icon">
+                  <Icon icon="material-symbols:storage" />
+                </div>
+                <div class="spec-content">
+                  <div class="spec-label">内存容量</div>
+                  <div class="spec-value">{{ formatStorage(systemInfo.memory.total) }}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </Motion>
+
         <!-- CPU信息卡片 -->
         <Motion
           :initial="{ opacity: 0, y: 20 }"
@@ -111,41 +173,21 @@ onUnmounted(() => {
           :transition="{ duration: 0.5, delay: 0.1 }"
         >
           <div class="info-card">
-            <div class="card-header">
-              <div class="card-icon cpu-icon">
-                <Icon icon="material-symbols:memory" />
-              </div>
-              <div class="card-title-section">
-                <h3 class="card-title">CPU</h3>
-                <p class="card-subtitle">处理器信息</p>
-              </div>
+            <div class="card-icon cpu-icon">
+              <Icon icon="material-symbols:memory" />
             </div>
-            <div class="card-content">
-              <div class="info-item">
-                <span class="info-label">型号</span>
-                <span class="info-value">{{ systemInfo.cpu.model }}</span>
+            <div class="card-right">
+              <div class="card-header-new">
+                <span class="card-title">CPU</span>
+                <span :class="['usage-value', getUsageColor(systemInfo.cpu.usage)]">
+                  {{ systemInfo.cpu.usage.toFixed(1) }}%
+                </span>
               </div>
-              <div class="info-item">
-                <span class="info-label">核心数</span>
-                <span class="info-value">{{ systemInfo.cpu.cores }} 核心 / {{ systemInfo.cpu.logicalProcessors }} 线程</span>
-              </div>
-              <div class="info-item">
-                <span class="info-label">频率</span>
-                <span class="info-value">{{ formatFrequency(systemInfo.cpu.frequency) }}</span>
-              </div>
-              <div class="usage-section">
-                <div class="usage-header">
-                  <span class="usage-label">使用率</span>
-                  <span :class="['usage-value', getUsageColor(systemInfo.cpu.usage)]">
-                    {{ systemInfo.cpu.usage.toFixed(1) }}%
-                  </span>
-                </div>
-                <div class="usage-bar">
-                  <div
-                    :class="['usage-fill', getUsageBgColor(systemInfo.cpu.usage)]"
-                    :style="{ width: `${systemInfo.cpu.usage}%` }"
-                  ></div>
-                </div>
+              <div class="usage-bar">
+                <div
+                  :class="['usage-fill', getUsageBgColor(systemInfo.cpu.usage)]"
+                  :style="{ width: `${systemInfo.cpu.usage}%` }"
+                ></div>
               </div>
             </div>
           </div>
@@ -158,41 +200,21 @@ onUnmounted(() => {
           :transition="{ duration: 0.5, delay: 0.2 }"
         >
           <div class="info-card">
-            <div class="card-header">
-              <div class="card-icon memory-icon">
-                <Icon icon="material-symbols:storage" />
-              </div>
-              <div class="card-title-section">
-                <h3 class="card-title">内存</h3>
-                <p class="card-subtitle">内存使用情况</p>
-              </div>
+            <div class="card-icon memory-icon">
+              <Icon icon="material-symbols:storage" />
             </div>
-            <div class="card-content">
-              <div class="info-item">
-                <span class="info-label">总容量</span>
-                <span class="info-value">{{ formatStorage(systemInfo.memory.total) }}</span>
+            <div class="card-right">
+              <div class="card-header-new">
+                <span class="card-title">内存</span>
+                <span :class="['usage-value', getUsageColor(systemInfo.memory.usage)]">
+                  {{ systemInfo.memory.usage.toFixed(1) }}%
+                </span>
               </div>
-              <div class="info-item">
-                <span class="info-label">已使用</span>
-                <span class="info-value">{{ formatStorage(systemInfo.memory.used) }}</span>
-              </div>
-              <div class="info-item">
-                <span class="info-label">可用</span>
-                <span class="info-value">{{ formatStorage(systemInfo.memory.available) }}</span>
-              </div>
-              <div class="usage-section">
-                <div class="usage-header">
-                  <span class="usage-label">使用率</span>
-                  <span :class="['usage-value', getUsageColor(systemInfo.memory.usage)]">
-                    {{ systemInfo.memory.usage.toFixed(1) }}%
-                  </span>
-                </div>
-                <div class="usage-bar">
-                  <div
-                    :class="['usage-fill', getUsageBgColor(systemInfo.memory.usage)]"
-                    :style="{ width: `${systemInfo.memory.usage}%` }"
-                  ></div>
-                </div>
+              <div class="usage-bar">
+                <div
+                  :class="['usage-fill', getUsageBgColor(systemInfo.memory.usage)]"
+                  :style="{ width: `${systemInfo.memory.usage}%` }"
+                ></div>
               </div>
             </div>
           </div>
@@ -207,86 +229,27 @@ onUnmounted(() => {
           :transition="{ duration: 0.5, delay: 0.3 + index * 0.1 }"
         >
           <div class="info-card">
-            <div class="card-header">
-              <div class="card-icon disk-icon">
-                <Icon icon="material-symbols:hard-drive-2" />
-              </div>
-              <div class="card-title-section">
-                <h3 class="card-title">磁盘 {{ disk.name }}</h3>
-                <p class="card-subtitle">{{ disk.fileSystem }}</p>
-              </div>
+            <div class="card-icon disk-icon">
+              <Icon icon="material-symbols:hard-drive-2" />
             </div>
-            <div class="card-content">
-              <div class="info-item">
-                <span class="info-label">总容量</span>
-                <span class="info-value">{{ formatStorage(disk.total) }}</span>
+            <div class="card-right">
+              <div class="card-header-new">
+                <span class="card-title">磁盘 {{ disk.name }}</span>
+                <span :class="['usage-value', getUsageColor(disk.usage)]">
+                  {{ disk.usage.toFixed(1) }}%
+                </span>
               </div>
-              <div class="info-item">
-                <span class="info-label">已使用</span>
-                <span class="info-value">{{ formatStorage(disk.used) }}</span>
-              </div>
-              <div class="info-item">
-                <span class="info-label">可用</span>
-                <span class="info-value">{{ formatStorage(disk.available) }}</span>
-              </div>
-              <div class="usage-section">
-                <div class="usage-header">
-                  <span class="usage-label">使用率</span>
-                  <span :class="['usage-value', getUsageColor(disk.usage)]">
-                    {{ disk.usage.toFixed(1) }}%
-                  </span>
-                </div>
-                <div class="usage-bar">
-                  <div
-                    :class="['usage-fill', getUsageBgColor(disk.usage)]"
-                    :style="{ width: `${disk.usage}%` }"
-                  ></div>
-                </div>
+              <div class="usage-bar">
+                <div
+                  :class="['usage-fill', getUsageBgColor(disk.usage)]"
+                  :style="{ width: `${disk.usage}%` }"
+                ></div>
               </div>
             </div>
           </div>
         </Motion>
 
-        <!-- 系统基本信息卡片 -->
-        <Motion
-          :initial="{ opacity: 0, y: 20 }"
-          :animate="{ opacity: 1, y: 0 }"
-          :transition="{ duration: 0.5, delay: 0.4 + systemInfo.disks.length * 0.1 }"
-        >
-          <div class="info-card system-card">
-            <div class="card-header">
-              <div class="card-icon system-icon">
-                <Icon icon="material-symbols:computer" />
-              </div>
-              <div class="card-title-section">
-                <h3 class="card-title">系统信息</h3>
-                <p class="card-subtitle">基本系统信息</p>
-              </div>
-            </div>
-            <div class="card-content">
-              <div class="info-item">
-                <span class="info-label">操作系统</span>
-                <span class="info-value">{{ systemInfo.system.osName }}</span>
-              </div>
-              <div class="info-item">
-                <span class="info-label">系统版本</span>
-                <span class="info-value">{{ systemInfo.system.osVersion }}</span>
-              </div>
-              <div class="info-item">
-                <span class="info-label">系统架构</span>
-                <span class="info-value">{{ systemInfo.system.architecture }}</span>
-              </div>
-              <div class="info-item">
-                <span class="info-label">主机名</span>
-                <span class="info-value">{{ systemInfo.system.hostname }}</span>
-              </div>
-              <div class="info-item">
-                <span class="info-label">运行时间</span>
-                <span class="info-value">{{ formatUptime(systemInfo.system.uptime) }}</span>
-              </div>
-            </div>
-          </div>
-        </Motion>
+
       </div>
     </div>
   </NuxtLayout>
@@ -468,20 +431,231 @@ onUnmounted(() => {
   gap: 1.5rem;
 }
 
+/* 系统概览包装器 - 独占一行 */
+.system-overview-wrapper {
+  grid-column: 1 / -1;
+  margin-bottom: 1.5rem;
+}
+
+/* 系统概览卡片 */
+.system-overview-card {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 1.25rem;
+  padding: 2rem;
+  transition: all 0.3s ease;
+}
+
+.system-overview-card:hover {
+  transform: translateY(-2px);
+}
+
+/* 系统头部 */
+.system-header {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+/* 系统图标包装器 */
+.system-icon-wrapper {
+  flex-shrink: 0;
+}
+
+.system-icon-bg {
+  width: 4rem;
+  height: 4rem;
+  background: linear-gradient(135deg,
+    rgba(59, 130, 246, 0.2) 0%,
+    rgba(147, 51, 234, 0.2) 100%
+  );
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  border-radius: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.system-icon-bg::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(45deg,
+    transparent 30%,
+    rgba(255, 255, 255, 0.1) 50%,
+    transparent 70%
+  );
+  transform: translateX(-100%);
+  transition: transform 0.6s ease;
+}
+
+.system-icon-bg:hover::before {
+  transform: translateX(100%);
+}
+
+.system-icon {
+  width: 2rem;
+  height: 2rem;
+  color: rgba(255, 255, 255, 0.9);
+  z-index: 1;
+}
+
+/* 系统主要信息 */
+.system-main-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.system-title {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.95);
+  margin-bottom: 0.5rem;
+  line-height: 1.2;
+  background: linear-gradient(135deg,
+    rgba(255, 255, 255, 0.95) 0%,
+    rgba(255, 255, 255, 0.8) 100%
+  );
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.system-meta {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.system-version,
+.system-arch,
+.system-hostname {
+  padding: 0.25rem 0.75rem;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.system-version {
+  background: rgba(34, 197, 94, 0.15);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  color: rgba(34, 197, 94, 1);
+}
+
+.system-arch {
+  background: rgba(59, 130, 246, 0.15);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  color: rgba(59, 130, 246, 1);
+}
+
+.system-hostname {
+  background: rgba(168, 85, 247, 0.15);
+  border: 1px solid rgba(168, 85, 247, 0.3);
+  color: rgba(168, 85, 247, 1);
+}
+
+/* 运行时间 */
+.system-uptime {
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.uptime-label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.6);
+  margin-bottom: 0.25rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.uptime-value {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+  line-height: 1.3;
+}
+
+/* 系统规格 */
+.system-specs {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1rem;
+}
+
+.spec-card {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 0.875rem;
+  padding: 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  transition: all 0.3s ease;
+}
+
+.spec-card:hover {
+  border-color: rgba(255, 255, 255, 0.12);
+  transform: translateY(-1px);
+}
+
+.spec-icon {
+  width: 2.5rem;
+  height: 2.5rem;
+  background: transparent;
+  border-radius: 0.625rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.spec-icon svg {
+  width: 1.25rem;
+  height: 1.25rem;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.spec-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.spec-label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.6);
+  margin-bottom: 0.25rem;
+  line-height: 1.3;
+}
+
+.spec-value {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+  line-height: 1.4;
+}
+
 /* 信息卡片 */
 .info-card {
   border-radius: 1rem;
   overflow: hidden;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.5rem;
 
-  /* 液态玻璃效果 */
-  background: linear-gradient(135deg,
-    rgba(255, 255, 255, 0.15) 0%,
-    rgba(255, 255, 255, 0.08) 50%,
-    rgba(255, 255, 255, 0.05) 100%
-  );
-  backdrop-filter: blur(20px) saturate(150%);
-  -webkit-backdrop-filter: blur(20px) saturate(150%);
+  /* 透明效果 */
+  background: transparent;
   border: 1px solid rgba(255, 255, 255, 0.2);
 
   /* 阴影效果 */
@@ -512,11 +686,12 @@ onUnmounted(() => {
 .card-icon {
   width: 3rem;
   height: 3rem;
-  border-radius: 0.75rem;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  background: transparent;
+  border: none;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
@@ -528,50 +703,55 @@ onUnmounted(() => {
 
 /* CPU图标样式 */
 .cpu-icon {
-  background: linear-gradient(135deg,
-    rgba(59, 130, 246, 0.3) 0%,
-    rgba(59, 130, 246, 0.2) 100%
-  );
-  border: 1px solid rgba(59, 130, 246, 0.4);
+  background: transparent;
+  border: none;
 }
 
 /* 内存图标样式 */
 .memory-icon {
-  background: linear-gradient(135deg,
-    rgba(16, 185, 129, 0.3) 0%,
-    rgba(16, 185, 129, 0.2) 100%
-  );
-  border: 1px solid rgba(16, 185, 129, 0.4);
+  background: transparent;
+  border: none;
 }
 
 /* 磁盘图标样式 */
 .disk-icon {
-  background: linear-gradient(135deg,
-    rgba(245, 158, 11, 0.3) 0%,
-    rgba(245, 158, 11, 0.2) 100%
-  );
-  border: 1px solid rgba(245, 158, 11, 0.4);
+  background: transparent;
+  border: none;
 }
 
 /* 系统图标样式 */
 .system-icon {
-  background: linear-gradient(135deg,
-    rgba(168, 85, 247, 0.3) 0%,
-    rgba(168, 85, 247, 0.2) 100%
-  );
-  border: 1px solid rgba(168, 85, 247, 0.4);
+  background: transparent;
+  border: none;
 }
 
-.card-title-section {
+/* 右侧内容区域 */
+.card-right {
   flex: 1;
-  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+/* 新的头部布局 */
+.card-header-new {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* 系统信息内容 */
+.system-info-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
 }
 
 .card-title {
-  font-size: 1.125rem;
+  font-size: 1rem;
   font-weight: 600;
   color: rgba(255, 255, 255, 0.9);
-  margin: 0 0 0.25rem 0;
+  margin: 0;
 }
 
 .card-subtitle {
@@ -580,10 +760,7 @@ onUnmounted(() => {
   margin: 0;
 }
 
-/* 卡片内容 */
-.card-content {
-  padding: 0 1.5rem 1.5rem 1.5rem;
-}
+
 
 .info-item {
   display: flex;
@@ -641,7 +818,7 @@ onUnmounted(() => {
 /* 使用率进度条 */
 .usage-bar {
   width: 100%;
-  height: 0.5rem;
+  height: 0.375rem;
   background: rgba(255, 255, 255, 0.1);
   border-radius: 0.25rem;
   overflow: hidden;
@@ -757,6 +934,67 @@ onUnmounted(() => {
   .card-icon svg {
     width: 1.25rem;
     height: 1.25rem;
+  }
+
+  /* 移动端系统概览调整 */
+  .system-overview-card {
+    padding: 1.5rem;
+  }
+
+  .system-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .system-icon-bg {
+    width: 3rem;
+    height: 3rem;
+  }
+
+  .system-icon {
+    width: 1.5rem;
+    height: 1.5rem;
+  }
+
+  .system-title {
+    font-size: 1.5rem;
+  }
+
+  .system-meta {
+    gap: 0.5rem;
+  }
+
+  .system-version,
+  .system-arch,
+  .system-hostname {
+    font-size: 0.8rem;
+    padding: 0.2rem 0.6rem;
+  }
+
+  .system-uptime {
+    text-align: left;
+    width: 100%;
+  }
+
+  .system-specs {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+
+  .spec-card {
+    padding: 1rem;
+  }
+
+  .spec-icon {
+    width: 2rem;
+    height: 2rem;
+  }
+
+  .spec-icon svg {
+    width: 1rem;
+    height: 1rem;
   }
 
   .card-title {
