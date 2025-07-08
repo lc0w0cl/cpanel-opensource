@@ -357,6 +357,72 @@ const isMatchedOrDownloadable = (item: MusicSearchResult) => {
   return false
 }
 
+// 获取歌单中的下一首歌
+const getNextPlaylistSong = (currentSong: MusicSearchResult): MusicSearchResult | null => {
+  if (!playlistInfo.value || !isPlaylistSong(currentSong)) {
+    return null
+  }
+
+  // 获取当前搜索结果（歌单歌曲列表）
+  const playlistSongs = currentSearchResults.value.filter(song => isPlaylistSong(song))
+
+  if (playlistSongs.length === 0) {
+    return null
+  }
+
+  // 找到当前歌曲在歌单中的位置
+  const currentIndex = playlistSongs.findIndex(song => song.id === currentSong.id)
+
+  if (currentIndex === -1) {
+    // 如果没找到当前歌曲，返回第一首
+    return playlistSongs[0]
+  }
+
+  // 如果是最后一首，返回null（不循环播放）
+  if (currentIndex >= playlistSongs.length - 1) {
+    return null
+  }
+
+  // 返回下一首歌
+  return playlistSongs[currentIndex + 1]
+}
+
+// 自动播放歌单中的下一首歌
+const playNextPlaylistSong = async () => {
+  if (!currentPlaying.value) {
+    return
+  }
+
+  const nextSong = getNextPlaylistSong(currentPlaying.value)
+
+  if (nextSong) {
+    console.log('自动播放歌单下一首:', nextSong.title, '-', nextSong.artist)
+    showNotification(`自动播放下一首: ${nextSong.title}`, 'info')
+
+    // 播放下一首歌
+    await playMusic(nextSong)
+  } else {
+    console.log('歌单播放完毕')
+    showNotification('歌单播放完毕', 'info')
+  }
+}
+
+// 获取歌曲在歌单中的位置信息
+const getPlaylistPosition = (song: MusicSearchResult): string => {
+  if (!playlistInfo.value || !isPlaylistSong(song)) {
+    return ''
+  }
+
+  const playlistSongs = currentSearchResults.value.filter(s => isPlaylistSong(s))
+  const currentIndex = playlistSongs.findIndex(s => s.id === song.id)
+
+  if (currentIndex === -1) {
+    return ''
+  }
+
+  return `${currentIndex + 1}/${playlistSongs.length}`
+}
+
 // 从已匹配的歌曲中提取B站资源信息
 const extractMatchedResult = (item: MusicSearchResult): MusicSearchResult | null => {
   if (!item.description || !item.description.includes('(已匹配B站:')) {
@@ -710,9 +776,22 @@ const playMusic = async (result: MusicSearchResult) => {
       setCurrentTime(audio.currentTime)
     })
 
-    audio.addEventListener('ended', () => {
+    audio.addEventListener('ended', async () => {
       setPlaying(false)
       setCurrentTime(0)
+
+      // 如果当前播放的是歌单中的歌曲，自动播放下一首
+      if (currentPlaying.value && isPlaylistSong(currentPlaying.value)) {
+        console.log('歌曲播放结束，检查是否有下一首歌单歌曲')
+
+        // 延迟1秒后播放下一首，给用户一个缓冲时间
+        setTimeout(async () => {
+          // 再次检查是否还在播放状态（用户可能在这1秒内手动操作了）
+          if (!isPlaying.value && currentPlaying.value) {
+            await playNextPlaylistSong()
+          }
+        }, 1000)
+      }
     })
 
     audio.addEventListener('error', async (e) => {
@@ -1560,6 +1639,12 @@ const startBatchDownload = async () => {
                   <Icon icon="mdi:information-outline" class="notice-icon" />
                   <span>已匹配的歌曲将直接下载，未匹配的歌曲将通过B站搜索下载</span>
                 </div>
+
+                <!-- 播放说明 -->
+                <div class="download-notice">
+                  <Icon icon="mdi:playlist-play" class="notice-icon" />
+                  <span>播放歌单歌曲时，歌曲结束后将自动播放下一首</span>
+                </div>
               </div>
             </div>
           </div>
@@ -1799,6 +1884,13 @@ const startBatchDownload = async () => {
         <div class="player-text">
           <h4 class="player-title">{{ currentPlaying.title }}</h4>
           <p class="player-artist">{{ currentPlaying.artist }}</p>
+          <p v-if="isPlaylistSong(currentPlaying)" class="player-playlist">
+            <Icon icon="mdi:playlist-music" class="playlist-icon" />
+            来自歌单: {{ currentPlaying.playlistName || playlistInfo?.title }}
+            <span v-if="getPlaylistPosition(currentPlaying)" class="playlist-position">
+              ({{ getPlaylistPosition(currentPlaying) }})
+            </span>
+          </p>
         </div>
       </div>
 
@@ -3829,6 +3921,29 @@ const startBatchDownload = async () => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.player-playlist {
+  font-size: 0.7rem;
+  color: rgba(255, 255, 255, 0.5);
+  margin: 0.25rem 0 0 0;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.playlist-icon {
+  width: 0.75rem;
+  height: 0.75rem;
+  flex-shrink: 0;
+}
+
+.playlist-position {
+  color: rgba(255, 255, 255, 0.4);
+  font-weight: 500;
 }
 
 /* 播放控制 */
