@@ -357,9 +357,62 @@ const isMatchedOrDownloadable = (item: MusicSearchResult) => {
   return false
 }
 
+// 从已匹配的歌曲中提取B站资源信息
+const extractMatchedResult = (item: MusicSearchResult): MusicSearchResult | null => {
+  if (!item.description || !item.description.includes('(已匹配B站:')) {
+    return null
+  }
+
+  try {
+    // 已匹配的歌曲实际上已经包含了完整的B站资源信息
+    // 自动匹配功能会更新歌曲的 url、thumbnail、playCount 等字段
+    // 我们只需要创建一个新的结果对象，确保平台设置为 bilibili
+    const matchedResult: MusicSearchResult = {
+      ...item,
+      id: `matched_${item.id}`,
+      platform: 'bilibili', // 确保平台设置为 bilibili
+      quality: '音频'
+    }
+
+    console.log('使用已匹配的B站资源信息:', {
+      title: matchedResult.title,
+      url: matchedResult.url,
+      thumbnail: matchedResult.thumbnail,
+      playCount: matchedResult.playCount
+    })
+
+    return matchedResult
+
+  } catch (error) {
+    console.error('提取匹配结果时发生错误:', error)
+    return null
+  }
+}
+
 // 通过B站搜索下载歌单歌曲
 const downloadPlaylistSong = async (item: MusicSearchResult, onProgress?: (progress: number) => void, abortSignal?: AbortSignal) => {
   try {
+    // 检查是否已经匹配过
+    if (item.description && item.description.includes('(已匹配B站:')) {
+      console.log('歌曲已匹配，直接使用匹配结果下载:', item.title)
+
+      // 从描述中提取匹配的B站资源信息
+      const matchedResult = extractMatchedResult(item)
+      if (matchedResult) {
+        console.log('使用已匹配的B站资源:', matchedResult.title)
+
+        // 直接使用匹配结果进行下载
+        const result = await downloadMusic(matchedResult, onProgress)
+
+        if (result) {
+          showNotification(`下载完成: ${item.title} (使用已匹配资源: ${matchedResult.title})`, 'success')
+          return true
+        } else {
+          throw new Error('下载失败')
+        }
+      }
+    }
+
     console.log('开始搜索B站资源:', item.title, item.artist)
 
     // 构建多个搜索关键词，提高匹配成功率
@@ -421,7 +474,7 @@ const downloadPlaylistSong = async (item: MusicSearchResult, onProgress?: (progr
     console.log('选择最佳结果:', bestResult.title, '播放量:', bestResult.playCount)
 
     // 使用找到的B站资源进行下载
-    const result = await downloadMusic(bestResult)
+    const result = await downloadMusic(bestResult, onProgress)
 
     if (result) {
       showNotification(`下载完成: ${item.title} (通过B站: ${bestResult.title})`, 'success')
@@ -1505,7 +1558,7 @@ const startBatchDownload = async () => {
                 <!-- 下载说明 -->
                 <div class="download-notice">
                   <Icon icon="mdi:information-outline" class="notice-icon" />
-                  <span>歌单歌曲将通过B站搜索下载，自动选择播放量最高的资源</span>
+                  <span>已匹配的歌曲将直接下载，未匹配的歌曲将通过B站搜索下载</span>
                 </div>
               </div>
             </div>
