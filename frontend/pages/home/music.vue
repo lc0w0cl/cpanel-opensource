@@ -1000,6 +1000,10 @@ const autoMatchMusic = async () => {
     matchingProgress.value[song.id] = 0
   })
 
+  // 跟踪匹配成功和失败的歌曲
+  const matchedSuccessfully = new Set<string>()
+  const matchedFailed = new Set<string>()
+
   try {
     showNotification(`开始自动匹配 ${selectedSongs.length} 首歌曲，将在B站搜索最佳资源`, 'success')
 
@@ -1059,6 +1063,7 @@ const autoMatchMusic = async () => {
 
         if (allResults.length === 0) {
           console.warn(`未找到匹配结果: ${song.title} - ${song.artist}`)
+          matchedFailed.add(song.id)
           updateMatchingProgress(song.id, 100)
           continue
         }
@@ -1089,15 +1094,15 @@ const autoMatchMusic = async () => {
 
         console.log(`匹配成功: ${song.title} -> ${bestResult.title} (播放量: ${bestResult.playCount})`)
 
+        // 标记为匹配成功
+        matchedSuccessfully.add(song.id)
+
         // 开始更新结果，更新进度
         updateMatchingProgress(song.id, 90)
 
         // 更新当前搜索结果中的信息
         const originalIndex = currentSearchResults.value.findIndex(r => r.id === song.id)
         if (originalIndex !== -1) {
-          // 保存当前选中状态
-          const currentSelectedIds = Array.from(selectedResults.value)
-
           // 创建新的搜索结果数组，保留原始的一些信息，但更新关键信息
           const updatedResults = [...currentSearchResults.value]
           updatedResults[originalIndex] = {
@@ -1112,13 +1117,6 @@ const autoMatchMusic = async () => {
 
           // 使用当前搜索结果更新方法
           updateCurrentSearchResults(updatedResults)
-
-          // 恢复选中状态 - 使用提供的方法而不是直接操作Set
-          currentSelectedIds.forEach(id => {
-            if (!selectedResults.value.has(id)) {
-              toggleSelection(id)
-            }
-          })
         }
 
         // 匹配成功，设置为100%并在1秒后清除loading状态
@@ -1136,6 +1134,8 @@ const autoMatchMusic = async () => {
 
       } catch (error: any) {
         console.error(`匹配失败: ${song.title} - ${song.artist}`, error)
+        // 标记为匹配失败
+        matchedFailed.add(song.id)
         // 匹配失败，设置为100%并在1秒后清除loading状态
         updateMatchingProgress(song.id, 100)
         setTimeout(() => {
@@ -1146,8 +1146,21 @@ const autoMatchMusic = async () => {
       }
     }
 
-    const successCount = Object.values(matchingProgress.value).filter(p => p === 100).length
-    showNotification(`自动匹配完成，成功匹配 ${successCount}/${selectedSongs.length} 首歌曲`, 'success')
+    const successCount = matchedSuccessfully.size
+    const failedCount = matchedFailed.size
+
+    // 自动取消选中匹配成功的歌曲
+    matchedSuccessfully.forEach(songId => {
+      if (selectedResults.value.has(songId)) {
+        toggleSelection(songId)
+      }
+    })
+
+    if (successCount > 0) {
+      showNotification(`自动匹配完成，成功匹配 ${successCount}/${selectedSongs.length} 首歌曲，已自动取消选中匹配成功的歌曲`, 'success')
+    } else {
+      showNotification(`自动匹配完成，未找到匹配的歌曲`, 'warning')
+    }
 
   } catch (error: any) {
     console.error('自动匹配过程中发生错误:', error)
