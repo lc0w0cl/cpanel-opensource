@@ -479,6 +479,16 @@ const downloadPlaylistSong = async (item: MusicSearchResult, onProgress?: (progr
           throw new Error('下载失败')
         }
       }
+    }else if(item.platform == 'netease'){
+      // 如果是网易云音乐尝试直接下载
+      console.log('尝试直接下载网易云音乐歌曲:', item.title)
+      const result = await downloadMusic(item, onProgress)
+      if (result) {
+        showNotification(`下载完成: ${item.title}`, 'success')
+        return true
+      } else {
+        throw new Error('下载失败')
+      }
     }
 
     console.log('开始搜索B站资源:', item.title, item.artist)
