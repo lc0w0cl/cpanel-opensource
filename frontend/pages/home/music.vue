@@ -1445,7 +1445,7 @@ const startBatchDownload = async () => {
         <div class="search-card">
           <div class="card-header">
             <Icon icon="mdi:music-note-plus" class="card-icon" />
-            <div class="card-title-section">
+            <div class="card-title-section" style="flex:1">
               <h3 class="card-title">搜索音乐</h3>
               <p class="card-subtitle">支持关键词搜索和直链下载</p>
             </div>
@@ -1769,6 +1769,10 @@ const startBatchDownload = async () => {
                       <span v-if="result.vip" class="vip-badge">
                         <Icon icon="mdi:crown" class="vip-icon" />
                         VIP
+                      </span>
+                      <span v-if="result.description && result.description.includes('(已匹配B站:')" class="matched-badge">
+                        <Icon icon="mdi:check-circle" class="matched-icon" />
+                        已匹配
                       </span>
                     </div>
                     <p class="result-artist">{{ result.artist }}</p>
