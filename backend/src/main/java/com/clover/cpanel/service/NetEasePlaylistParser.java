@@ -116,6 +116,9 @@ public class NetEasePlaylistParser {
         connection.setRequestProperty("Connection", "keep-alive");
         connection.setConnectTimeout(15000);
         connection.setReadTimeout(15000);
+
+        // 添加包含os=pc的Cookie
+        connection.setRequestProperty("Cookie", "os=pc; appver=2.9.7; __csrf=; MUSIC_U=");
         
         int responseCode = connection.getResponseCode();
         if (responseCode != 200) {
