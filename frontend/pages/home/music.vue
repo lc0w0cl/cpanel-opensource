@@ -356,6 +356,10 @@ const isMatchedOrDownloadable = (item: MusicSearchResult) => {
     return true
   }
 
+  if(item.platform == 'netease' && item.vip==false) {
+    return true
+  }
+
   return false
 }
 
@@ -1028,11 +1032,12 @@ const autoMatchMusic = async () => {
         console.log(`开始匹配第 ${i + 1}/${selectedSongs.length} 首: ${song.title} - ${song.artist}`)
 
         // 构建多个搜索关键词，提高匹配成功率
+        const title = song.title.replace(/[()（）]/g, '')
         const searchKeywords = [
-          `${song.artist} ${song.title}`,  // 歌手 + 歌曲名
-          `${song.title} ${song.artist}`,  // 歌曲名 + 歌手
-          song.title,                      // 仅歌曲名
-          `${song.title} 音乐`,            // 歌曲名 + 音乐
+          `${song.artist} ${title}`,  // 歌手 + 歌曲名
+          `${title} ${song.artist}`,  // 歌曲名 + 歌手
+          title,                      // 仅歌曲名
+          `${title} 音乐`,            // 歌曲名 + 音乐
           `${song.artist} ${song.title} 官方` // 歌手 + 歌曲名 + 官方
         ]
 

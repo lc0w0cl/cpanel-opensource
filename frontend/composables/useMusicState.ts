@@ -360,6 +360,11 @@ export const useMusicState = () => {
           return true
         }
 
+        //网易平台歌曲可以直接下载
+        if (item.platform == 'netease' && item.vip == false){
+          return true
+        }
+
         // 检查是否本身就是来自 bilibili/youtube 的链接或关键词搜索结果
         // 注意：这里无法直接访问 searchType，所以通过其他方式判断
         // 如果有 playlistName 说明是歌单歌曲，需要匹配才能下载
