@@ -1316,7 +1316,7 @@ const getAudioQualityPriority = (title: string): number => {
   const titleLower = title.toLowerCase()
 
   // 高优先级关键词（无损音质）
-  if (title.includes('无损') || titleLower.includes('flac') || titleLower.includes('lossless')) {
+  if (title.includes('无损') || titleLower.includes('flac') || titleLower.includes('lossless') || title.includes("Hi-res")) {
     return 100
   }
 
