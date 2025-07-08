@@ -1730,7 +1730,30 @@ const startBatchDownload = async () => {
                   <!-- 平台标识 -->
                   <div class="platform-badge" :class="result.platform">
                     <Icon
-                      :icon="result.platform === 'bilibili' ? 'simple-icons:bilibili' : 'mdi:youtube'"
+                      v-if="result.platform === 'bilibili'"
+                      icon="simple-icons:bilibili"
+                      class="platform-icon"
+                    />
+                    <Icon
+                      v-else-if="result.platform === 'youtube'"
+                      icon="mdi:youtube"
+                      class="platform-icon"
+                    />
+                    <img
+                      v-else-if="result.platform === 'qq'"
+                      src="/logo/qqmusic.ico"
+                      class="platform-icon"
+                      alt="QQ音乐"
+                    />
+                    <img
+                      v-else-if="result.platform === 'netease'"
+                      src="/logo/netease.ico"
+                      class="platform-icon"
+                      alt="网易云音乐"
+                    />
+                    <Icon
+                      v-else
+                      icon="mdi:music"
                       class="platform-icon"
                     />
                   </div>
