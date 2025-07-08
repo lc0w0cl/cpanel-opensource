@@ -17,6 +17,7 @@ export interface MusicSearchResult {
   description?: string
   tags?: string[]
   playlistName?: string
+  vip?: boolean
 }
 
 // 搜索请求接口定义
@@ -53,6 +54,7 @@ export interface PlaylistSong {
   sourceId: string
   duration?: string
   playlistName?: string
+  vip?: boolean
 }
 
 // 歌单信息接口定义

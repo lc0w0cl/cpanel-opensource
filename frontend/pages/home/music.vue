@@ -269,7 +269,8 @@ const handlePlaylistParse = async () => {
       publishTime: '',
       description: `来自歌单: ${playlist.title}`,
       tags: [],
-      playlistName: playlist.title
+      playlistName: playlist.title,
+      vip: song.vip || false
     }))
 
     updateCurrentSearchResults(results)
@@ -1763,7 +1764,13 @@ const startBatchDownload = async () => {
                 <div class="result-info">
                   <!-- 内容区域 -->
                   <div class="result-content">
-                    <h4 class="result-title">{{ result.title }}</h4>
+                    <div class="title-row">
+                      <h4 class="result-title">{{ result.title }}</h4>
+                      <span v-if="result.vip" class="vip-badge">
+                        <Icon icon="mdi:crown" class="vip-icon" />
+                        VIP
+                      </span>
+                    </div>
                     <p class="result-artist">{{ result.artist }}</p>
                     <div class="result-meta">
                       <span v-if="result.playCount" class="play-count">
@@ -1869,7 +1876,13 @@ const startBatchDownload = async () => {
           class="player-thumbnail"
         />
         <div class="player-text">
-          <h4 class="player-title">{{ currentPlaying.title }}</h4>
+          <div class="player-title-row">
+            <h4 class="player-title">{{ currentPlaying.title }}</h4>
+            <span v-if="currentPlaying.vip" class="vip-badge-small">
+              <Icon icon="mdi:crown" class="vip-icon-small" />
+              VIP
+            </span>
+          </div>
           <p class="player-artist">{{ currentPlaying.artist }}</p>
           <p v-if="isPlaylistSong(currentPlaying)" class="player-playlist">
             <Icon icon="mdi:playlist-music" class="playlist-icon" />
@@ -2029,7 +2042,13 @@ const startBatchDownload = async () => {
             </div>
 
             <div class="item-info">
-              <h4 class="item-title">{{ item.title }}</h4>
+              <div class="item-title-row">
+                <h4 class="item-title">{{ item.title }}</h4>
+                <span v-if="item.vip" class="vip-badge-small">
+                  <Icon icon="mdi:crown" class="vip-icon-small" />
+                  VIP
+                </span>
+              </div>
               <p class="item-artist">{{ item.artist }}</p>
 
               <!-- 元数据信息 -->

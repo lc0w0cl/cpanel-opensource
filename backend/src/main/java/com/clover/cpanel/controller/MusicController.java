@@ -1071,4 +1071,51 @@ public class MusicController {
             return relativePath;
         }
     }
+
+    /**
+     * 测试VIP歌曲检测
+     */
+    @PostMapping("/test/vip-detection")
+    public ApiResponse<Map<String, Object>> testVipDetection(@RequestBody Map<String, String> request) {
+        try {
+            String url = request.get("url");
+            log.info("测试VIP歌曲检测: {}", url);
+
+            PlaylistParseRequestDTO parseRequest = new PlaylistParseRequestDTO();
+            parseRequest.setUrl(url);
+            parseRequest.setPlatform("auto");
+
+            PlaylistInfoDTO playlist = playlistParserService.parsePlaylist(parseRequest);
+
+            // 统计VIP歌曲
+            long vipCount = playlist.getSongs().stream()
+                .mapToLong(song -> song.isVip() ? 1 : 0)
+                .sum();
+
+            Map<String, Object> result = new HashMap<>();
+            result.put("totalSongs", playlist.getSongs().size());
+            result.put("vipSongs", vipCount);
+            result.put("freeSongs", playlist.getSongs().size() - vipCount);
+            result.put("vipPercentage", playlist.getSongs().size() > 0 ?
+                (double) vipCount / playlist.getSongs().size() * 100 : 0);
+
+            // 返回前10首歌曲的VIP状态作为示例
+            result.put("sampleSongs", playlist.getSongs().stream()
+                .limit(10)
+                .map(song -> {
+                    Map<String, Object> songInfo = new HashMap<>();
+                    songInfo.put("title", song.getTitle());
+                    songInfo.put("artist", song.getArtist());
+                    songInfo.put("vip", song.isVip());
+                    return songInfo;
+                })
+                .toList());
+
+            return ApiResponse.success(result);
+
+        } catch (Exception e) {
+            log.error("测试VIP歌曲检测失败", e);
+            return ApiResponse.error("测试失败: " + e.getMessage());
+        }
+    }
 }

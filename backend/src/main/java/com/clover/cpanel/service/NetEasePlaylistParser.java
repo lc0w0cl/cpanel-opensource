@@ -184,7 +184,39 @@ public class NetEasePlaylistParser {
         try {
             String songName = trackNode.has("name") ? trackNode.get("name").asText() : "未知歌曲";
             String songId = trackNode.has("id") ? trackNode.get("id").asText() : "0";
-            boolean vip = trackNode.has("fee") && trackNode.get("fee").asInt() == 1;
+
+            // 检测VIP状态 - 网易云音乐的多种VIP标识
+            boolean vip = false;
+            if (trackNode.has("fee")) {
+                int fee = trackNode.get("fee").asInt();
+                // fee=1: VIP歌曲, fee=4: 付费专辑, fee=8: 非会员可免费播放低音质，会员可播放高音质及下载
+                if (fee == 1 || fee == 4 || fee == 8) {
+                    vip = true;
+                }
+            }
+
+            // 检查其他VIP相关字段
+            if (trackNode.has("privilege")) {
+                JsonNode privilege = trackNode.get("privilege");
+                // 检查播放权限
+                if (privilege.has("st") && privilege.get("st").asInt() < 0) {
+                    vip = true;
+                }
+                // 检查下载权限
+                if (privilege.has("dl") && privilege.get("dl").asInt() < 0) {
+                    vip = true;
+                }
+                // 检查付费类型
+                if (privilege.has("fee") && privilege.get("fee").asInt() > 0) {
+                    vip = true;
+                }
+            }
+
+            // 检查版权信息
+            if (trackNode.has("copyright") && trackNode.get("copyright").asInt() == 0) {
+                // 版权受限，可能需要VIP
+                vip = true;
+            }
             
             // 获取专辑信息
             String albumName = "未知专辑";

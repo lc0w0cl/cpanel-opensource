@@ -196,7 +196,35 @@ public class QQMusicPlaylistParser {
             String mid = songNode.has("songmid") ? songNode.get("songmid").asText() : "";
             String albumName = songNode.has("albumname") ? songNode.get("albumname").asText() : "未知专辑";
             String albumMid = songNode.has("albummid") ? songNode.get("albummid").asText() : "";
-            boolean vip = songNode.has("pay") && songNode.get("pay").has("paydownload") && songNode.get("pay").get("paydownload").asInt() > 0;
+
+            // 检测VIP状态 - QQ音乐的多种VIP标识
+            boolean vip = false;
+            if (songNode.has("pay")) {
+                JsonNode payNode = songNode.get("pay");
+                // 检查付费下载
+                if (payNode.has("paydownload") && payNode.get("paydownload").asInt() > 0) {
+                    vip = true;
+                }
+                // 检查付费播放
+                if (payNode.has("payplay") && payNode.get("payplay").asInt() > 0) {
+                    vip = true;
+                }
+                // 检查付费状态
+                if (payNode.has("payinfo") && payNode.get("payinfo").asInt() > 0) {
+                    vip = true;
+                }
+            }
+
+            // 检查其他VIP标识字段
+            if (songNode.has("switch") && songNode.get("switch").asInt() > 0) {
+                vip = true;
+            }
+
+            // 检查试听标识
+            if (songNode.has("preview") && songNode.get("preview").has("trybegin") &&
+                songNode.get("preview").get("trybegin").asInt() > 0) {
+                vip = true;
+            }
             // 获取歌手信息
             List<String> singers = new ArrayList<>();
             if (songNode.has("singer")) {
