@@ -58,4 +58,10 @@ public class PlaylistSongDTO {
      * 歌单名称
      */
     private String playlistName;
+
+
+    /**
+     * 是否vip歌曲
+     */
+    private boolean vip = false;
 }

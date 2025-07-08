@@ -196,7 +196,7 @@ public class QQMusicPlaylistParser {
             String mid = songNode.has("songmid") ? songNode.get("songmid").asText() : "";
             String albumName = songNode.has("albumname") ? songNode.get("albumname").asText() : "未知专辑";
             String albumMid = songNode.has("albummid") ? songNode.get("albummid").asText() : "";
-
+            boolean vip = songNode.has("pay") && songNode.get("pay").has("paydownload") && songNode.get("pay").get("paydownload").asInt() > 0;
             // 获取歌手信息
             List<String> singers = new ArrayList<>();
             if (songNode.has("singer")) {
@@ -224,6 +224,7 @@ public class QQMusicPlaylistParser {
                     .source("qq")
                     .sourceId(songId)
                     .playlistName(playlistName)
+                    .vip(vip)
                     .build();
 
         } catch (Exception e) {

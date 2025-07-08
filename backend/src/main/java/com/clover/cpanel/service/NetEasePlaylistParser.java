@@ -157,7 +157,6 @@ public class NetEasePlaylistParser {
         List<PlaylistSongDTO> songs = new ArrayList<>();
         if (result.has("tracks")) {
             JsonNode tracks = result.get("tracks");
-            //todo 用tracks的fee字段判断是否为付费歌曲（1）
             for (JsonNode trackNode : tracks) {
                 PlaylistSongDTO song = parseSong(trackNode, title);
                 if (song != null) {
@@ -185,6 +184,7 @@ public class NetEasePlaylistParser {
         try {
             String songName = trackNode.has("name") ? trackNode.get("name").asText() : "未知歌曲";
             String songId = trackNode.has("id") ? trackNode.get("id").asText() : "0";
+            boolean vip = trackNode.has("fee") && trackNode.get("fee").asInt() == 1;
             
             // 获取专辑信息
             String albumName = "未知专辑";
@@ -231,6 +231,7 @@ public class NetEasePlaylistParser {
                     .sourceId(songId)
                     .duration(duration)
                     .playlistName(playlistName)
+                    .vip(vip)
                     .build();
                     
         } catch (Exception e) {
