@@ -1792,7 +1792,7 @@ const startBatchDownload = async () => {
       <!-- 当前播放信息 -->
       <div class="player-info">
         <img
-          :src="currentPlaying.thumbnail"
+          :src="processImageUrl(currentPlaying.thumbnail)"
           :alt="currentPlaying.title"
           class="player-thumbnail"
         />
