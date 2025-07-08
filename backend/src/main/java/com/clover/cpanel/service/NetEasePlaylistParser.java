@@ -157,6 +157,7 @@ public class NetEasePlaylistParser {
         List<PlaylistSongDTO> songs = new ArrayList<>();
         if (result.has("tracks")) {
             JsonNode tracks = result.get("tracks");
+            //todo 用tracks的fee字段判断是否为付费歌曲（1）
             for (JsonNode trackNode : tracks) {
                 PlaylistSongDTO song = parseSong(trackNode, title);
                 if (song != null) {
