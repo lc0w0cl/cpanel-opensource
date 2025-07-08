@@ -216,15 +216,15 @@ public class QQMusicPlaylistParser {
             }
 
             // 检查其他VIP标识字段
-            if (songNode.has("switch") && songNode.get("switch").asInt() > 0) {
-                vip = true;
-            }
+//            if (songNode.has("switch") && songNode.get("switch").asInt() > 0) {
+//                vip = true;
+//            }
 
             // 检查试听标识
-            if (songNode.has("preview") && songNode.get("preview").has("trybegin") &&
-                songNode.get("preview").get("trybegin").asInt() > 0) {
-                vip = true;
-            }
+//            if (songNode.has("preview") && songNode.get("preview").has("trybegin") &&
+//                songNode.get("preview").get("trybegin").asInt() > 0) {
+//                vip = true;
+//            }
             // 获取歌手信息
             List<String> singers = new ArrayList<>();
             if (songNode.has("singer")) {
