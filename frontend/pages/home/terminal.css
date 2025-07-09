@@ -84,51 +84,18 @@
   height: 1.25rem;
 }
 
-/* 主要内容区域 */
-.terminal-content {
+/* 全屏终端面板样式 */
+.terminal-panel-fullscreen {
   flex: 1;
-  display: flex;
-  gap: 0.75rem;
-  min-height: 0;
-}
-
-/* 服务器面板样式 */
-.servers-panel {
-  width: 350px;
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(0, 0, 0, 0.8);
   border-radius: 12px;
   border: 1px solid rgba(255, 255, 255, 0.1);
   display: flex;
   flex-direction: column;
-  transition: all 0.3s ease;
+  min-height: 0;
 }
 
-.servers-panel.collapsed {
-  width: 280px;
-}
-
-.panel-header {
-  padding: 0.75rem 1rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.panel-title {
-  font-size: 1.125rem;
-  font-weight: 600;
-  color: white;
-  margin: 0;
-}
-
-.connection-status {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.875rem;
-}
-
+/* 状态图标样式 */
 .status-icon {
   width: 1rem;
   height: 1rem;
@@ -138,176 +105,7 @@
   font-weight: 500;
 }
 
-/* 服务器列表样式 */
-.servers-list {
-  flex: 1;
-  padding: 0.75rem;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-/* 服务器卡片样式 */
-.server-card {
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 10px;
-  padding: 0.75rem;
-  transition: all 0.2s ease;
-  cursor: pointer;
-}
-
-.server-card:hover {
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.2);
-  transform: translateY(-2px);
-}
-
-.server-card.selected {
-  border-color: rgba(59, 130, 246, 0.5);
-  background: rgba(59, 130, 246, 0.1);
-}
-
-.server-card.connected {
-  border-color: rgba(34, 197, 94, 0.5);
-  background: rgba(34, 197, 94, 0.1);
-}
-
-.server-card.connecting {
-  border-color: rgba(245, 158, 11, 0.5);
-  background: rgba(245, 158, 11, 0.1);
-}
-
-.server-info {
-  margin-bottom: 0.75rem;
-}
-
-.server-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 0.5rem;
-}
-
-.server-name {
-  font-size: 1rem;
-  font-weight: 600;
-  color: white;
-  margin: 0;
-}
-
-.server-status {
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-  font-size: 0.75rem;
-}
-
-.server-details {
-  display: flex;
-  flex-direction: column;
-  gap: 0.375rem;
-  margin-bottom: 0.5rem;
-}
-
-.detail-item {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.8rem;
-  color: rgba(255, 255, 255, 0.8);
-}
-
-.detail-icon {
-  width: 0.875rem;
-  height: 0.875rem;
-  color: rgba(255, 255, 255, 0.6);
-}
-
-.server-description {
-  font-size: 0.8rem;
-  color: rgba(255, 255, 255, 0.7);
-  margin: 0 0 0.5rem 0;
-  line-height: 1.4;
-}
-
-.server-meta {
-  font-size: 0.7rem;
-  color: rgba(255, 255, 255, 0.6);
-}
-
-.last-connected {
-  font-style: italic;
-}
-
-/* 服务器操作按钮 */
-.server-actions {
-  display: flex;
-  gap: 0.5rem;
-}
-
-.connect-btn, .disconnect-btn {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  padding: 0.5rem 0.75rem;
-  border-radius: 6px;
-  font-size: 0.8rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  border: none;
-}
-
-.connect-btn {
-  background: rgba(34, 197, 94, 0.2);
-  color: #86efac;
-  border: 1px solid rgba(34, 197, 94, 0.3);
-}
-
-.connect-btn:hover:not(:disabled) {
-  background: rgba(34, 197, 94, 0.3);
-  border-color: rgba(34, 197, 94, 0.5);
-}
-
-.connect-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.disconnect-btn {
-  background: rgba(239, 68, 68, 0.2);
-  color: #fca5a5;
-  border: 1px solid rgba(239, 68, 68, 0.3);
-}
-
-.disconnect-btn:hover {
-  background: rgba(239, 68, 68, 0.3);
-  border-color: rgba(239, 68, 68, 0.5);
-}
-
-/* 终端面板样式 */
-.terminal-panel {
-  flex: 1;
-  background: rgba(0, 0, 0, 0.8);
-  border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  display: flex;
-  flex-direction: column;
-  opacity: 0;
-  transform: translateX(20px);
-  transition: all 0.3s ease;
-  pointer-events: none;
-}
-
-.terminal-panel.visible {
-  opacity: 1;
-  transform: translateX(0);
-  pointer-events: auto;
-}
+/* 终端面板样式保持不变，用于全屏终端 */
 
 .terminal-header {
   display: flex;
@@ -369,25 +167,6 @@
 }
 
 /* 响应式设计 */
-@media (max-width: 1024px) {
-  .terminal-content {
-    flex-direction: column;
-  }
-
-  .servers-panel {
-    width: 100%;
-    max-height: 300px;
-  }
-
-  .servers-panel.collapsed {
-    width: 100%;
-  }
-
-  .terminal-panel {
-    min-height: 400px;
-  }
-}
-
 @media (max-width: 768px) {
   .terminal-dashboard {
     padding: 0.75rem;
@@ -404,22 +183,8 @@
     justify-content: flex-end;
   }
 
-  .servers-panel {
-    max-height: 250px;
-  }
-
-  .server-card {
-    padding: 0.5rem;
-  }
-
-  .server-details {
-    flex-direction: row;
-    flex-wrap: wrap;
-  }
-
-  .detail-item {
-    flex: 1;
-    min-width: 120px;
+  .terminal-panel-fullscreen {
+    min-height: 400px;
   }
 }
 
@@ -435,25 +200,25 @@
   }
 }
 
-.server-card {
+.terminal-panel-fullscreen {
   animation: fadeIn 0.3s ease-out;
 }
 
-/* 滚动条样式 */
-.servers-list::-webkit-scrollbar {
+/* 终端滚动条样式 */
+.xterm-container::-webkit-scrollbar {
   width: 6px;
 }
 
-.servers-list::-webkit-scrollbar-track {
+.xterm-container::-webkit-scrollbar-track {
   background: rgba(255, 255, 255, 0.1);
   border-radius: 3px;
 }
 
-.servers-list::-webkit-scrollbar-thumb {
+.xterm-container::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.3);
   border-radius: 3px;
 }
 
-.servers-list::-webkit-scrollbar-thumb:hover {
+.xterm-container::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.5);
 }
