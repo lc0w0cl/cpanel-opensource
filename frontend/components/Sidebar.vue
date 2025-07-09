@@ -39,6 +39,10 @@
         <Icon icon="material-symbols:music-video-outline" class="icon" />
         <span class="button-text">音乐</span>
       </NuxtLink>
+      <NuxtLink to="/home/terminal" class="nav-button">
+        <Icon icon="material-symbols:terminal" class="icon" />
+        <span class="button-text">终端</span>
+      </NuxtLink>
       <NuxtLink to="/home/settings" class="nav-button">
         <Icon icon="material-symbols:settings-outline" class="icon" />
         <span class="button-text">设置</span>

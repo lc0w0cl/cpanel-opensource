@@ -62,10 +62,10 @@ onUnmounted(() => {
           />
         </div>
         <div class="content-wrapper" :style="{
-          paddingTop: '2rem',
-          paddingBottom: '2rem',
-          paddingLeft: `calc(2rem + ${contentPadding}px)`,
-          paddingRight: `calc(2rem + ${contentPadding}px)`
+          paddingTop: '1rem',
+          paddingBottom: '1rem',
+          paddingLeft: `calc(1rem + ${contentPadding}px)`,
+          paddingRight: `calc(1rem + ${contentPadding}px)`
         }">
           <slot /> <!-- 渲染页面内容 -->
         </div>
@@ -124,7 +124,7 @@ onUnmounted(() => {
 }
 
 .content-container {
-  padding: 1.5rem;
+  padding: 0.75rem;
   width: 100%;
   max-height: 100vh; /* 限制最大高度为视口高度 */
   display: flex; /* 使子元素能够填充高度 */

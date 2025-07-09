@@ -19,7 +19,9 @@
     "tailwindcss": "^4.1.10",
     "vue": "^3.5.16",
     "vue-draggable-plus": "^0.6.0",
-    "vue-router": "^4.5.1"
+    "vue-router": "^4.5.1",
+    "xterm": "^5.3.0",
+    "xterm-addon-fit": "^0.8.0"
   },
   "devDependencies": {
     "class-variance-authority": "^0.7.1",

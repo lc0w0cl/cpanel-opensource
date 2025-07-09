@@ -17,7 +17,7 @@ export default defineNuxtConfig({
   // 静态生成配置
   nitro: {
     prerender: {
-      routes: ['/login', '/home', '/home/navigation-panel', '/home/settings', '/home/about']
+      routes: ['/login', '/home', '/home/navigation-panel', '/home/settings', '/home/about', '/home/terminal']
     }
   },
 
