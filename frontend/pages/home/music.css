@@ -1114,12 +1114,69 @@
   box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
 }
 
+/* 播放中的卡片悬停效果 */
+.result-card.playing:hover {
+  border-color: rgba(168, 85, 247, 0.9);
+  transform: translateY(-3px);
+  box-shadow:
+    0 0 25px rgba(168, 85, 247, 0.4),
+    0 8px 30px rgba(0, 0, 0, 0.2);
+}
+
+/* 加载中的卡片悬停效果 */
+.result-card.loading:hover {
+  border-color: rgba(168, 85, 247, 0.7);
+  transform: translateY(-2px);
+  box-shadow:
+    0 0 20px rgba(168, 85, 247, 0.3),
+    0 8px 25px rgba(0, 0, 0, 0.15);
+}
+
 .result-card.selected {
   border-color: rgba(59, 130, 246, 0.6);
   background: linear-gradient(135deg,
     rgba(59, 130, 246, 0.15) 0%,
     rgba(59, 130, 246, 0.08) 100%
   );
+}
+
+/* 播放中的卡片样式 */
+.result-card.playing {
+  border-color: rgba(168, 85, 247, 0.8);
+  background: linear-gradient(135deg,
+    rgba(168, 85, 247, 0.2) 0%,
+    rgba(168, 85, 247, 0.1) 100%
+  );
+  box-shadow:
+    0 0 20px rgba(168, 85, 247, 0.3),
+    0 4px 15px rgba(0, 0, 0, 0.1);
+  animation: playingGlow 2s ease-in-out infinite alternate;
+}
+
+/* 加载中的卡片样式 */
+.result-card.loading {
+  border-color: rgba(168, 85, 247, 0.6);
+  background: linear-gradient(135deg,
+    rgba(168, 85, 247, 0.15) 0%,
+    rgba(168, 85, 247, 0.08) 100%
+  );
+  box-shadow:
+    0 0 15px rgba(168, 85, 247, 0.2),
+    0 4px 15px rgba(0, 0, 0, 0.1);
+}
+
+/* 播放中的发光动画 */
+@keyframes playingGlow {
+  0% {
+    box-shadow:
+      0 0 20px rgba(168, 85, 247, 0.3),
+      0 4px 15px rgba(0, 0, 0, 0.1);
+  }
+  100% {
+    box-shadow:
+      0 0 30px rgba(168, 85, 247, 0.5),
+      0 4px 20px rgba(0, 0, 0, 0.15);
+  }
 }
 
 /* 下载项保持原有水平布局 */
@@ -1220,6 +1277,107 @@
   font-size: 0.75rem;
   font-weight: 500;
   backdrop-filter: blur(4px);
+}
+
+/* 播放状态指示器 */
+.playing-indicator {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: rgba(0, 0, 0, 0.8);
+  padding: 0.75rem 1rem;
+  border-radius: 2rem;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  z-index: 10;
+}
+
+.playing-icon-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.playing-icon {
+  font-size: 1.5rem;
+  color: rgba(168, 85, 247, 1);
+}
+
+.playing-icon.loading {
+  animation: spin 1s linear infinite;
+  color: rgba(168, 85, 247, 0.8);
+}
+
+.playing-icon.playing {
+  color: rgba(168, 85, 247, 1);
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+.playing-icon.paused {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+/* 音波动画 */
+.sound-waves {
+  display: flex;
+  align-items: center;
+  gap: 0.125rem;
+  height: 1rem;
+}
+
+.wave {
+  width: 0.125rem;
+  background: linear-gradient(to top,
+    rgba(168, 85, 247, 0.6),
+    rgba(168, 85, 247, 1)
+  );
+  border-radius: 0.125rem;
+  animation: waveAnimation 1.2s ease-in-out infinite;
+}
+
+.wave-1 {
+  height: 0.5rem;
+  animation-delay: 0s;
+}
+
+.wave-2 {
+  height: 1rem;
+  animation-delay: 0.2s;
+}
+
+.wave-3 {
+  height: 0.75rem;
+  animation-delay: 0.4s;
+}
+
+/* 动画定义 */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 0.8;
+  }
+}
+
+@keyframes waveAnimation {
+  0%, 100% {
+    transform: scaleY(0.5);
+  }
+  50% {
+    transform: scaleY(1);
+  }
 }
 
 /* 匹配进度覆盖层 */
@@ -1598,6 +1756,24 @@
 .play-btn.loading {
   opacity: 0.7;
   cursor: not-allowed;
+}
+
+.play-btn.disabled,
+.play-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.4);
+  transform: none;
+}
+
+.play-btn.disabled:hover,
+.play-btn:disabled:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.4);
+  transform: none;
 }
 
 /* 查看按钮悬停效果 */

@@ -749,6 +749,12 @@ const playMusic = async (result: MusicSearchResult) => {
       return
     }
 
+    // 如果当前正在加载其他歌曲，则忽略新的播放请求
+    if (isLoading.value && currentPlaying.value?.id !== result.id) {
+      console.log('当前正在加载其他歌曲，忽略播放请求:', result.title)
+      return
+    }
+
     // 停止当前播放
     if (audioElement.value) {
       audioElement.value.pause()
@@ -1721,7 +1727,11 @@ const startBatchDownload = async () => {
                 v-for="result in currentSearchResults"
                 :key="result.id"
                 class="result-card"
-                :class="{ selected: selectedResults.has(result.id) }"
+                :class="{
+                  selected: selectedResults.has(result.id),
+                  playing: currentPlaying?.id === result.id && isPlaying,
+                  loading: currentPlaying?.id === result.id && isLoading
+                }"
               >
                 <!-- 选择框 -->
                 <div class="result-checkbox">
@@ -1739,6 +1749,32 @@ const startBatchDownload = async () => {
                 <!-- 缩略图区域 -->
                 <div class="result-thumbnail" @click="toggleSelection(result.id)" style="cursor: pointer;">
                   <img :src="processImageUrl(result.thumbnail)" :alt="result.title" class="thumbnail-img" />
+
+                  <!-- 播放状态指示器 -->
+                  <div v-if="currentPlaying?.id === result.id" class="playing-indicator">
+                    <div class="playing-icon-wrapper">
+                      <Icon
+                        v-if="isLoading"
+                        icon="mdi:loading"
+                        class="playing-icon loading"
+                      />
+                      <Icon
+                        v-else-if="isPlaying"
+                        icon="mdi:volume-high"
+                        class="playing-icon playing"
+                      />
+                      <Icon
+                        v-else
+                        icon="mdi:pause"
+                        class="playing-icon paused"
+                      />
+                    </div>
+                    <div v-if="isPlaying" class="sound-waves">
+                      <div class="wave wave-1"></div>
+                      <div class="wave wave-2"></div>
+                      <div class="wave wave-3"></div>
+                    </div>
+                  </div>
 
                   <!-- 时长显示在图片上 -->
                   <div class="duration-overlay">
@@ -1827,9 +1863,17 @@ const startBatchDownload = async () => {
                       class="play-btn"
                       :class="{
                         playing: currentPlaying?.id === result.id && isPlaying,
-                        loading: currentPlaying?.id === result.id && isLoading
+                        loading: currentPlaying?.id === result.id && isLoading,
+                        disabled: isLoading && currentPlaying?.id !== result.id
                       }"
-                      :title="currentPlaying?.id === result.id && isPlaying ? '暂停' : '播放'"
+                      :disabled="isLoading && currentPlaying?.id !== result.id"
+                      :title="
+                        isLoading && currentPlaying?.id !== result.id
+                          ? '其他歌曲正在加载中...'
+                          : currentPlaying?.id === result.id && isPlaying
+                            ? '暂停'
+                            : '播放'
+                      "
                     >
                       <Icon
                         v-if="currentPlaying?.id === result.id && isLoading"
