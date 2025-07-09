@@ -87,12 +87,14 @@
 /* 全屏终端面板样式 */
 .terminal-panel-fullscreen {
   flex: 1;
-  background: rgba(0, 0, 0, 0.8);
+  background: #1a1a1a;
   border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
   display: flex;
   flex-direction: column;
   min-height: 0;
+  overflow: hidden;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
 }
 
 /* 状态图标样式 */
@@ -112,8 +114,8 @@
   justify-content: space-between;
   align-items: center;
   padding: 0.75rem 1rem;
-  background: rgba(255, 255, 255, 0.05);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  background: #1a1a1a;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.15);
   border-radius: 12px 12px 0 0;
 }
 
@@ -157,13 +159,17 @@
 
 .terminal-container {
   flex: 1;
-  padding: 1rem;
+  padding: 0;
   overflow: hidden;
+  background: #1a1a1a;
+  border-radius: 0 0 12px 12px;
 }
 
 .xterm-container {
   width: 100%;
   height: 100%;
+  padding: 1rem;
+  background: #1a1a1a;
 }
 
 /* 响应式设计 */
