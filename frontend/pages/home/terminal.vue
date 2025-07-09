@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, onMounted, onUnmounted, onActivated, nextTick } from 'vue'
 import { Icon } from '@iconify/vue'
 import { Terminal } from 'xterm'
 import { FitAddon } from 'xterm-addon-fit'
@@ -41,6 +41,22 @@ const isConnectedToServer = ref(false) // 是否已连接到服务器
 const initTerminal = async () => {
   if (!terminalContainer.value) return
 
+  // 清理之前的实例（如果存在）
+  if (terminal.value) {
+    try {
+      terminal.value.dispose()
+    } catch (error) {
+      console.warn('Previous terminal cleanup error:', error)
+    }
+  }
+
+  // 重置状态
+  terminal.value = undefined
+  fitAddon.value = undefined
+  currentCommand.value = ''
+  isInServerSelection.value = true
+  isConnectedToServer.value = false
+
   // 创建终端实例
   terminal.value = new Terminal({
     cursorBlink: true,
@@ -62,7 +78,7 @@ const initTerminal = async () => {
 
   // 打开终端
   terminal.value.open(terminalContainer.value)
-  
+
   // 适配大小
   fitAddon.value.fit()
 
@@ -303,27 +319,75 @@ const handleClearTerminal = () => {
 
 // 窗口大小调整处理
 const handleResize = () => {
-  if (fitAddon.value) {
-    fitAddon.value.fit()
+  if (fitAddon.value && terminal.value) {
+    try {
+      fitAddon.value.fit()
+    } catch (error) {
+      console.warn('Terminal resize error:', error)
+    }
   }
 }
 
 // 组件挂载
 onMounted(async () => {
+  // 确保DOM完全渲染
   await nextTick()
-  await initTerminal()
-  
-  // 监听窗口大小变化
-  window.addEventListener('resize', handleResize)
+
+  // 延迟一点时间确保容器元素完全可用
+  setTimeout(async () => {
+    try {
+      await initTerminal()
+      // 监听窗口大小变化
+      window.addEventListener('resize', handleResize)
+    } catch (error) {
+      console.error('Terminal initialization error:', error)
+    }
+  }, 100)
+})
+
+// 页面激活时重新初始化（从其他页面返回时）
+onActivated(async () => {
+  // 如果终端容器存在但终端实例不存在，重新初始化
+  if (terminalContainer.value && !terminal.value) {
+    await nextTick()
+    setTimeout(async () => {
+      try {
+        await initTerminal()
+      } catch (error) {
+        console.error('Terminal reinitialization error:', error)
+      }
+    }, 100)
+  } else if (terminal.value && fitAddon.value) {
+    // 如果终端存在，重新适配大小
+    setTimeout(() => {
+      try {
+        fitAddon.value?.fit()
+      } catch (error) {
+        console.warn('Terminal resize error:', error)
+      }
+    }, 100)
+  }
 })
 
 // 组件卸载
 onUnmounted(() => {
   window.removeEventListener('resize', handleResize)
-  
+
   // 清理终端
   if (terminal.value) {
-    terminal.value.dispose()
+    try {
+      // 先清理插件
+      if (fitAddon.value) {
+        terminal.value.dispose()
+        fitAddon.value = undefined
+      } else {
+        terminal.value.dispose()
+      }
+    } catch (error) {
+      console.warn('Terminal cleanup error:', error)
+    } finally {
+      terminal.value = undefined
+    }
   }
 })
 </script>
