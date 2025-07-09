@@ -306,6 +306,7 @@ const handlePlaylistParse = async () => {
 const startPlaylistBatchDownload = async () => {
   if (!playlistInfo.value) return
 
+  // 创建歌单歌曲列表的副本，避免在遍历过程中队列被修改导致遍历异常
   const playlistSongs = downloadQueue.value.filter(item => isPlaylistSong(item))
 
   if (playlistSongs.length === 0) {
@@ -1425,11 +1426,14 @@ const startBatchDownload = async () => {
   }
 
   isDownloading.value = true
-  showNotification(`开始下载 ${downloadQueue.value.length} 首歌曲`, 'success')
+
+  // 创建下载队列的副本，避免在遍历过程中队列被修改导致遍历异常
+  const songsToDownload = [...downloadQueue.value]
+  showNotification(`开始下载 ${songsToDownload.length} 首歌曲`, 'success')
 
   try {
     // 下载所有歌曲
-    for (const song of downloadQueue.value) {
+    for (const song of songsToDownload) {
       if (isPaused.value) break
       if (downloadProgress.value[song.id] === undefined) {
         // 对于批量下载，使用默认格式
