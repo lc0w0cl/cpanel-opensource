@@ -978,22 +978,22 @@ public class MusicSearchService {
 
             for (String line : lines) {
                 // 移除时间标签 [mm:ss.xx]
-                String cleanLine = line.replaceAll("\\[\\d{2}:\\d{2}\\.\\d{2}\\]", "").trim();
+//                String cleanLine = line.replaceAll("\\[\\d{2}:\\d{2}\\.\\d{2}\\]", "").trim()
 
                 // 跳过空行和制作信息
-                if (!cleanLine.isEmpty() &&
-                    !cleanLine.startsWith("作词") &&
-                    !cleanLine.startsWith("作曲") &&
-                    !cleanLine.startsWith("编曲") &&
-                    !cleanLine.startsWith("制作") &&
-                    !cleanLine.startsWith("混音") &&
-                    !cleanLine.startsWith("监制") &&
-                    !cleanLine.contains("@") &&
-                    !cleanLine.contains("现金激励") &&
-                    !cleanLine.contains("流量扶持") &&
-                    !cleanLine.contains("商务合作") &&
-                    !cleanLine.contains("未经著作权人许可")) {
-                    cleanLyrics.append(cleanLine).append("\n");
+                if (!line.isEmpty() &&
+                    !line.startsWith("作词") &&
+                    !line.startsWith("作曲") &&
+                    !line.startsWith("编曲") &&
+                    !line.startsWith("制作") &&
+                    !line.startsWith("混音") &&
+                    !line.startsWith("监制") &&
+                    !line.contains("@") &&
+                    !line.contains("现金激励") &&
+                    !line.contains("流量扶持") &&
+                    !line.contains("商务合作") &&
+                    !line.contains("未经著作权人许可")) {
+                    cleanLyrics.append(line).append("\n");
                 }
             }
 

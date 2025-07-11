@@ -26,7 +26,7 @@
 
         <div
           v-for="(line, index) in lyricsLines"
-          :key="index"
+          :key="`${index}-${typeof line === 'string' ? line : line.time}`"
           class="lyrics-line"
           :class="{
             'current-line': index === currentLineIndex,
@@ -97,28 +97,66 @@ const parseLrcLyrics = (lrcText: string): LyricsLine[] => {
   const lyricsLines: LyricsLine[] = []
 
   for (const line of lines) {
-    // 匹配时间标签 [mm:ss.xxx] 或 [mm:ss.xx]
-    const timeMatch = line.match(/\[(\d{2}):(\d{2})\.(\d{2,3})\](.*)/)
-    if (timeMatch) {
-      const minutes = parseInt(timeMatch[1])
-      const seconds = parseInt(timeMatch[2])
-      const milliseconds = parseInt(timeMatch[3])
-      const text = timeMatch[4].trim()
+    // 跳过空行
+    if (!line.trim()) continue
 
+    // 匹配所有时间标签 [mm:ss.xxx] 或 [mm:ss.xx] 或 [mm:ss]
+    const timeRegex = /\[(\d{1,2}):(\d{2})(?:\.(\d{2,3}))?\]/g
+    const timeMatches = [...line.matchAll(timeRegex)]
+
+    if (timeMatches.length > 0) {
+      // 提取歌词文本（移除所有时间标签）
+      let text = line.replace(timeRegex, '').trim()
+
+      // 跳过元数据行（作词、作曲、编曲等）
+      if (text.includes('作词') || text.includes('作曲') || text.includes('编曲') ||
+          text.includes('出品') || text.includes('制作') || text.includes('发行') ||
+          text.includes('录音') || text.includes('混音') || text.includes('母带') ||
+          text.startsWith('作词：') || text.startsWith('作曲：') || text.startsWith('编曲：')) {
+        continue
+      }
+
+      // 如果有歌词文本，为每个时间标签创建一个歌词行
       if (text) {
-        // 根据毫秒位数计算时间
-        const msValue = timeMatch[3].length === 3 ? milliseconds / 1000 : milliseconds / 100
-        const time = minutes * 60 + seconds + msValue
-        lyricsLines.push({
-          time,
-          text,
-          originalLine: line
-        })
+        for (const match of timeMatches) {
+          const minutes = parseInt(match[1])
+          const seconds = parseInt(match[2])
+          const milliseconds = match[3] ? parseInt(match[3]) : 0
+
+          // 根据毫秒位数计算时间
+          let msValue = 0
+          if (match[3]) {
+            msValue = match[3].length === 3 ? milliseconds / 1000 : milliseconds / 100
+          }
+
+          const time = minutes * 60 + seconds + msValue
+
+          lyricsLines.push({
+            time,
+            text,
+            originalLine: line
+          })
+        }
       }
     }
   }
 
-  return lyricsLines.sort((a, b) => a.time - b.time)
+  // 按时间排序并去重（相同时间的歌词只保留一个）
+  const sortedLines = lyricsLines.sort((a, b) => a.time - b.time)
+  const uniqueLines: LyricsLine[] = []
+
+  for (const line of sortedLines) {
+    // 检查是否已存在相同时间和文本的歌词
+    const exists = uniqueLines.find(existing =>
+      Math.abs(existing.time - line.time) < 0.1 && existing.text === line.text
+    )
+
+    if (!exists) {
+      uniqueLines.push(line)
+    }
+  }
+
+  return uniqueLines
 }
 
 // 计算歌词行数组
@@ -144,24 +182,43 @@ const lyricsLines = computed(() => {
 watch(() => props.currentTime, (newTime) => {
   if (lyricsLines.value.length === 0) return
 
-  // 找到当前时间对应的歌词行
-  let activeIndex = -1
-  for (let i = 0; i < lyricsLines.value.length; i++) {
-    if (lyricsLines.value[i].time <= newTime) {
-      activeIndex = i
-    } else {
-      break
+  // 如果是LRC格式，使用时间匹配
+  if (props.lyricsType === 'lrc') {
+    let activeIndex = -1
+
+    // 找到当前时间对应的歌词行
+    for (let i = 0; i < lyricsLines.value.length; i++) {
+      const line = lyricsLines.value[i]
+      if (typeof line === 'object' && line.time <= newTime) {
+        activeIndex = i
+      } else {
+        break
+      }
     }
-  }
 
-  const newIndex = Math.max(0, activeIndex)
-  if (newIndex !== currentLineIndex.value) {
-    currentLineIndex.value = newIndex
+    // 如果找到了有效的索引，更新当前行
+    if (activeIndex >= 0 && activeIndex !== currentLineIndex.value) {
+      currentLineIndex.value = activeIndex
 
-    // 滚动到当前行，保持在容器中央
-    nextTick(() => {
-      scrollToCurrentLine()
-    })
+      // 滚动到当前行，保持在容器中央
+      nextTick(() => {
+        scrollToCurrentLine()
+      })
+    }
+  } else {
+    // 普通文本格式，简单的时间映射
+    const newIndex = Math.min(
+      Math.floor(newTime / 5),
+      lyricsLines.value.length - 1
+    )
+
+    if (newIndex !== currentLineIndex.value && newIndex >= 0) {
+      currentLineIndex.value = newIndex
+
+      nextTick(() => {
+        scrollToCurrentLine()
+      })
+    }
   }
 })
 
