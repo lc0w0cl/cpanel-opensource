@@ -2117,6 +2117,7 @@ const startBatchDownload = async () => {
     @close="setShowLyrics(false)"
   />
 
+
   <!-- 格式选择弹窗 -->
   <FormatSelector
     :visible="showFormatSelector"

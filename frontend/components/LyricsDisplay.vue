@@ -21,8 +21,8 @@
 
       <!-- 歌词文本 -->
       <div v-else-if="lyrics && lyricsLines.length > 0" class="lyrics-scroll">
-        <!-- 上方占位 -->
-        <div class="lyrics-spacer"></div>
+        <!-- 上方占位，确保第一行歌词可以滚动到中央 -->
+        <div class="lyrics-spacer-top"></div>
 
         <div
           v-for="(line, index) in lyricsLines"
@@ -31,15 +31,15 @@
           :class="{
             'current-line': index === currentLineIndex,
             'prev-line': index === currentLineIndex - 1,
-            'next-line': index === currentLineIndex + 1
+            'next-line': index === currentLineIndex + 1,
+            'far-line': Math.abs(index - currentLineIndex) > 1
           }"
-          :ref="el => { if (index === currentLineIndex) currentLineRef = el }"
         >
           {{ typeof line === 'string' ? line : line.text }}
         </div>
 
-        <!-- 下方占位 -->
-        <div class="lyrics-spacer"></div>
+        <!-- 下方占位，确保最后一行歌词可以滚动到中央 -->
+        <div class="lyrics-spacer-bottom"></div>
       </div>
 
       <!-- 无歌词状态 -->
@@ -88,8 +88,6 @@ const emit = defineEmits<Emits>()
 const currentLineIndex = ref(0)
 // 歌词容器引用
 const lyricsContainer = ref<HTMLElement>()
-// 当前行元素引用
-const currentLineRef = ref<HTMLElement>()
 
 // 解析LRC格式歌词
 const parseLrcLyrics = (lrcText: string): LyricsLine[] => {
@@ -167,22 +165,42 @@ watch(() => props.currentTime, (newTime) => {
   }
 })
 
+// 监听歌词数据变化，初始化滚动位置
+watch(() => [props.lyrics, lyricsLines.value.length], () => {
+  if (lyricsLines.value.length > 0) {
+    nextTick(() => {
+      // 延迟一点时间确保DOM完全渲染
+      setTimeout(() => {
+        scrollToCurrentLine()
+      }, 100)
+    })
+  }
+}, { immediate: true })
+
 // 滚动到当前行的函数
 const scrollToCurrentLine = () => {
-  if (!lyricsContainer.value || !currentLineRef.value) return
+  if (!lyricsContainer.value) return
 
   const container = lyricsContainer.value
-  const currentLine = currentLineRef.value
+  const scrollContainer = container.querySelector('.lyrics-scroll') as HTMLElement
+
+  if (!scrollContainer) return
+
+  // 找到当前行元素
+  const currentLineElement = scrollContainer.querySelector('.lyrics-line.current-line') as HTMLElement
+
+  if (!currentLineElement) return
 
   // 计算滚动位置，让当前行在容器中央
-  const containerHeight = container.clientHeight
-  const lineOffsetTop = currentLine.offsetTop
-  const lineHeight = currentLine.clientHeight
+  const containerHeight = scrollContainer.clientHeight
+  const lineOffsetTop = currentLineElement.offsetTop
+  const lineHeight = currentLineElement.clientHeight
 
-  const scrollTop = lineOffsetTop - (containerHeight / 2) + (lineHeight / 2)
+  // 计算目标滚动位置：当前行的中心 - 容器高度的一半
+  const targetScrollTop = lineOffsetTop + (lineHeight / 2) - (containerHeight / 2)
 
-  container.scrollTo({
-    top: scrollTop,
+  scrollContainer.scrollTo({
+    top: Math.max(0, targetScrollTop),
     behavior: 'smooth'
   })
 }
@@ -270,17 +288,30 @@ const scrollToCurrentLine = () => {
   flex: 1;
   position: relative;
   overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .lyrics-scroll {
-  height: 100%;
+  width: 100%;
+  max-height: 100%;
   overflow-y: auto;
   padding: 0 2rem;
   scroll-behavior: smooth;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
-.lyrics-spacer {
-  height: 50vh;
+.lyrics-spacer-top {
+  height: calc(50vh - 100px);
+  flex-shrink: 0;
+}
+
+.lyrics-spacer-bottom {
+  height: calc(50vh - 100px);
+  flex-shrink: 0;
 }
 
 .lyrics-loading {
@@ -301,35 +332,52 @@ const scrollToCurrentLine = () => {
 
 .lyrics-line {
   text-align: center;
-  padding: 1rem 0;
-  font-size: 1.8rem;
-  line-height: 1.6;
+  padding: 1.5rem 2rem;
+  font-size: 1.6rem;
+  line-height: 1.8;
   color: rgba(255, 255, 255, 0.4);
-  transition: all 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
   font-weight: 400;
-  margin: 0.5rem 0;
+  margin: 0.8rem 0;
+  width: 100%;
+  max-width: 800px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 80px;
 }
 
 .lyrics-line.prev-line,
 .lyrics-line.next-line {
   color: rgba(255, 255, 255, 0.6);
-  font-size: 1.4rem;
+  font-size: 1.3rem;
+  opacity: 0.8;
+}
+
+.lyrics-line.far-line {
+  color: rgba(255, 255, 255, 0.3);
+  font-size: 1.1rem;
+  opacity: 0.5;
 }
 
 .lyrics-line.current-line {
   color: rgba(255, 255, 255, 1);
-  font-size: 2.2rem;
-  font-weight: 600;
-  text-shadow: 0 0 20px rgba(168, 85, 247, 0.5);
+  font-size: 2.4rem;
+  font-weight: 700;
+  text-shadow: 0 0 30px rgba(168, 85, 247, 0.6);
   background: linear-gradient(135deg,
-    rgba(168, 85, 247, 0.1) 0%,
-    rgba(168, 85, 247, 0.05) 100%
+    rgba(168, 85, 247, 0.15) 0%,
+    rgba(168, 85, 247, 0.08) 100%
   );
-  border-radius: 1rem;
-  padding: 1.5rem 2rem;
-  margin: 1rem 0;
-  transform: scale(1.05);
-  animation: currentLinePulse 3s ease-in-out infinite;
+  border-radius: 1.5rem;
+  padding: 2rem 3rem;
+  margin: 1.5rem 0;
+  transform: scale(1.1);
+  animation: currentLinePulse 4s ease-in-out infinite;
+  border: 2px solid rgba(168, 85, 247, 0.3);
+  position: relative;
+  z-index: 10;
 }
 
 @keyframes currentLinePulse {
@@ -448,34 +496,56 @@ const scrollToCurrentLine = () => {
     padding: 0 1rem;
   }
 
+  .lyrics-spacer-top,
+  .lyrics-spacer-bottom {
+    height: calc(40vh - 80px);
+  }
+
   .lyrics-line {
-    font-size: 1.4rem;
-    padding: 0.8rem 0;
+    font-size: 1.3rem;
+    padding: 1rem 1.5rem;
+    min-height: 60px;
   }
 
   .lyrics-line.current-line {
     font-size: 1.8rem;
-    padding: 1.2rem 1rem;
+    padding: 1.5rem 2rem;
   }
 
   .lyrics-line.prev-line,
   .lyrics-line.next-line {
     font-size: 1.1rem;
   }
+
+  .lyrics-line.far-line {
+    font-size: 1rem;
+  }
 }
 
 @media (max-width: 480px) {
+  .lyrics-spacer-top,
+  .lyrics-spacer-bottom {
+    height: calc(35vh - 60px);
+  }
+
   .lyrics-line {
-    font-size: 1.2rem;
+    font-size: 1.1rem;
+    padding: 0.8rem 1rem;
+    min-height: 50px;
   }
 
   .lyrics-line.current-line {
     font-size: 1.5rem;
+    padding: 1.2rem 1.5rem;
   }
 
   .lyrics-line.prev-line,
   .lyrics-line.next-line {
-    font-size: 1rem;
+    font-size: 0.95rem;
+  }
+
+  .lyrics-line.far-line {
+    font-size: 0.85rem;
   }
 }
 </style>
