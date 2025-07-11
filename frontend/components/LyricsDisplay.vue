@@ -366,16 +366,10 @@ const scrollToCurrentLine = () => {
   font-size: 2.4rem;
   font-weight: 700;
   text-shadow: 0 0 30px rgba(168, 85, 247, 0.6);
-  background: linear-gradient(135deg,
-    rgba(168, 85, 247, 0.15) 0%,
-    rgba(168, 85, 247, 0.08) 100%
-  );
-  border-radius: 1.5rem;
-  padding: 2rem 3rem;
+  padding: 1.5rem 2rem;
   margin: 1.5rem 0;
   transform: scale(1.1);
   animation: currentLinePulse 4s ease-in-out infinite;
-  border: 2px solid rgba(168, 85, 247, 0.3);
   position: relative;
   z-index: 10;
 }
@@ -509,7 +503,7 @@ const scrollToCurrentLine = () => {
 
   .lyrics-line.current-line {
     font-size: 1.8rem;
-    padding: 1.5rem 2rem;
+    padding: 1.2rem 1.5rem;
   }
 
   .lyrics-line.prev-line,
@@ -536,7 +530,7 @@ const scrollToCurrentLine = () => {
 
   .lyrics-line.current-line {
     font-size: 1.5rem;
-    padding: 1.2rem 1.5rem;
+    padding: 1rem 1.2rem;
   }
 
   .lyrics-line.prev-line,
