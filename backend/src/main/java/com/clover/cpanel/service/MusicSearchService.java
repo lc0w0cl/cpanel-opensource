@@ -960,8 +960,8 @@ public class MusicSearchService {
         if (text == null || text.trim().isEmpty()) {
             return false;
         }
-        // 检查是否包含时间标签 [mm:ss.xx]
-        return text.contains("[") && text.matches(".*\\[\\d{2}:\\d{2}\\.\\d{2}\\].*");
+        // 检查是否包含时间标签 [mm:ss.xx] 或 [mm:ss.xxx]
+        return text.contains("[") && text.matches(".*\\[\\d{2}:\\d{2}\\.\\d{2,3}\\].*");
     }
 
     /**

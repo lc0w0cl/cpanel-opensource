@@ -2102,18 +2102,20 @@ const startBatchDownload = async () => {
       </div>
     </div>
 
-    <!-- 歌词显示区域 -->
-    <div v-if="showLyrics" class="lyrics-panel">
-      <LyricsDisplay
-        :lyrics="currentLyrics"
-        :lyrics-type="lyricsType"
-        :lyrics-source="lyricsSource"
-        :is-loading="isLyricsLoading"
-        :current-time="currentTime"
-        @close="setShowLyrics(false)"
-      />
-    </div>
   </div>
+
+  <!-- 全屏歌词显示 -->
+  <LyricsDisplay
+    v-if="showLyrics && currentPlaying"
+    :lyrics="currentLyrics"
+    :lyrics-type="lyricsType"
+    :lyrics-source="lyricsSource"
+    :is-loading="isLyricsLoading"
+    :current-time="currentTime"
+    :song-title="currentPlaying.title"
+    :song-artist="currentPlaying.artist"
+    @close="setShowLyrics(false)"
+  />
 
   <!-- 格式选择弹窗 -->
   <FormatSelector

@@ -2455,44 +2455,9 @@
   }
 }
 
-.lyrics-panel {
-  position: fixed;
-  bottom: 120px;
-  right: 20px;
-  width: 350px;
-  height: 400px;
-  z-index: 999;
-  animation: slideInUp 0.3s ease-out;
-}
-
-@keyframes slideInUp {
-  from {
-    transform: translateY(100%);
-    opacity: 0;
-  }
-  to {
-    transform: translateY(0);
-    opacity: 1;
-  }
-}
-
-/* 响应式歌词面板 */
-@media (max-width: 768px) {
-  .lyrics-panel {
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    width: 100%;
-    height: 50vh;
-    border-radius: 1rem 1rem 0 0;
-  }
-}
-
-@media (max-width: 480px) {
-  .lyrics-panel {
-    height: 60vh;
-  }
+/* 歌词全屏显示时，隐藏其他内容 */
+.music-container {
+  position: relative;
 }
 
 /* 内联歌单信息样式 */
