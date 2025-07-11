@@ -50,9 +50,44 @@
       </div>
     </div>
 
-    <!-- 歌词来源信息 -->
+    <!-- 歌词来源信息和速度调节 -->
     <div v-if="lyricsSource" class="lyrics-source">
-      歌词来源: {{ lyricsSource }}
+      <div class="source-info">
+        <span class="source-text">歌词来源: {{ lyricsSource }}</span>
+        <span v-if="timeOffset !== 0" class="time-offset">
+          ({{ timeOffset > 0 ? '+' : '' }}{{ timeOffset.toFixed(1) }}s)
+        </span>
+      </div>
+
+      <!-- 速度调节控制 -->
+      <div class="speed-controls">
+        <span class="control-label">时间调节:</span>
+        <button
+          @click="adjustTime(-0.5)"
+          class="speed-btn speed-btn-slow"
+          title="歌词慢0.5秒"
+        >
+          <Icon icon="mdi:rewind" />
+          <span>-0.5s</span>
+        </button>
+        <button
+          @click="resetTimeOffset"
+          class="speed-btn speed-btn-reset"
+          :class="{ active: timeOffset === 0 }"
+          title="重置时间偏移"
+        >
+          <Icon icon="mdi:restore" />
+          <span>重置</span>
+        </button>
+        <button
+          @click="adjustTime(0.5)"
+          class="speed-btn speed-btn-fast"
+          title="歌词快0.5秒"
+        >
+          <Icon icon="mdi:fast-forward" />
+          <span>+0.5s</span>
+        </button>
+      </div>
     </div>
   </div>
 </template>
@@ -88,6 +123,8 @@ const emit = defineEmits<Emits>()
 const currentLineIndex = ref(0)
 // 歌词容器引用
 const lyricsContainer = ref<HTMLElement>()
+// 时间偏移量（秒）- 只针对本次播放
+const timeOffset = ref(0)
 
 // 解析LRC格式歌词
 const parseLrcLyrics = (lrcText: string): LyricsLine[] => {
@@ -186,10 +223,13 @@ watch(() => props.currentTime, (newTime) => {
   if (props.lyricsType === 'lrc') {
     let activeIndex = -1
 
+    // 应用时间偏移
+    const adjustedTime = newTime + timeOffset.value
+
     // 找到当前时间对应的歌词行
     for (let i = 0; i < lyricsLines.value.length; i++) {
       const line = lyricsLines.value[i]
-      if (typeof line === 'object' && line.time <= newTime) {
+      if (typeof line === 'object' && line.time <= adjustedTime) {
         activeIndex = i
       } else {
         break
@@ -233,6 +273,24 @@ watch(() => [props.lyrics, lyricsLines.value.length], () => {
     })
   }
 }, { immediate: true })
+
+// 监听歌曲变化，重置时间偏移
+watch(() => [props.songTitle, props.songArtist], () => {
+  timeOffset.value = 0
+  console.log('歌曲切换，时间偏移已重置')
+}, { immediate: true })
+
+// 时间调节方法
+const adjustTime = (offset: number) => {
+  timeOffset.value += offset
+  console.log(`歌词时间调节: ${offset > 0 ? '+' : ''}${offset}s, 总偏移: ${timeOffset.value}s`)
+}
+
+// 重置时间偏移
+const resetTimeOffset = () => {
+  timeOffset.value = 0
+  console.log('歌词时间偏移已重置')
+}
 
 // 滚动到当前行的函数
 const scrollToCurrentLine = () => {
@@ -485,12 +543,102 @@ const scrollToCurrentLine = () => {
   bottom: 2rem;
   left: 50%;
   transform: translateX(-50%);
-  padding: 0.5rem 1rem;
-  background: rgba(0, 0, 0, 0.5);
+  padding: 1rem 1.5rem;
+  background: rgba(0, 0, 0, 0.6);
   border-radius: 1rem;
-  color: rgba(255, 255, 255, 0.6);
-  font-size: 0.9rem;
+  backdrop-filter: blur(10px);
   border: 1px solid rgba(255, 255, 255, 0.1);
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.7);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-width: 300px;
+}
+
+.source-info {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  white-space: nowrap;
+}
+
+.source-text {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.time-offset {
+  color: rgba(168, 85, 247, 0.9);
+  font-weight: 500;
+  font-size: 0.85rem;
+}
+
+.speed-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.control-label {
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.6);
+  margin-right: 0.5rem;
+}
+
+.speed-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.4rem 0.8rem;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 0.5rem;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  backdrop-filter: blur(5px);
+}
+
+.speed-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.3);
+  color: rgba(255, 255, 255, 0.9);
+  transform: translateY(-1px);
+}
+
+.speed-btn:active {
+  transform: translateY(0);
+}
+
+.speed-btn-slow:hover {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: rgba(239, 68, 68, 0.4);
+  color: rgba(239, 68, 68, 1);
+}
+
+.speed-btn-fast:hover {
+  background: rgba(34, 197, 94, 0.2);
+  border-color: rgba(34, 197, 94, 0.4);
+  color: rgba(34, 197, 94, 1);
+}
+
+.speed-btn-reset:hover {
+  background: rgba(168, 85, 247, 0.2);
+  border-color: rgba(168, 85, 247, 0.4);
+  color: rgba(168, 85, 247, 1);
+}
+
+.speed-btn-reset.active {
+  background: rgba(168, 85, 247, 0.3);
+  border-color: rgba(168, 85, 247, 0.5);
+  color: rgba(168, 85, 247, 1);
+}
+
+.speed-btn span {
+  font-weight: 500;
 }
 
 @keyframes spin {
@@ -597,6 +745,28 @@ const scrollToCurrentLine = () => {
 
   .lyrics-line.far-line {
     font-size: 0.85rem;
+  }
+
+  .lyrics-source {
+    bottom: 1rem;
+    font-size: 0.8rem;
+    min-width: 280px;
+    padding: 0.8rem 1rem;
+  }
+
+  .speed-controls {
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+
+  .speed-btn {
+    padding: 0.3rem 0.6rem;
+    font-size: 0.7rem;
+  }
+
+  .control-label {
+    font-size: 0.75rem;
+    margin-right: 0.3rem;
   }
 }
 </style>
