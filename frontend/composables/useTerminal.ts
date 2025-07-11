@@ -11,6 +11,7 @@ export interface ServerConnection {
   description?: string
   status: 'connected' | 'disconnected' | 'connecting'
   lastConnected?: string
+  icon: string // 服务器图标（国旗或其他标识）
 }
 
 // 终端状态接口
@@ -25,47 +26,63 @@ export interface TerminalState {
 const mockServers: ServerConnection[] = [
   {
     id: 1,
-    name: '生产服务器',
-    host: '192.168.1.100',
+    name: '工控机',
+    host: '192.168.6.5',
     port: 22,
     username: 'root',
     protocol: 'ssh',
-    description: '主要生产环境服务器',
+    description: '本地工控设备',
     status: 'disconnected',
-    lastConnected: '2024-01-15 14:30:00'
+    lastConnected: '2024-01-15 14:30:00',
+    icon: 'material-symbols:factory'
   },
   {
     id: 2,
-    name: '测试服务器',
-    host: '192.168.1.101',
+    name: '西雅图',
+    host: '107.174.222.14',
     port: 22,
-    username: 'admin',
+    username: 'root',
     protocol: 'ssh',
-    description: '开发测试环境',
+    description: 'Racknerd',
     status: 'disconnected',
-    lastConnected: '2024-01-14 09:15:00'
+    lastConnected: '2024-01-14 09:15:00',
+    icon: 'flagpack:us'
   },
   {
     id: 3,
-    name: '数据库服务器',
-    host: '192.168.1.102',
+    name: '首尔',
+    host: '43.164.131.321',
     port: 22,
-    username: 'dbadmin',
+    username: 'root',
     protocol: 'ssh',
-    description: 'MySQL数据库服务器',
+    description: '腾讯云 | 瑞驰',
     status: 'disconnected',
-    lastConnected: '2024-01-13 16:45:00'
+    lastConnected: '2024-01-13 16:45:00',
+    icon: 'flagpack:kr'
   },
   {
     id: 4,
-    name: '备份服务器',
-    host: '192.168.1.103',
+    name: '上海',
+    host: '124.223.5.123',
     port: 22,
-    username: 'backup',
+    username: 'root',
     protocol: 'ssh',
-    description: '数据备份服务器',
+    description: '腾讯云',
     status: 'disconnected',
-    lastConnected: '2024-01-12 11:20:00'
+    lastConnected: '2024-01-12 11:20:00',
+    icon: 'flagpack:cn'
+  },
+  {
+    id: 5,
+    name: '广州',
+    host: '1.117.230.33',
+    port: 22,
+    username: 'root',
+    protocol: 'ssh',
+    description: '腾讯云',
+    status: 'disconnected',
+    lastConnected: '2024-01-11 08:15:00',
+    icon: 'flagpack:cn'
   }
 ]
 

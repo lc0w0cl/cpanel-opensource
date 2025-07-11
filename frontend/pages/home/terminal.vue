@@ -60,7 +60,7 @@ const initTerminal = async () => {
   // 创建终端实例
   terminal.value = new Terminal({
     cursorBlink: true,
-    fontSize: 14,
+    fontSize: 16,
     fontFamily: 'Consolas, "Courier New", monospace',
     theme: {
       background: '#1a1a1a',
@@ -112,38 +112,91 @@ const initTerminal = async () => {
   showServerSelectionMenu()
 }
 
+// Iconify图标到终端字符的映射
+const iconifyToTerminal = (iconName: string): string => {
+  const iconMap: Record<string, string> = {
+    'flagpack:us': '🇺🇸', // 美国国旗
+    'flagpack:kr': '🇰🇷', // 韩国国旗
+    'flagpack:cn': '🇨🇳', // 中国国旗
+    'material-symbols:factory': '🏭', // 工厂图标
+    'flagpack:jp': '🇯🇵', // 日本国旗
+    'flagpack:de': '🇩🇪', // 德国国旗
+    'flagpack:gb': '🇬🇧', // 英国国旗
+    'flagpack:fr': '🇫🇷', // 法国国旗
+    'flagpack:sg': '🇸🇬', // 新加坡国旗
+    'flagpack:hk': '🇭🇰', // 香港旗帜
+  }
+
+  return iconMap[iconName] || '🌐' // 默认全球图标
+}
+
+// 获取服务器图标
+const getServerIcon = (server: ServerConnection) => {
+  return iconifyToTerminal(server.icon)
+}
+
+// 获取服务器图标的CSS颜色类
+const getServerIconColor = (iconName: string) => {
+  const colorMap: Record<string, string> = {
+    'flagpack:us': 'text-blue-400',
+    'flagpack:kr': 'text-red-400',
+    'flagpack:cn': 'text-red-400',
+    'material-symbols:factory': 'text-gray-300',
+    'flagpack:jp': 'text-red-400',
+    'flagpack:de': 'text-yellow-400',
+    'flagpack:gb': 'text-blue-400',
+    'flagpack:fr': 'text-blue-400',
+    'flagpack:sg': 'text-red-400',
+    'flagpack:hk': 'text-red-400',
+  }
+
+  return colorMap[iconName] || 'text-gray-300'
+}
+
 // 显示服务器选择菜单
 const showServerSelectionMenu = () => {
   if (!terminal.value) return
-  
+
   terminal.value.clear()
-  terminal.value.writeln('\x1b[1;36m╔══════════════════════════════════════════════════════════════╗\x1b[0m')
-  terminal.value.writeln('\x1b[1;36m║                    服务器连接管理系统                        ║\x1b[0m')
-  terminal.value.writeln('\x1b[1;36m╚══════════════════════════════════════════════════════════════╝\x1b[0m')
+  terminal.value.writeln('╔══════════════════════════════════════════════════════════════╗')
+  terminal.value.writeln('║                    服务器连接管理系统                        ║')
+  terminal.value.writeln('╚══════════════════════════════════════════════════════════════╝')
   terminal.value.writeln('')
-  terminal.value.writeln('\x1b[1;33m可用服务器列表:\x1b[0m')
+  terminal.value.writeln('可用服务器列表:')
   terminal.value.writeln('')
-  
+
   servers.value.forEach((server, index) => {
-    const statusColor = server.status === 'connected' ? '\x1b[1;32m' : '\x1b[1;37m'
-    const statusText = server.status === 'connected' ? '[已连接]' : '[未连接]'
-    terminal.value?.writeln(`\x1b[1;32m${index + 1}.\x1b[0m ${statusColor}${server.name}\x1b[0m ${statusText}`)
-    terminal.value?.writeln(`   \x1b[90m地址: ${server.host}:${server.port} | 用户: ${server.username} | 协议: ${server.protocol.toUpperCase()}\x1b[0m`)
-    terminal.value?.writeln(`   \x1b[90m描述: ${server.description}\x1b[0m`)
-    if (server.lastConnected) {
-      terminal.value?.writeln(`   \x1b[90m最后连接: ${server.lastConnected}\x1b[0m`)
+    // 获取服务器图标
+    let serverIcon = getServerIcon(server)
+
+    // 如果已连接，添加连接指示器
+    if (server.status === 'connected') {
+      serverIcon += '●'
     }
-    terminal.value?.writeln('')
+
+    // 构建服务器信息行
+    let serverLine = `[${index + 1}] ${serverIcon} ${server.name}`
+
+    // 添加提供商信息（如果有）
+    if (server.description && server.description !== '本地工控设备') {
+      serverLine += ` | ${server.description}`
+    }
+
+    // 添加IP地址
+    serverLine += ` | ${server.host}`
+
+    terminal.value?.writeln(serverLine)
   })
-  
-  terminal.value.writeln('\x1b[1;33m可用命令:\x1b[0m')
-  terminal.value.writeln('  \x1b[1;32m1-4\x1b[0m     - 连接到对应编号的服务器')
-  terminal.value.writeln('  \x1b[1;32mlist\x1b[0m    - 重新显示服务器列表')
-  terminal.value.writeln('  \x1b[1;32mstatus\x1b[0m  - 显示连接状态')
-  terminal.value.writeln('  \x1b[1;32mclear\x1b[0m   - 清空屏幕')
-  terminal.value.writeln('  \x1b[1;32mexit\x1b[0m    - 退出系统')
+
   terminal.value.writeln('')
-  terminal.value.write('\x1b[1;36m请选择服务器 (1-4) 或输入命令: \x1b[0m')
+  terminal.value.writeln('可用命令:')
+  terminal.value.writeln('  1-5     - 连接到对应编号的服务器')
+  terminal.value.writeln('  list    - 重新显示服务器列表')
+  terminal.value.writeln('  status  - 显示连接状态')
+  terminal.value.writeln('  clear   - 清空屏幕')
+  terminal.value.writeln('  exit    - 退出系统')
+  terminal.value.writeln('')
+  terminal.value.write('请选择服务器 (1-5) 或输入命令: ')
 }
 
 // 处理服务器选择
@@ -166,17 +219,17 @@ const handleServerSelection = async (input: string) => {
       
       // 显示连接成功信息
       terminal.value.clear()
-      terminal.value.writeln(`\x1b[1;32m✓ 成功连接到 ${server.name}\x1b[0m`)
-      terminal.value.writeln(`\x1b[90m地址: ${server.host}:${server.port}\x1b[0m`)
-      terminal.value.writeln(`\x1b[90m用户: ${server.username}\x1b[0m`)
-      terminal.value.writeln(`\x1b[90m协议: ${server.protocol.toUpperCase()}\x1b[0m`)
+      terminal.value.writeln(`✓ 成功连接到 ${server.name}`)
+      terminal.value.writeln(`地址: ${server.host}:${server.port}`)
+      terminal.value.writeln(`用户: ${server.username}`)
+      terminal.value.writeln(`协议: ${server.protocol.toUpperCase()}`)
       terminal.value.writeln('')
       terminal.value.writeln('欢迎使用服务器终端！输入 "help" 查看可用命令，输入 "disconnect" 断开连接。')
       terminal.value.writeln('')
       terminal.value.write(`${server.username}@${server.host}:~$ `)
     } else {
-      terminal.value.writeln(`\x1b[1;31m✗ 连接失败: ${connectionError.value}\x1b[0m`)
-      terminal.value.write('\x1b[1;36m请选择服务器 (1-4) 或输入命令: \x1b[0m')
+      terminal.value.writeln(`✗ 连接失败: ${connectionError.value}`)
+      terminal.value.write('请选择服务器 (1-4) 或输入命令: ')
     }
     return
   }
@@ -187,29 +240,30 @@ const handleServerSelection = async (input: string) => {
       showServerSelectionMenu()
       break
     case 'status':
-      terminal.value.writeln('\x1b[1;33m连接状态:\x1b[0m')
+      terminal.value.writeln('连接状态:')
       servers.value.forEach((server, index) => {
-        const statusColor = server.status === 'connected' ? '\x1b[1;32m' : '\x1b[1;31m'
+        const serverIcon = getServerIcon(server)
+        const statusIcon = server.status === 'connected' ? '●' : '○'
         const statusText = server.status === 'connected' ? '已连接' : '未连接'
-        terminal.value?.writeln(`  ${index + 1}. ${server.name}: ${statusColor}${statusText}\x1b[0m`)
+        terminal.value?.writeln(`  [${index + 1}] ${serverIcon}${statusIcon} ${server.name}: ${statusText}`)
       })
       terminal.value.writeln('')
-      terminal.value.write('\x1b[1;36m请选择服务器 (1-4) 或输入命令: \x1b[0m')
+      terminal.value.write('请选择服务器 (1-5) 或输入命令: ')
       break
     case 'clear':
       showServerSelectionMenu()
       break
     case 'exit':
-      terminal.value.writeln('\x1b[1;33m感谢使用服务器连接管理系统！\x1b[0m')
+      terminal.value.writeln('感谢使用服务器连接管理系统！')
       terminal.value.writeln('')
       setTimeout(() => {
         showServerSelectionMenu()
       }, 1000)
       break
     default:
-      terminal.value.writeln(`\x1b[1;31m未知命令: ${input}\x1b[0m`)
-      terminal.value.writeln('输入 1-4 选择服务器，或输入 "list" 查看服务器列表')
-      terminal.value.write('\x1b[1;36m请选择服务器 (1-4) 或输入命令: \x1b[0m')
+      terminal.value.writeln(`未知命令: ${input}`)
+      terminal.value.writeln('输入 1-5 选择服务器，或输入 "list" 查看服务器列表')
+      terminal.value.write('请选择服务器 (1-5) 或输入命令: ')
   }
 }
 
@@ -225,16 +279,16 @@ const handleConnectedCommand = (command: string) => {
   }
   
   if (cmd === 'help') {
-    terminal.value.writeln('\x1b[1;33m可用命令:\x1b[0m')
-    terminal.value.writeln('  \x1b[1;32mls\x1b[0m        - 列出文件和目录')
-    terminal.value.writeln('  \x1b[1;32mpwd\x1b[0m       - 显示当前目录')
-    terminal.value.writeln('  \x1b[1;32mwhoami\x1b[0m    - 显示当前用户')
-    terminal.value.writeln('  \x1b[1;32mdate\x1b[0m      - 显示当前日期时间')
-    terminal.value.writeln('  \x1b[1;32muname -a\x1b[0m  - 显示系统信息')
-    terminal.value.writeln('  \x1b[1;32mdf -h\x1b[0m     - 显示磁盘使用情况')
-    terminal.value.writeln('  \x1b[1;32mfree -h\x1b[0m   - 显示内存使用情况')
-    terminal.value.writeln('  \x1b[1;32mclear\x1b[0m     - 清空屏幕')
-    terminal.value.writeln('  \x1b[1;32mdisconnect\x1b[0m - 断开连接')
+    terminal.value.writeln('可用命令:')
+    terminal.value.writeln('  ls        - 列出文件和目录')
+    terminal.value.writeln('  pwd       - 显示当前目录')
+    terminal.value.writeln('  whoami    - 显示当前用户')
+    terminal.value.writeln('  date      - 显示当前日期时间')
+    terminal.value.writeln('  uname -a  - 显示系统信息')
+    terminal.value.writeln('  df -h     - 显示磁盘使用情况')
+    terminal.value.writeln('  free -h   - 显示内存使用情况')
+    terminal.value.writeln('  clear     - 清空屏幕')
+    terminal.value.writeln('  disconnect - 断开连接')
     terminal.value.writeln('')
     terminal.value.write(`${terminalState.currentServer.username}@${terminalState.currentServer.host}:~$ `)
     return
@@ -252,7 +306,7 @@ const handleConnectedCommand = (command: string) => {
     
     switch (cmd) {
       case 'ls':
-        response = '\x1b[1;34mDocuments\x1b[0m  \x1b[1;34mDownloads\x1b[0m  \x1b[1;34mPictures\x1b[0m  \x1b[1;34mVideos\x1b[0m  \x1b[1;34mworkspace\x1b[0m'
+        response = 'Documents  Downloads  Pictures  Videos  workspace'
         break
       case 'pwd':
         response = `/home/${terminalState.currentServer?.username}`
@@ -267,18 +321,18 @@ const handleConnectedCommand = (command: string) => {
         response = 'Linux server 5.4.0-74-generic #83-Ubuntu SMP Sat May 8 02:35:39 UTC 2021 x86_64 x86_64 x86_64 GNU/Linux'
         break
       case 'df -h':
-        response = `\x1b[1;37mFilesystem      Size  Used Avail Use% Mounted on\x1b[0m
+        response = `Filesystem      Size  Used Avail Use% Mounted on
 /dev/sda1        20G  8.5G   11G  45% /
 tmpfs           2.0G     0  2.0G   0% /dev/shm
 /dev/sda2       100G   45G   50G  47% /home`
         break
       case 'free -h':
-        response = `\x1b[1;37m              total        used        free      shared  buff/cache   available\x1b[0m
+        response = `              total        used        free      shared  buff/cache   available
 Mem:           4.0G        1.2G        1.8G         50M        1.0G        2.6G
 Swap:          2.0G          0B        2.0G`
         break
       default:
-        response = `\x1b[1;31mbash: ${command}: command not found\x1b[0m`
+        response = `bash: ${command}: command not found`
     }
     
     if (response) {
@@ -297,7 +351,7 @@ const handleDisconnect = () => {
   
   if (terminal.value) {
     terminal.value.writeln('')
-    terminal.value.writeln('\x1b[1;33m已断开服务器连接\x1b[0m')
+    terminal.value.writeln('已断开服务器连接')
     terminal.value.writeln('')
     setTimeout(() => {
       showServerSelectionMenu()
@@ -429,6 +483,11 @@ onUnmounted(() => {
         <div class="terminal-header">
           <div class="terminal-title">
             <Icon icon="material-symbols:terminal" class="terminal-icon" />
+            <Icon
+              v-if="terminalState.currentServer"
+              :icon="terminalState.currentServer.icon"
+              class="server-icon"
+            />
             <span v-if="terminalState.currentServer">
               {{ terminalState.currentServer.name }} - {{ terminalState.currentServer.host }}
             </span>
