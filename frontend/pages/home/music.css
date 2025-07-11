@@ -2128,9 +2128,22 @@
   color: rgba(255, 255, 255, 1);
 }
 
-.control-btn:disabled {
-  opacity: 0.5;
+.control-btn:disabled,
+.control-btn.disabled {
+  opacity: 0.3;
   cursor: not-allowed;
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.3);
+  transform: none;
+}
+
+.control-btn:disabled:hover,
+.control-btn.disabled:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.3);
+  transform: none;
 }
 
 .play-control {
