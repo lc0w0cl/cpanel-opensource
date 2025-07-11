@@ -814,12 +814,12 @@ export const useMusicApi = () => {
     // 如果是相对路径的代理URL，使用getFullUrl处理
     if (imageUrl.startsWith('/api/music/proxy/image')) {
       const processedUrl = getFullUrl(imageUrl)
-      console.log('处理图片URL:', {
-        original: imageUrl,
-        processed: processedUrl,
-        apiBaseUrl: config.public.apiBaseUrl,
-        isDevelopment: config.public.isDevelopment
-      })
+      // console.log('处理图片URL:', {
+      //   original: imageUrl,
+      //   processed: processedUrl,
+      //   apiBaseUrl: config.public.apiBaseUrl,
+      //   isDevelopment: config.public.isDevelopment
+      // })
       return processedUrl
     }
 

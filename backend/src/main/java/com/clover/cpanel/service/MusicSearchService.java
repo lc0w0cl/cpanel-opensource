@@ -2,6 +2,8 @@ package com.clover.cpanel.service;
 
 import com.clover.cpanel.dto.MusicSearchRequestDTO;
 import com.clover.cpanel.dto.MusicSearchResultDTO;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
@@ -42,6 +44,8 @@ public class MusicSearchService {
 
     @Autowired
     private SystemConfigService systemConfigService;
+
+    private final ObjectMapper objectMapper = new ObjectMapper();
     
     /**
      * 搜索音乐
@@ -1012,19 +1016,971 @@ public class MusicSearchService {
         try {
             log.info("尝试搜索歌词: title={}, artist={}", title, artist);
 
-            // 这里可以集成第三方歌词API
-            // 目前返回一个占位符
-            Map<String, Object> result = new HashMap<>();
-            result.put("lyrics", "暂未找到歌词\n\n♪ 正在播放: " + title +
-                      (artist != null && !artist.trim().isEmpty() ? " - " + artist : "") + " ♪");
-            result.put("type", "placeholder");
-            result.put("synced", false);
-            return result;
+            return searchLyricsFromMultipleSources(title, artist);
 
         } catch (Exception e) {
             log.error("搜索歌词时发生错误", e);
+            return createPlaceholderLyrics(title, artist);
+        }
+    }
+
+    /**
+     * 从多个音乐平台搜索歌词
+     */
+    private Map<String, Object> searchLyricsFromMultipleSources(String title, String artist) {
+        try {
+            log.info("开始从多个平台搜索歌词: title={}, artist={}", title, artist);
+
+            // 1. 首先尝试网易云音乐搜索歌词
+            Map<String, Object> neteaseResult = searchNeteaseCloudLyrics(title, artist);
+            if (neteaseResult != null && !neteaseResult.isEmpty()) {
+                log.info("从网易云音乐获取到歌词");
+                return neteaseResult;
+            }
+
+            // 2. 尝试QQ音乐搜索歌词
+            Map<String, Object> qqMusicResult = searchQQMusicLyrics(title, artist);
+            if (qqMusicResult != null && !qqMusicResult.isEmpty()) {
+                log.info("从QQ音乐获取到歌词");
+                return qqMusicResult;
+            }
+
+            // 3. 如果所有平台都没有找到，返回占位符
+            log.info("所有平台都未找到歌词，返回占位符");
+            return createPlaceholderLyrics(title, artist);
+
+        } catch (Exception e) {
+            log.error("从多个平台搜索歌词时发生错误", e);
+            return createPlaceholderLyrics(title, artist);
+        }
+    }
+
+    /**
+     * 创建占位符歌词
+     */
+    private Map<String, Object> createPlaceholderLyrics(String title, String artist) {
+        Map<String, Object> result = new HashMap<>();
+        result.put("lyrics", "暂未找到歌词\n\n♪ 正在播放: " + title +
+                  (artist != null && !artist.trim().isEmpty() ? " - " + artist : "") + " ♪");
+        result.put("type", "placeholder");
+        result.put("synced", false);
+        return result;
+    }
+
+    /**
+     * 从QQ音乐搜索歌词
+     */
+    private Map<String, Object> searchQQMusicLyrics(String title, String artist) {
+        try {
+            log.info("正在从QQ音乐搜索歌词: title={}, artist={}", title, artist);
+
+            // 构建搜索关键词
+            String searchKeyword = title;
+            if (artist != null && !artist.trim().isEmpty()) {
+                searchKeyword = artist + " " + title;
+            }
+
+            // 第一步：搜索歌曲获取歌曲ID
+            String songId = searchQQMusicSongId(searchKeyword, title, artist);
+            if (songId == null || songId.isEmpty()) {
+                log.info("未在QQ音乐找到匹配的歌曲");
+                return null;
+            }
+
+            // 第二步：根据歌曲ID获取歌词
+            return getQQMusicLyricsById(songId);
+
+        } catch (Exception e) {
+            log.error("从QQ音乐搜索歌词时发生错误", e);
             return null;
         }
+    }
+
+    /**
+     * 搜索QQ音乐歌曲ID
+     */
+    private String searchQQMusicSongId(String searchKeyword, String title, String artist) {
+        try {
+            log.info("正在搜索QQ音乐歌曲ID: {}", searchKeyword);
+
+            // QQ音乐搜索API
+            String searchUrl = "https://c.y.qq.com/soso/fcgi-bin/client_search_cp";
+            String encodedKeyword = URLEncoder.encode(searchKeyword, StandardCharsets.UTF_8);
+            String fullUrl = searchUrl + "?ct=24&qqmusic_ver=1298&new_json=1&remoteplace=txt.yqq.song&" +
+                           "searchid=&t=0&aggr=1&cr=1&catZhida=1&lossless=0&flag_qc=0&p=1&n=10&" +
+                           "w=" + encodedKeyword + "&g_tk=&loginUin=0&hostUin=0&format=json&inCharset=utf8&" +
+                           "outCharset=utf-8&notice=0&platform=yqq.json&needNewCode=0";
+
+            log.debug("QQ音乐搜索URL: {}", fullUrl);
+
+            // 发送搜索请求
+            Document doc = Jsoup.connect(fullUrl)
+                    .userAgent(USER_AGENT)
+                    .header("Accept", "application/json, text/plain, */*")
+                    .header("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8")
+                    .header("Referer", "https://y.qq.com/")
+                    .header("Origin", "https://y.qq.com")
+                    .ignoreContentType(true)
+                    .timeout(10000)
+                    .get();
+
+            String jsonResponse = doc.body().text();
+            log.debug("QQ音乐搜索响应: {}", jsonResponse.length() > 500 ? jsonResponse.substring(0, 500) + "..." : jsonResponse);
+
+            // 解析JSON响应
+            String songId = parseQQMusicSongIdFromJson(jsonResponse, title, artist);
+            if (songId != null && !songId.isEmpty()) {
+                log.info("找到匹配的QQ音乐歌曲ID: {}", songId);
+                return songId;
+            }
+
+            log.info("未找到匹配的QQ音乐歌曲");
+            return null;
+
+        } catch (Exception e) {
+            log.error("搜索QQ音乐歌曲ID时发生错误", e);
+            return null;
+        }
+    }
+
+    /**
+     * 从QQ音乐搜索响应JSON中解析歌曲ID
+     */
+    private String parseQQMusicSongIdFromJson(String jsonResponse, String targetTitle, String targetArtist) {
+        try {
+            log.debug("开始解析QQ音乐搜索结果");
+
+            // 使用Jackson解析JSON
+            JsonNode rootNode = objectMapper.readTree(jsonResponse);
+
+            // 检查响应结构 - QQ音乐的结构是 data.song.list
+            if (!rootNode.has("data")) {
+                log.debug("响应中未找到data字段");
+                return null;
+            }
+
+            JsonNode dataNode = rootNode.get("data");
+            if (!dataNode.has("song")) {
+                log.debug("响应中未找到song字段");
+                return null;
+            }
+
+            JsonNode songNode = dataNode.get("song");
+            if (!songNode.has("list")) {
+                log.debug("响应中未找到list字段");
+                return null;
+            }
+
+            JsonNode listNode = songNode.get("list");
+            if (!listNode.isArray()) {
+                log.debug("list字段不是数组");
+                return null;
+            }
+
+            // 遍历歌曲列表
+            for (JsonNode songItemNode : listNode) {
+                if (!songItemNode.has("songmid") || !songItemNode.has("songname")) {
+                    continue;
+                }
+
+                String songId = songItemNode.get("songmid").asText();
+                String songName = songItemNode.get("songname").asText();
+
+                // 提取艺术家信息
+                String artistsInfo = extractQQMusicArtistsFromJsonNode(songItemNode);
+
+                log.debug("检查QQ音乐歌曲匹配: id={}, name={}, artists={}", songId, songName, artistsInfo);
+
+                // 检查歌曲名称匹配
+                if (isSongMatch(songName, artistsInfo, targetTitle, targetArtist)) {
+                    log.info("找到匹配的QQ音乐歌曲: id={}, name={}, artists={}", songId, songName, artistsInfo);
+                    return songId;
+                }
+            }
+
+            log.debug("未找到匹配的QQ音乐歌曲");
+            return null;
+
+        } catch (Exception e) {
+            log.error("解析QQ音乐搜索结果时发生错误", e);
+            return null;
+        }
+    }
+
+    /**
+     * 从QQ音乐歌曲JsonNode中提取艺术家信息
+     */
+    private String extractQQMusicArtistsFromJsonNode(JsonNode songNode) {
+        try {
+            if (!songNode.has("singer")) {
+                return "";
+            }
+
+            JsonNode singersNode = songNode.get("singer");
+            if (!singersNode.isArray()) {
+                return "";
+            }
+
+            StringBuilder artists = new StringBuilder();
+            for (JsonNode singerNode : singersNode) {
+                if (singerNode.has("name")) {
+                    if (artists.length() > 0) {
+                        artists.append("/");
+                    }
+                    artists.append(singerNode.get("name").asText());
+                }
+            }
+
+            return artists.toString();
+
+        } catch (Exception e) {
+            log.debug("提取QQ音乐艺术家信息时发生错误: {}", e.getMessage());
+            return "";
+        }
+    }
+
+    /**
+     * 从QQ音乐歌曲JSON对象中提取艺术家信息（旧方法，保留兼容性）
+     */
+    private String extractQQMusicArtistsFromSong(String songJson) {
+        try {
+            // 查找singer数组
+            String singersPattern = "\"singer\"\\s*:\\s*\\[(.*?)\\]";
+            Pattern pattern = Pattern.compile(singersPattern, Pattern.DOTALL);
+            Matcher matcher = pattern.matcher(songJson);
+
+            if (!matcher.find()) {
+                return "";
+            }
+
+            String singersArray = matcher.group(1);
+
+            // 提取歌手名称
+            StringBuilder artists = new StringBuilder();
+            String namePattern = "\"name\"\\s*:\\s*\"([^\"]+)\"";
+            Pattern nameP = Pattern.compile(namePattern);
+            Matcher nameM = nameP.matcher(singersArray);
+
+            while (nameM.find()) {
+                if (artists.length() > 0) {
+                    artists.append("/");
+                }
+                artists.append(nameM.group(1));
+            }
+
+            return artists.toString();
+
+        } catch (Exception e) {
+            log.debug("提取QQ音乐艺术家信息时发生错误: {}", e.getMessage());
+            return "";
+        }
+    }
+
+    /**
+     * 从网易云音乐搜索歌词
+     */
+    private Map<String, Object> searchNeteaseCloudLyrics(String title, String artist) {
+        try {
+            log.info("正在从网易云音乐搜索歌词: title={}, artist={}", title, artist);
+
+            // 构建搜索关键词
+            String searchKeyword = title;
+            if (artist != null && !artist.trim().isEmpty()) {
+                searchKeyword = artist + " " + title;
+            }
+
+            // 第一步：搜索歌曲获取歌曲ID
+            String songId = searchNeteaseSongId(searchKeyword, title, artist);
+            if (songId == null || songId.isEmpty()) {
+                log.info("未在网易云音乐找到匹配的歌曲");
+                return null;
+            }
+
+            // 第二步：根据歌曲ID获取歌词
+            return getNeteaseCloudLyricsById(songId);
+
+        } catch (Exception e) {
+            log.error("从网易云音乐搜索歌词时发生错误", e);
+            return null;
+        }
+    }
+
+    /**
+     * 搜索网易云音乐歌曲ID
+     */
+    private String searchNeteaseSongId(String searchKeyword, String title, String artist) {
+        try {
+            log.info("正在搜索网易云音乐歌曲ID: {}", searchKeyword);
+
+            // 网易云音乐搜索API（使用公开的搜索接口）
+            String searchUrl = "https://music.163.com/api/search/get/web";
+            String encodedKeyword = URLEncoder.encode(searchKeyword, StandardCharsets.UTF_8);
+            String fullUrl = searchUrl + "?s=" + encodedKeyword + "&type=1&offset=0&total=true&limit=10";
+
+            log.debug("网易云音乐搜索URL: {}", fullUrl);
+
+            // 发送搜索请求
+            Document doc = Jsoup.connect(fullUrl)
+                    .userAgent(USER_AGENT)
+                    .header("Accept", "application/json, text/plain, */*")
+                    .header("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8")
+                    .header("Referer", "https://music.163.com/")
+                    .header("Origin", "https://music.163.com")
+                    .ignoreContentType(true)
+                    .timeout(10000)
+                    .get();
+
+            String jsonResponse = doc.body().text();
+            log.debug("网易云音乐搜索响应: {}", jsonResponse.length() > 500 ? jsonResponse.substring(0, 500) + "..." : jsonResponse);
+
+            // 解析JSON响应
+            String songId = parseNeteaseSongIdFromJson(jsonResponse, title, artist);
+            if (songId != null && !songId.isEmpty()) {
+                log.info("找到匹配的网易云音乐歌曲ID: {}", songId);
+                return songId;
+            }
+
+            log.info("未找到匹配的网易云音乐歌曲");
+            return null;
+
+        } catch (Exception e) {
+            log.error("搜索网易云音乐歌曲ID时发生错误", e);
+            return null;
+        }
+    }
+
+    /**
+     * 从网易云音乐搜索响应JSON中解析歌曲ID
+     */
+    private String parseNeteaseSongIdFromJson(String jsonResponse, String targetTitle, String targetArtist) {
+        try {
+            log.debug("开始解析网易云音乐搜索结果");
+
+            // 使用Jackson解析JSON
+            JsonNode rootNode = objectMapper.readTree(jsonResponse);
+
+            // 检查响应结构
+            if (!rootNode.has("result")) {
+                log.debug("响应中未找到result字段");
+                return null;
+            }
+
+            JsonNode resultNode = rootNode.get("result");
+            if (!resultNode.has("songs")) {
+                log.debug("响应中未找到songs字段");
+                return null;
+            }
+
+            JsonNode songsNode = resultNode.get("songs");
+            if (!songsNode.isArray()) {
+                log.debug("songs字段不是数组");
+                return null;
+            }
+
+            // 遍历歌曲列表
+            for (JsonNode songNode : songsNode) {
+                if (!songNode.has("id") || !songNode.has("name")) {
+                    continue;
+                }
+
+                String songIdStr = songNode.get("id").asText();
+                String songName = songNode.get("name").asText();
+
+                // 提取艺术家信息
+                String artistsInfo = extractNeteaseArtistsFromJsonNode(songNode);
+
+                log.debug("检查网易云歌曲匹配: id={}, name={}, artists={}", songIdStr, songName, artistsInfo);
+
+                // 检查歌曲名称匹配
+                if (isSongMatch(songName, artistsInfo, targetTitle, targetArtist)) {
+                    log.info("找到匹配的网易云歌曲: id={}, name={}, artists={}", songIdStr, songName, artistsInfo);
+                    return songIdStr;
+                }
+            }
+
+            log.debug("未找到匹配的网易云歌曲");
+            return null;
+
+        } catch (Exception e) {
+            log.error("解析网易云音乐搜索结果时发生错误", e);
+            return null;
+        }
+    }
+
+    /**
+     * 从网易云音乐歌曲JsonNode中提取艺术家信息
+     */
+    private String extractNeteaseArtistsFromJsonNode(JsonNode songNode) {
+        try {
+            if (!songNode.has("artists")) {
+                return "";
+            }
+
+            JsonNode artistsNode = songNode.get("artists");
+            if (!artistsNode.isArray()) {
+                return "";
+            }
+
+            StringBuilder artists = new StringBuilder();
+            for (JsonNode artistNode : artistsNode) {
+                if (artistNode.has("name")) {
+                    if (artists.length() > 0) {
+                        artists.append("/");
+                    }
+                    artists.append(artistNode.get("name").asText());
+                }
+            }
+
+            return artists.toString();
+
+        } catch (Exception e) {
+            log.debug("提取网易云艺术家信息时发生错误: {}", e.getMessage());
+            return "";
+        }
+    }
+
+    /**
+     * 提取JSON中的数字字段（不带引号）
+     */
+    private String extractJsonNumberField(String json, String fieldName) {
+        try {
+            String pattern = "\"" + fieldName + "\"\\s*:\\s*(\\d+)";
+            Pattern p = Pattern.compile(pattern);
+            Matcher m = p.matcher(json);
+            if (m.find()) {
+                return m.group(1);
+            }
+        } catch (Exception e) {
+            log.debug("提取JSON数字字段时发生错误: {}", fieldName, e);
+        }
+        return null;
+    }
+
+    /**
+     * 更精确地分割JSON对象数组
+     */
+    private String[] splitJsonObjects(String jsonArray) {
+        try {
+            List<String> objects = new ArrayList<>();
+            int braceCount = 0;
+            int start = 0;
+
+            for (int i = 0; i < jsonArray.length(); i++) {
+                char c = jsonArray.charAt(i);
+                if (c == '{') {
+                    braceCount++;
+                } else if (c == '}') {
+                    braceCount--;
+                    if (braceCount == 0) {
+                        // 找到一个完整的对象
+                        String obj = jsonArray.substring(start, i + 1);
+                        objects.add(obj);
+
+                        // 跳过逗号和空白字符，找到下一个对象的开始
+                        i++;
+                        while (i < jsonArray.length() && (jsonArray.charAt(i) == ',' || Character.isWhitespace(jsonArray.charAt(i)))) {
+                            i++;
+                        }
+                        start = i;
+                        i--; // 因为for循环会i++
+                    }
+                }
+            }
+
+            return objects.toArray(new String[0]);
+
+        } catch (Exception e) {
+            log.error("分割JSON对象时发生错误", e);
+            // 回退到简单分割
+            return jsonArray.split("\\},\\s*\\{");
+        }
+    }
+
+    /**
+     * 从网易云音乐歌曲JSON对象中提取艺术家信息
+     */
+    private String extractNeteaseArtistsFromSong(String songJson) {
+        try {
+            // 查找artists数组
+            String artistsPattern = "\"artists\"\\s*:\\s*\\[(.*?)\\]";
+            Pattern pattern = Pattern.compile(artistsPattern, Pattern.DOTALL);
+            Matcher matcher = pattern.matcher(songJson);
+
+            if (!matcher.find()) {
+                return "";
+            }
+
+            String artistsArray = matcher.group(1);
+
+            // 提取艺术家名称
+            StringBuilder artists = new StringBuilder();
+            String namePattern = "\"name\"\\s*:\\s*\"([^\"]+)\"";
+            Pattern nameP = Pattern.compile(namePattern);
+            Matcher nameM = nameP.matcher(artistsArray);
+
+            while (nameM.find()) {
+                if (artists.length() > 0) {
+                    artists.append("/");
+                }
+                artists.append(nameM.group(1));
+            }
+
+            return artists.toString();
+
+        } catch (Exception e) {
+            log.debug("提取网易云艺术家信息时发生错误: {}", e.getMessage());
+            return "";
+        }
+    }
+
+
+
+    /**
+     * 检查歌曲是否匹配
+     */
+    private boolean isSongMatch(String songName, String artistsInfo, String targetTitle, String targetArtist) {
+        try {
+            // 标准化字符串（去除空格、转小写）
+            String normalizedSongName = normalizeSongTitle(songName);
+            String normalizedTargetTitle = normalizeSongTitle(targetTitle);
+            String normalizedArtistsInfo = normalizeArtistName(artistsInfo);
+            String normalizedTargetArtist = normalizeArtistName(targetArtist);
+
+            // 检查歌曲名称匹配
+            boolean titleMatch = normalizedSongName.contains(normalizedTargetTitle) ||
+                               normalizedTargetTitle.contains(normalizedSongName) ||
+                               calculateSimilarity(normalizedSongName, normalizedTargetTitle) > 0.8;
+
+            // 如果没有提供艺术家信息，只检查标题
+            if (targetArtist == null || targetArtist.trim().isEmpty()) {
+                return titleMatch;
+            }
+
+            // 检查艺术家匹配
+            boolean artistMatch = normalizedArtistsInfo.contains(normalizedTargetArtist) ||
+                                normalizedTargetArtist.contains(normalizedArtistsInfo) ||
+                                calculateSimilarity(normalizedArtistsInfo, normalizedTargetArtist) > 0.7;
+
+            return titleMatch && artistMatch;
+
+        } catch (Exception e) {
+            log.debug("检查歌曲匹配时发生错误: {}", e.getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * 根据歌曲ID获取QQ音乐歌词
+     */
+    private Map<String, Object> getQQMusicLyricsById(String songId) {
+        try {
+            log.info("正在获取QQ音乐歌词: songId={}", songId);
+
+            // QQ音乐歌词API
+            String lyricsUrl = "https://c.y.qq.com/lyric/fcgi-bin/fcg_query_lyric_new.fcg" +
+                             "?callback=MusicJsonCallback_lrc&pcachetime=" + System.currentTimeMillis() +
+                             "&songmid=" + songId + "&g_tk=&loginUin=0&hostUin=0&format=jsonp&" +
+                             "inCharset=utf8&outCharset=utf-8&notice=0&platform=yqq&needNewCode=0";
+
+            log.debug("QQ音乐歌词URL: {}", lyricsUrl);
+
+            // 发送歌词请求
+            Document doc = Jsoup.connect(lyricsUrl)
+                    .userAgent(USER_AGENT)
+                    .header("Accept", "*/*")
+                    .header("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8")
+                    .header("Referer", "https://y.qq.com/")
+                    .header("Origin", "https://y.qq.com")
+                    .ignoreContentType(true)
+                    .timeout(10000)
+                    .get();
+
+            String jsonpResponse = doc.body().text();
+            log.debug("QQ音乐歌词响应: {}", jsonpResponse.length() > 200 ? jsonpResponse.substring(0, 200) + "..." : jsonpResponse);
+
+            // 解析JSONP响应
+            return parseQQMusicLyricsFromJsonp(jsonpResponse);
+
+        } catch (Exception e) {
+            log.error("获取QQ音乐歌词时发生错误", e);
+            return null;
+        }
+    }
+
+    /**
+     * 解析QQ音乐歌词JSONP响应
+     */
+    private Map<String, Object> parseQQMusicLyricsFromJsonp(String jsonpResponse) {
+        try {
+            // 移除JSONP包装，提取JSON内容
+            String jsonContent = extractJsonFromJsonp(jsonpResponse);
+            if (jsonContent == null || jsonContent.trim().isEmpty()) {
+                log.info("QQ音乐JSONP响应中未找到JSON内容");
+                return null;
+            }
+
+            // 使用Jackson解析JSON
+            JsonNode rootNode = objectMapper.readTree(jsonContent);
+
+            Map<String, Object> result = new HashMap<>();
+
+            // 提取Base64编码的歌词
+            String base64Lyrics = null;
+            if (rootNode.has("lyric")) {
+                base64Lyrics = rootNode.get("lyric").asText();
+            }
+
+            if (base64Lyrics != null && !base64Lyrics.trim().isEmpty()) {
+                // 解码Base64歌词
+                String decodedLyrics = decodeBase64Lyrics(base64Lyrics);
+
+                if (decodedLyrics != null && !decodedLyrics.trim().isEmpty()) {
+                    // 清理和处理歌词
+                    String cleanedLyrics = cleanQQMusicLyrics(decodedLyrics);
+
+                    if (!cleanedLyrics.trim().isEmpty()) {
+                        result.put("lyrics", cleanedLyrics);
+                        result.put("type", "lrc");
+                        result.put("synced", true);
+                        result.put("source", "qqmusic");
+
+                        // 尝试获取翻译歌词
+                        String base64Translation = null;
+                        if (rootNode.has("trans")) {
+                            base64Translation = rootNode.get("trans").asText();
+                        }
+
+                        if (base64Translation != null && !base64Translation.trim().isEmpty()) {
+                            String decodedTranslation = decodeBase64Lyrics(base64Translation);
+                            if (decodedTranslation != null && !decodedTranslation.trim().isEmpty()) {
+                                String cleanedTranslation = cleanQQMusicLyrics(decodedTranslation);
+                                if (!cleanedTranslation.trim().isEmpty()) {
+                                    result.put("translation", cleanedTranslation);
+                                }
+                            }
+                        }
+
+                        log.info("成功解析QQ音乐歌词，长度: {}", cleanedLyrics.length());
+                        return result;
+                    }
+                }
+            }
+
+            log.info("QQ音乐响应中未找到有效歌词");
+            return null;
+
+        } catch (Exception e) {
+            log.error("解析QQ音乐歌词JSONP时发生错误", e);
+            return null;
+        }
+    }
+
+    /**
+     * 从JSONP响应中提取JSON内容
+     */
+    private String extractJsonFromJsonp(String jsonpResponse) {
+        try {
+            // QQ音乐的JSONP格式: MusicJsonCallback_lrc({...})
+            if (jsonpResponse.contains("MusicJsonCallback_lrc(")) {
+                int start = jsonpResponse.indexOf("MusicJsonCallback_lrc(") + "MusicJsonCallback_lrc(".length();
+                int end = jsonpResponse.lastIndexOf(")");
+                if (start < end) {
+                    return jsonpResponse.substring(start, end);
+                }
+            }
+
+            // 通用JSONP格式处理
+            int start = jsonpResponse.indexOf("(");
+            int end = jsonpResponse.lastIndexOf(")");
+            if (start >= 0 && end > start) {
+                return jsonpResponse.substring(start + 1, end);
+            }
+
+            return jsonpResponse;
+
+        } catch (Exception e) {
+            log.error("提取JSONP中的JSON内容时发生错误", e);
+            return null;
+        }
+    }
+
+    /**
+     * 解码Base64歌词
+     */
+    private String decodeBase64Lyrics(String base64Lyrics) {
+        try {
+            if (base64Lyrics == null || base64Lyrics.trim().isEmpty()) {
+                return null;
+            }
+
+            // 解码Base64
+            byte[] decodedBytes = java.util.Base64.getDecoder().decode(base64Lyrics);
+            return new String(decodedBytes, StandardCharsets.UTF_8);
+
+        } catch (Exception e) {
+            log.error("解码Base64歌词时发生错误", e);
+            return null;
+        }
+    }
+
+    /**
+     * 清理QQ音乐歌词
+     */
+    private String cleanQQMusicLyrics(String lrcText) {
+        if (lrcText == null || lrcText.trim().isEmpty()) {
+            return "";
+        }
+
+        try {
+            // 分行处理
+            String[] lines = lrcText.split("\n");
+            StringBuilder cleanLyrics = new StringBuilder();
+
+            for (String line : lines) {
+                line = line.trim();
+
+                // 跳过空行
+                if (line.isEmpty()) {
+                    continue;
+                }
+
+                // 跳过制作信息和元数据
+                if (line.contains("作词") || line.contains("作曲") || line.contains("编曲") ||
+                    line.contains("制作") || line.contains("混音") || line.contains("监制") ||
+                    line.contains("出品") || line.contains("发行") || line.contains("录音") ||
+                    line.contains("母带") || line.contains("吉他") || line.contains("贝斯") ||
+                    line.contains("鼓") || line.contains("键盘") || line.contains("和声") ||
+                    line.contains("弦乐") || line.contains("制作人") || line.contains("统筹") ||
+                    line.contains("QQ音乐") || line.contains("腾讯") ||
+                    line.contains("版权所有") || line.contains("未经许可") ||
+                    line.contains("商务合作") || line.contains("客服电话")) {
+                    continue;
+                }
+
+                // 跳过纯时间标签行（没有歌词内容）
+                if (line.matches("^\\[\\d{2}:\\d{2}\\.\\d{2,3}\\]\\s*$")) {
+                    continue;
+                }
+
+                cleanLyrics.append(line).append("\n");
+            }
+
+            return cleanLyrics.toString().trim();
+
+        } catch (Exception e) {
+            log.error("清理QQ音乐歌词时发生错误", e);
+            return lrcText;
+        }
+    }
+
+    /**
+     * 根据歌曲ID获取网易云音乐歌词
+     */
+    private Map<String, Object> getNeteaseCloudLyricsById(String songId) {
+        try {
+            log.info("正在获取网易云音乐歌词: songId={}", songId);
+
+            // 网易云音乐歌词API
+            String lyricsUrl = "https://music.163.com/api/song/lyric?id=" + songId + "&lv=1&kv=1&tv=-1";
+
+            log.debug("网易云音乐歌词URL: {}", lyricsUrl);
+
+            // 发送歌词请求
+            Document doc = Jsoup.connect(lyricsUrl)
+                    .userAgent(USER_AGENT)
+                    .header("Accept", "application/json, text/plain, */*")
+                    .header("Accept-Language", "zh-CN,zh;q=0.9,en;q=0.8")
+                    .header("Referer", "https://music.163.com/")
+                    .header("Origin", "https://music.163.com")
+                    .ignoreContentType(true)
+                    .timeout(10000)
+                    .get();
+
+            String jsonResponse = doc.body().text();
+            log.debug("网易云音乐歌词响应: {}", jsonResponse.length() > 200 ? jsonResponse.substring(0, 200) + "..." : jsonResponse);
+
+            // 解析歌词JSON
+            return parseNeteaseLyricsFromJson(jsonResponse);
+
+        } catch (Exception e) {
+            log.error("获取网易云音乐歌词时发生错误", e);
+            return null;
+        }
+    }
+
+    /**
+     * 解析网易云音乐歌词JSON响应
+     */
+    private Map<String, Object> parseNeteaseLyricsFromJson(String jsonResponse) {
+        try {
+            Map<String, Object> result = new HashMap<>();
+
+            // 使用Jackson解析JSON
+            JsonNode rootNode = objectMapper.readTree(jsonResponse);
+
+            // 提取普通歌词
+            String lrcLyrics = null;
+            if (rootNode.has("lrc") && rootNode.get("lrc").has("lyric")) {
+                lrcLyrics = rootNode.get("lrc").get("lyric").asText();
+            }
+
+            // 提取翻译歌词（如果有）
+            String translatedLyrics = null;
+            if (rootNode.has("tlyric") && rootNode.get("tlyric").has("lyric")) {
+                translatedLyrics = rootNode.get("tlyric").get("lyric").asText();
+            }
+
+            if (lrcLyrics != null && !lrcLyrics.trim().isEmpty()) {
+                // 清理和处理歌词
+                String cleanedLyrics = cleanNeteaseLyrics(lrcLyrics);
+
+                if (!cleanedLyrics.trim().isEmpty()) {
+                    result.put("lyrics", cleanedLyrics);
+                    result.put("type", "lrc");
+                    result.put("synced", true);
+                    result.put("source", "netease");
+
+                    // 如果有翻译，也添加进去
+                    if (translatedLyrics != null && !translatedLyrics.trim().isEmpty()) {
+                        String cleanedTranslation = cleanNeteaseLyrics(translatedLyrics);
+                        if (!cleanedTranslation.trim().isEmpty()) {
+                            result.put("translation", cleanedTranslation);
+                        }
+                    }
+
+                    log.info("成功解析网易云音乐歌词，长度: {}", cleanedLyrics.length());
+                    return result;
+                }
+            }
+
+            log.info("网易云音乐响应中未找到有效歌词");
+            return null;
+
+        } catch (Exception e) {
+            log.error("解析网易云音乐歌词JSON时发生错误", e);
+            return null;
+        }
+    }
+
+    /**
+     * 清理网易云音乐歌词
+     */
+    private String cleanNeteaseLyrics(String lrcText) {
+        if (lrcText == null || lrcText.trim().isEmpty()) {
+            return "";
+        }
+
+        try {
+            // 解码JSON字符串中的转义字符
+            String decodedLyrics = decodeJsonString(lrcText);
+
+            // 分行处理
+            String[] lines = decodedLyrics.split("\n");
+            StringBuilder cleanLyrics = new StringBuilder();
+
+            for (String line : lines) {
+                line = line.trim();
+
+                // 跳过空行
+                if (line.isEmpty()) {
+                    continue;
+                }
+
+                // 跳过制作信息和元数据
+                if (line.contains("作词") || line.contains("作曲") || line.contains("编曲") ||
+                    line.contains("制作") || line.contains("混音") || line.contains("监制") ||
+                    line.contains("出品") || line.contains("发行") || line.contains("录音") ||
+                    line.contains("母带") || line.contains("吉他") || line.contains("贝斯") ||
+                    line.contains("鼓") || line.contains("键盘") || line.contains("和声") ||
+                    line.contains("弦乐") || line.contains("制作人") || line.contains("统筹") ||
+                    line.contains("@") || line.contains("网易云音乐") ||
+                    line.contains("现金激励") || line.contains("流量扶持") ||
+                    line.contains("商务合作") || line.contains("未经著作权人许可")) {
+                    continue;
+                }
+
+                // 跳过纯时间标签行（没有歌词内容）
+                if (line.matches("^\\[\\d{2}:\\d{2}\\.\\d{2,3}\\]\\s*$")) {
+                    continue;
+                }
+
+                cleanLyrics.append(line).append("\n");
+            }
+
+            return cleanLyrics.toString().trim();
+
+        } catch (Exception e) {
+            log.error("清理网易云音乐歌词时发生错误", e);
+            return lrcText;
+        }
+    }
+
+    /**
+     * 标准化歌曲标题（用于匹配）
+     */
+    private String normalizeSongTitle(String title) {
+        if (title == null) return "";
+
+        return title.toLowerCase()
+                .replaceAll("[\\s\\-_]+", "")  // 移除空格、横线、下划线
+                .replaceAll("[()（）\\[\\]【】]", "")  // 移除括号
+                .replaceAll("[.,，。！!？?]", "")  // 移除标点符号
+                .trim();
+    }
+
+    /**
+     * 标准化艺术家名称（用于匹配）
+     */
+    private String normalizeArtistName(String artist) {
+        if (artist == null) return "";
+
+        return artist.toLowerCase()
+                .replaceAll("[\\s\\-_/、&]+", "")  // 移除分隔符
+                .replaceAll("[()（）\\[\\]【】]", "")  // 移除括号
+                .trim();
+    }
+
+    /**
+     * 计算字符串相似度（简单的编辑距离算法）
+     */
+    private double calculateSimilarity(String s1, String s2) {
+        if (s1 == null || s2 == null) return 0.0;
+        if (s1.equals(s2)) return 1.0;
+
+        int maxLength = Math.max(s1.length(), s2.length());
+        if (maxLength == 0) return 1.0;
+
+        int editDistance = calculateEditDistance(s1, s2);
+        return 1.0 - (double) editDistance / maxLength;
+    }
+
+    /**
+     * 计算编辑距离
+     */
+    private int calculateEditDistance(String s1, String s2) {
+        int m = s1.length();
+        int n = s2.length();
+
+        int[][] dp = new int[m + 1][n + 1];
+
+        for (int i = 0; i <= m; i++) {
+            dp[i][0] = i;
+        }
+        for (int j = 0; j <= n; j++) {
+            dp[0][j] = j;
+        }
+
+        for (int i = 1; i <= m; i++) {
+            for (int j = 1; j <= n; j++) {
+                if (s1.charAt(i - 1) == s2.charAt(j - 1)) {
+                    dp[i][j] = dp[i - 1][j - 1];
+                } else {
+                    dp[i][j] = 1 + Math.min(Math.min(dp[i - 1][j], dp[i][j - 1]), dp[i - 1][j - 1]);
+                }
+            }
+        }
+
+        return dp[m][n];
     }
 
     /**
