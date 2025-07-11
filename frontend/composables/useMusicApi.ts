@@ -644,6 +644,40 @@ export const useMusicApi = () => {
   }
 
   /**
+   * 获取歌词
+   */
+  const getLyrics = async (videoUrl: string, title?: string, artist?: string): Promise<any> => {
+    try {
+      console.log('获取歌词:', videoUrl, '标题:', title, '艺术家:', artist)
+
+      const response = await apiRequest(`${API_BASE_URL}/music/lyrics`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          url: videoUrl,
+          title: title || '',
+          artist: artist || ''
+        })
+      })
+
+      const result: ApiResponse<any> = await response.json()
+
+      if (result.success) {
+        console.log('获取到歌词:', result.data)
+        return result.data
+      } else {
+        console.error('获取歌词失败:', result.message)
+        return null
+      }
+    } catch (error) {
+      console.error('获取歌词异常:', error)
+      return null
+    }
+  }
+
+  /**
    * 获取可用格式列表
    */
   const getAvailableFormats = async (videoUrl: string, platform: string): Promise<any[]> => {
@@ -765,6 +799,7 @@ export const useMusicApi = () => {
     downloadMusicDirectly,
     downloadAudioFile,
     getAvailableFormats,
+    getLyrics,
     detectPlatform,
     generateFileName,
     processImageUrl

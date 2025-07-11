@@ -4,6 +4,7 @@ import { Icon } from '@iconify/vue'
 import { useMusicApi, type MusicSearchResult } from '~/composables/useMusicApi'
 import { useMusicState } from '~/composables/useMusicState'
 import FormatSelector from '~/components/FormatSelector.vue'
+import LyricsDisplay from '~/components/LyricsDisplay.vue'
 import './music.css'
 
 // 使用音乐状态管理
@@ -25,6 +26,13 @@ const {
   platform,
   isSearching,
   searchError,
+
+  // 歌词状态
+  currentLyrics,
+  lyricsType,
+  lyricsSource,
+  isLyricsLoading,
+  showLyrics,
 
   // 计算属性
   hasResults,
@@ -55,6 +63,14 @@ const {
   removeDownloadProgress,
   clearPlayingState,
   clearAllState,
+
+  // 歌词方法
+  setCurrentLyrics,
+  setLyricsType,
+  setLyricsSource,
+  setLyricsLoading,
+  setShowLyrics,
+  clearLyrics,
 
   // 歌单信息
   playlistInfo,
@@ -91,7 +107,7 @@ const {
 } = useMusicState()
 
 // 音乐API
-const { searchMusic, downloadMusic, getAudioStreamByUrl, getPlayableAudioUrl, getFallbackAudioUrl, parsePlaylist, getSupportedPlatforms, getAvailableFormats, detectPlatform, processImageUrl } = useMusicApi()
+const { searchMusic, downloadMusic, getAudioStreamByUrl, getPlayableAudioUrl, getFallbackAudioUrl, parsePlaylist, getSupportedPlatforms, getAvailableFormats, detectPlatform, processImageUrl, getLyrics } = useMusicApi()
 
 // 下载相关状态
 const isDownloading = ref(false)
@@ -846,6 +862,9 @@ const playMusic = async (result: MusicSearchResult) => {
     await audio.play()
     setPlaying(true)
 
+    // 获取歌词（异步，不阻塞播放）
+    loadLyrics(result)
+
   } catch (error) {
     console.error('播放音乐失败:', error)
     setCurrentPlaying(null)
@@ -889,6 +908,49 @@ const setVolumeValue = (newVolume: number) => {
   if (audioElement.value) {
     audioElement.value.volume = newVolume
   }
+}
+
+// 获取歌词
+const loadLyrics = async (music: MusicSearchResult) => {
+  try {
+    setLyricsLoading(true)
+    clearLyrics()
+
+    console.log('开始获取歌词:', music.title, music.artist)
+
+    const lyricsData = await getLyrics(music.url, music.title, music.artist)
+
+    console.log('歌词API返回数据:', lyricsData)
+
+    if (lyricsData) {
+      console.log('歌词内容:', lyricsData.lyrics)
+      console.log('歌词类型:', lyricsData.type)
+      console.log('歌词来源:', lyricsData.source)
+
+      setCurrentLyrics(lyricsData.lyrics || '')
+      setLyricsType(lyricsData.type || '')
+      setLyricsSource(lyricsData.source || '')
+      console.log('歌词设置成功')
+    } else {
+      console.log('未获取到歌词')
+      setCurrentLyrics('暂无歌词')
+      setLyricsType('placeholder')
+      setLyricsSource('')
+    }
+
+  } catch (error) {
+    console.error('获取歌词失败:', error)
+    setCurrentLyrics('歌词获取失败')
+    setLyricsType('error')
+    setLyricsSource('')
+  } finally {
+    setLyricsLoading(false)
+  }
+}
+
+// 切换歌词显示
+const toggleLyrics = () => {
+  setShowLyrics(!showLyrics.value)
 }
 
 // 格式化时间
@@ -1999,6 +2061,14 @@ const startBatchDownload = async () => {
             icon="mdi:play"
           />
         </button>
+        <button
+          @click="toggleLyrics"
+          class="control-btn lyrics-btn"
+          :class="{ active: showLyrics }"
+          title="显示/隐藏歌词"
+        >
+          <Icon icon="mdi:music-note-outline" />
+        </button>
       </div>
 
       <!-- 进度条 -->
@@ -2030,6 +2100,18 @@ const startBatchDownload = async () => {
           class="volume-slider"
         />
       </div>
+    </div>
+
+    <!-- 歌词显示区域 -->
+    <div v-if="showLyrics" class="lyrics-panel">
+      <LyricsDisplay
+        :lyrics="currentLyrics"
+        :lyrics-type="lyricsType"
+        :lyrics-source="lyricsSource"
+        :is-loading="isLyricsLoading"
+        :current-time="currentTime"
+        @close="setShowLyrics(false)"
+      />
     </div>
   </div>
 

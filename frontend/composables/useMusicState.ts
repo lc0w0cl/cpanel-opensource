@@ -21,6 +21,13 @@ const currentTime = ref(0)
 const totalDuration = ref(0)
 const volume = ref(1)
 
+// 歌词状态
+const currentLyrics = ref<string>('')
+const lyricsType = ref<string>('')
+const lyricsSource = ref<string>('')
+const isLyricsLoading = ref(false)
+const showLyrics = ref(false)
+
 // 搜索状态
 const searchQuery = ref('')
 const searchType = ref<'keyword' | 'url' | 'playlist'>('keyword')
@@ -60,6 +67,7 @@ const STORAGE_KEYS = {
   DOWNLOAD_QUEUE: 'music_download_queue',
   VOLUME: 'music_volume',
   CURRENT_PLAYING: 'music_current_playing',
+  SHOW_LYRICS: 'music_show_lyrics',
 
   // 独立搜索内容
   KEYWORD_SEARCH_QUERY: 'music_keyword_search_query',
@@ -117,6 +125,12 @@ const restoreState = () => {
     const savedVolume = localStorage.getItem(STORAGE_KEYS.VOLUME)
     if (savedVolume) {
       volume.value = parseFloat(savedVolume)
+    }
+
+    // 恢复歌词显示设置
+    const savedShowLyrics = localStorage.getItem(STORAGE_KEYS.SHOW_LYRICS)
+    if (savedShowLyrics) {
+      showLyrics.value = savedShowLyrics === 'true'
     }
 
     // 恢复当前播放信息（但不自动播放）
@@ -240,6 +254,12 @@ const clearPlayingState = () => {
   isLoading.value = false
   currentTime.value = 0
   totalDuration.value = 0
+
+  // 清空歌词
+  currentLyrics.value = ''
+  lyricsType.value = ''
+  lyricsSource.value = ''
+  isLyricsLoading.value = false
 
   // 清除播放相关的本地存储
   if (process.client) {
@@ -458,6 +478,37 @@ export const useMusicState = () => {
     saveState()
   }
 
+  // 歌词状态管理
+  const setCurrentLyrics = (lyrics: string) => {
+    currentLyrics.value = lyrics
+  }
+
+  const setLyricsType = (type: string) => {
+    lyricsType.value = type
+  }
+
+  const setLyricsSource = (source: string) => {
+    lyricsSource.value = source
+  }
+
+  const setLyricsLoading = (loading: boolean) => {
+    isLyricsLoading.value = loading
+  }
+
+  const setShowLyrics = (show: boolean) => {
+    showLyrics.value = show
+    if (process.client) {
+      localStorage.setItem(STORAGE_KEYS.SHOW_LYRICS, show.toString())
+    }
+  }
+
+  const clearLyrics = () => {
+    currentLyrics.value = ''
+    lyricsType.value = ''
+    lyricsSource.value = ''
+    isLyricsLoading.value = false
+  }
+
   // 下载进度管理
   const setDownloadProgress = (id: string, progress: number) => {
     downloadProgress.value[id] = progress
@@ -549,6 +600,11 @@ export const useMusicState = () => {
     currentTime: readonly(currentTime),
     totalDuration: readonly(totalDuration),
     volume: readonly(volume),
+    currentLyrics: readonly(currentLyrics),
+    lyricsType: readonly(lyricsType),
+    lyricsSource: readonly(lyricsSource),
+    isLyricsLoading: readonly(isLyricsLoading),
+    showLyrics: readonly(showLyrics),
     searchQuery: readonly(searchQuery),
     searchType: readonly(searchType),
     platform: readonly(platform),
@@ -597,6 +653,12 @@ export const useMusicState = () => {
     setCurrentTime,
     setTotalDuration,
     setVolume,
+    setCurrentLyrics,
+    setLyricsType,
+    setLyricsSource,
+    setLyricsLoading,
+    setShowLyrics,
+    clearLyrics,
     setDownloadProgress,
     removeDownloadProgress,
     clearPlayingState,

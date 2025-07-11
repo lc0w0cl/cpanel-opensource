@@ -2420,6 +2420,81 @@
   }
 }
 
+/* 歌词相关样式 */
+.lyrics-btn {
+  position: relative;
+}
+
+.lyrics-btn.active {
+  background: rgba(168, 85, 247, 0.3) !important;
+  color: rgba(168, 85, 247, 1) !important;
+  border-color: rgba(168, 85, 247, 0.5) !important;
+}
+
+.lyrics-btn.active::after {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: -2px;
+  right: -2px;
+  bottom: -2px;
+  border-radius: 0.5rem;
+  background: linear-gradient(45deg, rgba(168, 85, 247, 0.3), rgba(168, 85, 247, 0.1));
+  z-index: -1;
+  animation: lyricsGlow 2s ease-in-out infinite alternate;
+}
+
+@keyframes lyricsGlow {
+  0% {
+    opacity: 0.5;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1.05);
+  }
+}
+
+.lyrics-panel {
+  position: fixed;
+  bottom: 120px;
+  right: 20px;
+  width: 350px;
+  height: 400px;
+  z-index: 999;
+  animation: slideInUp 0.3s ease-out;
+}
+
+@keyframes slideInUp {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* 响应式歌词面板 */
+@media (max-width: 768px) {
+  .lyrics-panel {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    width: 100%;
+    height: 50vh;
+    border-radius: 1rem 1rem 0 0;
+  }
+}
+
+@media (max-width: 480px) {
+  .lyrics-panel {
+    height: 60vh;
+  }
+}
+
 /* 内联歌单信息样式 */
 .playlist-info-inline {
   flex: 1;

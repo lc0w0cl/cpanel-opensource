@@ -751,6 +751,283 @@ public class MusicSearchService {
     }
 
     /**
+     * 获取歌词
+     */
+    public Map<String, Object> getLyrics(String videoUrl, String title, String artist) {
+        Map<String, Object> result = new HashMap<>();
+
+        try {
+            log.info("正在获取歌词: url={}, title={}, artist={}", videoUrl, title, artist);
+
+            // 首先尝试从yt-dlp获取字幕
+            Map<String, Object> ytdlpLyrics = getLyricsFromYtDlp(videoUrl);
+            if (ytdlpLyrics != null && !ytdlpLyrics.isEmpty()) {
+                result.putAll(ytdlpLyrics);
+                result.put("source", "yt-dlp");
+                log.info("从yt-dlp获取到歌词");
+                return result;
+            }
+
+            // 如果yt-dlp没有歌词，尝试通过歌曲信息搜索歌词
+            if (title != null && !title.trim().isEmpty()) {
+                Map<String, Object> searchLyrics = searchLyricsByTitle(title, artist);
+                if (searchLyrics != null && !searchLyrics.isEmpty()) {
+                    result.putAll(searchLyrics);
+                    result.put("source", "search");
+                    log.info("通过搜索获取到歌词");
+                    return result;
+                }
+            }
+
+            log.info("未找到歌词");
+            return null;
+
+        } catch (Exception e) {
+            log.error("获取歌词时发生错误", e);
+            return null;
+        }
+    }
+
+    /**
+     * 从yt-dlp获取字幕作为歌词
+     */
+    private Map<String, Object> getLyricsFromYtDlp(String videoUrl) {
+        try {
+            log.info("尝试从yt-dlp获取歌词: {}", videoUrl);
+
+            // 构建yt-dlp命令获取完整的JSON信息（包括歌词）
+            ProcessBuilder processBuilder = new ProcessBuilder(
+                "yt-dlp",
+                "--dump-json",
+                "--skip-download",
+                videoUrl
+            );
+
+            processBuilder.redirectErrorStream(true);
+            Process process = processBuilder.start();
+
+            StringBuilder output = new StringBuilder();
+            try (BufferedReader reader = new BufferedReader(
+                    new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    output.append(line).append("\n");
+                }
+            }
+
+            int exitCode = process.waitFor();
+
+            if (exitCode == 0) {
+                String jsonOutput = output.toString().trim();
+                // 解析JSON获取歌词信息
+                return parseSubtitlesFromJson(jsonOutput);
+            } else {
+                log.warn("yt-dlp获取信息失败，退出码: {}, 输出: {}", exitCode, output.toString());
+                return null;
+            }
+
+        } catch (Exception e) {
+            log.error("从yt-dlp获取歌词时发生错误", e);
+            return null;
+        }
+    }
+
+    /**
+     * 解析yt-dlp返回的JSON中的歌词信息
+     */
+    private Map<String, Object> parseSubtitlesFromJson(String jsonOutput) {
+        try {
+            log.info("开始解析yt-dlp JSON输出");
+
+            // 简单的JSON解析，查找歌词相关字段
+            Map<String, Object> result = new HashMap<>();
+
+            // 查找description字段中的歌词（网易云音乐会在这里放歌词）
+            if (jsonOutput.contains("\"description\"")) {
+                String description = extractJsonField(jsonOutput, "description");
+                if (description != null && isLrcFormat(description)) {
+                    log.info("在description字段中找到LRC格式歌词");
+                    result.put("lyrics", cleanLrcLyrics(description));
+                    result.put("type", "lrc");
+                    result.put("synced", true);
+                    return result;
+                }
+            }
+
+            // 查找subtitles.lyrics字段
+            if (jsonOutput.contains("\"subtitles\"") && jsonOutput.contains("\"lyrics\"")) {
+                log.info("找到subtitles.lyrics字段");
+                String lyricsData = extractLyricsFromSubtitles(jsonOutput);
+                if (lyricsData != null && !lyricsData.trim().isEmpty()) {
+                    log.info("从subtitles中提取到歌词");
+                    result.put("lyrics", cleanLrcLyrics(lyricsData));
+                    result.put("type", "lrc");
+                    result.put("synced", true);
+                    return result;
+                }
+            }
+
+            log.info("未在JSON中找到歌词信息");
+            return null;
+
+        } catch (Exception e) {
+            log.error("解析歌词JSON时发生错误", e);
+            return null;
+        }
+    }
+
+    /**
+     * 从JSON字符串中提取指定字段的值
+     */
+    private String extractJsonField(String json, String fieldName) {
+        try {
+            String pattern = "\"" + fieldName + "\"\\s*:\\s*\"([^\"]*(?:\\\\.[^\"]*)*?)\"";
+            Pattern p = Pattern.compile(pattern);
+            Matcher m = p.matcher(json);
+            if (m.find()) {
+                String value = m.group(1);
+                // 解码Unicode转义字符和其他转义字符
+                return decodeJsonString(value);
+            }
+        } catch (Exception e) {
+            log.error("提取JSON字段时发生错误: {}", fieldName, e);
+        }
+        return null;
+    }
+
+    /**
+     * 解码JSON字符串中的转义字符
+     */
+    private String decodeJsonString(String jsonString) {
+        if (jsonString == null) {
+            return null;
+        }
+
+        try {
+            // 替换常见的转义字符
+            String decoded = jsonString
+                .replace("\\n", "\n")
+                .replace("\\r", "\r")
+                .replace("\\t", "\t")
+                .replace("\\\"", "\"")
+                .replace("\\\\", "\\");
+
+            // 解码Unicode转义字符 \\uXXXX
+            Pattern unicodePattern = Pattern.compile("\\\\u([0-9a-fA-F]{4})");
+            Matcher matcher = unicodePattern.matcher(decoded);
+            StringBuffer sb = new StringBuffer();
+
+            while (matcher.find()) {
+                String unicodeHex = matcher.group(1);
+                int codePoint = Integer.parseInt(unicodeHex, 16);
+                char unicodeChar = (char) codePoint;
+                matcher.appendReplacement(sb, String.valueOf(unicodeChar));
+            }
+            matcher.appendTail(sb);
+
+            return sb.toString();
+
+        } catch (Exception e) {
+            log.error("解码JSON字符串时发生错误", e);
+            return jsonString;
+        }
+    }
+
+    /**
+     * 从subtitles字段中提取歌词数据
+     */
+    private String extractLyricsFromSubtitles(String json) {
+        try {
+            // 查找 "subtitles":{"lyrics":[{"data":"..."}]}
+            String pattern = "\"subtitles\"\\s*:\\s*\\{[^}]*\"lyrics\"\\s*:\\s*\\[\\s*\\{[^}]*\"data\"\\s*:\\s*\"([^\"]*(?:\\\\.[^\"]*)*?)\"";
+            Pattern p = Pattern.compile(pattern);
+            Matcher m = p.matcher(json);
+            if (m.find()) {
+                String value = m.group(1);
+                // 解码Unicode转义字符和其他转义字符
+                return decodeJsonString(value);
+            }
+        } catch (Exception e) {
+            log.error("从subtitles提取歌词时发生错误", e);
+        }
+        return null;
+    }
+
+    /**
+     * 判断是否为LRC格式歌词
+     */
+    private boolean isLrcFormat(String text) {
+        if (text == null || text.trim().isEmpty()) {
+            return false;
+        }
+        // 检查是否包含时间标签 [mm:ss.xx]
+        return text.contains("[") && text.matches(".*\\[\\d{2}:\\d{2}\\.\\d{2}\\].*");
+    }
+
+    /**
+     * 清理LRC歌词，移除时间标签，保留纯文本
+     */
+    private String cleanLrcLyrics(String lrcText) {
+        if (lrcText == null || lrcText.trim().isEmpty()) {
+            return "";
+        }
+
+        try {
+            StringBuilder cleanLyrics = new StringBuilder();
+            String[] lines = lrcText.split("\n");
+
+            for (String line : lines) {
+                // 移除时间标签 [mm:ss.xx]
+                String cleanLine = line.replaceAll("\\[\\d{2}:\\d{2}\\.\\d{2}\\]", "").trim();
+
+                // 跳过空行和制作信息
+                if (!cleanLine.isEmpty() &&
+                    !cleanLine.startsWith("作词") &&
+                    !cleanLine.startsWith("作曲") &&
+                    !cleanLine.startsWith("编曲") &&
+                    !cleanLine.startsWith("制作") &&
+                    !cleanLine.startsWith("混音") &&
+                    !cleanLine.startsWith("监制") &&
+                    !cleanLine.contains("@") &&
+                    !cleanLine.contains("现金激励") &&
+                    !cleanLine.contains("流量扶持") &&
+                    !cleanLine.contains("商务合作") &&
+                    !cleanLine.contains("未经著作权人许可")) {
+                    cleanLyrics.append(cleanLine).append("\n");
+                }
+            }
+
+            return cleanLyrics.toString().trim();
+
+        } catch (Exception e) {
+            log.error("清理LRC歌词时发生错误", e);
+            return lrcText;
+        }
+    }
+
+    /**
+     * 通过歌曲标题和艺术家搜索歌词
+     */
+    private Map<String, Object> searchLyricsByTitle(String title, String artist) {
+        try {
+            log.info("尝试搜索歌词: title={}, artist={}", title, artist);
+
+            // 这里可以集成第三方歌词API
+            // 目前返回一个占位符
+            Map<String, Object> result = new HashMap<>();
+            result.put("lyrics", "暂未找到歌词\n\n♪ 正在播放: " + title +
+                      (artist != null && !artist.trim().isEmpty() ? " - " + artist : "") + " ♪");
+            result.put("type", "placeholder");
+            result.put("synced", false);
+            return result;
+
+        } catch (Exception e) {
+            log.error("搜索歌词时发生错误", e);
+            return null;
+        }
+    }
+
+    /**
      * 解析YouTube视频URL，获取视频详情
      */
     private MusicSearchResultDTO parseYouTubeVideoUrl(String videoUrl) {
