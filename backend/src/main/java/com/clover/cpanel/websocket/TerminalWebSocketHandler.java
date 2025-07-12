@@ -1,6 +1,7 @@
 package com.clover.cpanel.websocket;
 
 import com.clover.cpanel.service.SshService;
+import com.clover.cpanel.util.AnsiProcessor;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
@@ -24,6 +25,9 @@ public class TerminalWebSocketHandler implements WebSocketHandler {
 
     @Autowired
     private SshService sshService;
+
+    @Autowired
+    private AnsiProcessor ansiProcessor;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final Map<String, WebSocketSession> sessions = new ConcurrentHashMap<>();
@@ -214,7 +218,12 @@ public class TerminalWebSocketHandler implements WebSocketHandler {
 
                 String output = sshService.readOutput(sessionId);
                 if (!output.isEmpty()) {
-                    sendMessage(session, "output", output);
+                    // 处理ANSI转义序列
+                    String processedOutput = processTerminalOutput(output);
+                    // 只发送非空的处理后输出
+                    if (!processedOutput.isEmpty()) {
+                        sendMessage(session, "output", processedOutput);
+                    }
                 }
             } catch (Exception e) {
                 log.error("读取SSH输出失败", e);
@@ -225,6 +234,36 @@ public class TerminalWebSocketHandler implements WebSocketHandler {
                 }
             }
         }, 100, 100, TimeUnit.MILLISECONDS);
+    }
+
+    /**
+     * 处理终端输出，移除或转换ANSI转义序列
+     */
+    private String processTerminalOutput(String output) {
+        try {
+            // 检查是否包含ANSI转义序列
+            if (ansiProcessor.containsAnsi(output)) {
+                log.debug("检测到ANSI转义序列，进行处理");
+
+                // 移除ANSI序列，返回纯文本
+                String cleanOutput = ansiProcessor.stripAnsi(output);
+
+                // 如果清理后的输出为空或只包含空白字符，可能是纯控制序列
+                if (cleanOutput.trim().isEmpty() && !output.trim().isEmpty()) {
+                    log.debug("输出主要包含控制序列，跳过发送");
+                    return ""; // 返回空字符串，调用方会跳过发送
+                }
+
+                log.debug("原始输出长度: {}, 处理后长度: {}", output.length(), cleanOutput.length());
+                return cleanOutput;
+            }
+
+            return output;
+        } catch (Exception e) {
+            log.warn("处理终端输出失败: {}", e.getMessage());
+            // 失败时尝试简单清理
+            return output.replaceAll("\u001B\\[[;\\d]*m", "");
+        }
     }
 
     /**
