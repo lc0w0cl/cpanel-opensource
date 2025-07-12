@@ -1,4 +1,5 @@
-import { ref, reactive } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
+import { apiRequest } from '~/composables/useJwt'
 
 // 服务器连接信息接口
 export interface ServerConnection {
@@ -22,83 +23,110 @@ export interface TerminalState {
   terminalOutput: string[]
 }
 
-// 虚拟服务器数据
-const mockServers: ServerConnection[] = [
-  {
-    id: 1,
-    name: '工控机',
-    host: '192.168.6.5',
-    port: 22,
-    username: 'root',
-    protocol: 'ssh',
-    description: '本地工控设备',
-    status: 'disconnected',
-    lastConnected: '2024-01-15 14:30:00',
-    icon: 'material-symbols:factory'
-  },
-  {
-    id: 2,
-    name: '西雅图',
-    host: '107.174.222.14',
-    port: 22,
-    username: 'root',
-    protocol: 'ssh',
-    description: 'Racknerd',
-    status: 'disconnected',
-    lastConnected: '2024-01-14 09:15:00',
-    icon: 'flagpack:us'
-  },
-  {
-    id: 3,
-    name: '首尔',
-    host: '43.164.131.321',
-    port: 22,
-    username: 'root',
-    protocol: 'ssh',
-    description: '腾讯云 | 瑞驰',
-    status: 'disconnected',
-    lastConnected: '2024-01-13 16:45:00',
-    icon: 'flagpack:kr'
-  },
-  {
-    id: 4,
-    name: '上海',
-    host: '124.223.5.123',
-    port: 22,
-    username: 'root',
-    protocol: 'ssh',
-    description: '腾讯云',
-    status: 'disconnected',
-    lastConnected: '2024-01-12 11:20:00',
-    icon: 'flagpack:cn'
-  },
-  {
-    id: 5,
-    name: '广州',
-    host: '1.117.230.33',
-    port: 22,
-    username: 'root',
-    protocol: 'ssh',
-    description: '腾讯云',
-    status: 'disconnected',
-    lastConnected: '2024-01-11 08:15:00',
-    icon: 'flagpack:cn'
+// 获取API基础URL
+const getApiBaseUrl = () => {
+  const config = useRuntimeConfig()
+  return `${config.public.apiBaseUrl}/api`
+}
+
+// 根据地区/描述推断服务器图标
+const getServerIconByLocation = (serverName: string, description: string): string => {
+  const name = serverName.toLowerCase()
+  const desc = description.toLowerCase()
+
+  // 根据服务器名称推断
+  if (name.includes('工控') || name.includes('本地') || name.includes('factory')) {
+    return 'material-symbols:factory'
   }
-]
+  if (name.includes('西雅图') || name.includes('seattle') || desc.includes('us') || desc.includes('美国')) {
+    return 'flagpack:us'
+  }
+  if (name.includes('首尔') || name.includes('seoul') || name.includes('韩国') || desc.includes('kr')) {
+    return 'flagpack:kr'
+  }
+  if (name.includes('上海') || name.includes('广州') || name.includes('北京') || name.includes('深圳') ||
+      name.includes('中国') || desc.includes('cn') || desc.includes('腾讯') || desc.includes('阿里')) {
+    return 'flagpack:cn'
+  }
+  if (name.includes('东京') || name.includes('大阪') || name.includes('日本') || desc.includes('jp')) {
+    return 'flagpack:jp'
+  }
+  if (name.includes('德国') || name.includes('柏林') || desc.includes('de') || desc.includes('德')) {
+    return 'flagpack:de'
+  }
+  if (name.includes('英国') || name.includes('伦敦') || desc.includes('gb') || desc.includes('uk')) {
+    return 'flagpack:gb'
+  }
+  if (name.includes('法国') || name.includes('巴黎') || desc.includes('fr')) {
+    return 'flagpack:fr'
+  }
+  if (name.includes('新加坡') || desc.includes('sg') || desc.includes('singapore')) {
+    return 'flagpack:sg'
+  }
+  if (name.includes('香港') || desc.includes('hk') || desc.includes('hong kong')) {
+    return 'flagpack:hk'
+  }
+
+  // 默认图标
+  return 'material-symbols:dns'
+}
+
+// 从数据库配置转换为终端服务器格式
+const convertToServerConnection = (config: any): ServerConnection => {
+  return {
+    id: config.id,
+    name: config.serverName || 'Unknown Server',
+    host: config.host || 'localhost',
+    port: config.port || 22,
+    username: config.username || 'root',
+    protocol: 'ssh', // 目前只支持SSH
+    description: config.description || '',
+    status: 'disconnected',
+    lastConnected: undefined,
+    icon: getServerIconByLocation(config.serverName || '', config.description || '')
+  }
+}
 
 export const useTerminal = () => {
   // 响应式状态
-  const servers = ref<ServerConnection[]>([...mockServers])
+  const servers = ref<ServerConnection[]>([])
   const selectedServer = ref<ServerConnection | null>(null)
   const isConnecting = ref(false)
   const connectionError = ref('')
-  
+  const isLoading = ref(false)
+
   const terminalState = reactive<TerminalState>({
     isConnected: false,
     currentServer: undefined,
     connectionHistory: [],
     terminalOutput: []
   })
+
+  // 从数据库加载服务器配置
+  const loadServersFromDatabase = async () => {
+    isLoading.value = true
+    connectionError.value = '' // 清除之前的错误
+    try {
+      const API_BASE_URL = getApiBaseUrl()
+      const response = await apiRequest(`${API_BASE_URL}/system-config/servers`)
+      const result = await response.json()
+
+      if (result.success && result.data) {
+        // 转换数据库配置为终端服务器格式
+        const serverConfigs = result.data.map((config: any) => convertToServerConnection(config))
+        servers.value = serverConfigs
+        console.log('成功加载服务器配置:', serverConfigs.length, '个服务器')
+      } else {
+        console.error('加载服务器配置失败:', result.message)
+        connectionError.value = '加载服务器配置失败: ' + (result.message || '未知错误')
+      }
+    } catch (error) {
+      console.error('加载服务器配置出错:', error)
+      connectionError.value = '无法连接到服务器配置API'
+    } finally {
+      isLoading.value = false
+    }
+  }
 
   // 获取所有服务器
   const getServers = () => {
@@ -255,14 +283,20 @@ Swap:          2.0G          0B        2.0G`
     }
   }
 
+  // 初始化时加载服务器配置
+  onMounted(() => {
+    loadServersFromDatabase()
+  })
+
   return {
     // 状态
     servers,
     selectedServer,
     isConnecting,
     connectionError,
+    isLoading,
     terminalState,
-    
+
     // 方法
     getServers,
     getServerById,
@@ -271,6 +305,7 @@ Swap:          2.0G          0B        2.0G`
     sendCommand,
     clearTerminal,
     getStatusColor,
-    getStatusIcon
+    getStatusIcon,
+    loadServersFromDatabase
   }
 }

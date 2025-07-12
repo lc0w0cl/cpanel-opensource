@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, onActivated, nextTick } from 'vue'
+import { ref, onMounted, onUnmounted, onActivated, nextTick, watch } from 'vue'
 import { Icon } from '@iconify/vue'
 import { Terminal } from 'xterm'
 import { FitAddon } from 'xterm-addon-fit'
@@ -19,13 +19,15 @@ const {
   selectedServer,
   isConnecting,
   connectionError,
+  isLoading,
   terminalState,
   connectToServer,
   disconnectFromServer,
   sendCommand,
   clearTerminal,
   getStatusColor,
-  getStatusIcon
+  getStatusIcon,
+  loadServersFromDatabase
 } = useTerminal()
 
 // 终端相关状态
@@ -162,6 +164,44 @@ const showServerSelectionMenu = () => {
   terminal.value.writeln('║                    服务器连接管理系统                        ║')
   terminal.value.writeln('╚══════════════════════════════════════════════════════════════╝')
   terminal.value.writeln('')
+
+  // 检查是否正在加载
+  if (isLoading.value) {
+    terminal.value.writeln('正在加载服务器配置...')
+    terminal.value.writeln('')
+    terminal.value.write('请稍候...')
+    return
+  }
+
+  // 检查是否有连接错误
+  if (connectionError.value) {
+    terminal.value.writeln('❌ 加载服务器配置失败:')
+    terminal.value.writeln(`   ${connectionError.value}`)
+    terminal.value.writeln('')
+    terminal.value.writeln('可用命令:')
+    terminal.value.writeln('  reload  - 重新加载服务器配置')
+    terminal.value.writeln('  clear   - 清空屏幕')
+    terminal.value.writeln('  exit    - 退出系统')
+    terminal.value.writeln('')
+    terminal.value.write('请输入命令: ')
+    return
+  }
+
+  // 检查是否有服务器
+  if (servers.value.length === 0) {
+    terminal.value.writeln('⚠️  未找到可用的服务器配置')
+    terminal.value.writeln('')
+    terminal.value.writeln('请先在设置页面添加服务器配置，然后重新加载。')
+    terminal.value.writeln('')
+    terminal.value.writeln('可用命令:')
+    terminal.value.writeln('  reload  - 重新加载服务器配置')
+    terminal.value.writeln('  clear   - 清空屏幕')
+    terminal.value.writeln('  exit    - 退出系统')
+    terminal.value.writeln('')
+    terminal.value.write('请输入命令: ')
+    return
+  }
+
   terminal.value.writeln('可用服务器列表:')
   terminal.value.writeln('')
 
@@ -178,25 +218,26 @@ const showServerSelectionMenu = () => {
     let serverLine = `[${index + 1}] ${serverIcon} ${server.name}`
 
     // 添加提供商信息（如果有）
-    if (server.description && server.description !== '本地工控设备') {
+    if (server.description) {
       serverLine += ` | ${server.description}`
     }
 
-    // 添加IP地址
-    serverLine += ` | ${server.host}`
+    // 添加IP地址和端口
+    serverLine += ` | ${server.host}:${server.port}`
 
     terminal.value?.writeln(serverLine)
   })
 
   terminal.value.writeln('')
   terminal.value.writeln('可用命令:')
-  terminal.value.writeln('  1-5     - 连接到对应编号的服务器')
+  terminal.value.writeln(`  1-${servers.value.length}     - 连接到对应编号的服务器`)
   terminal.value.writeln('  list    - 重新显示服务器列表')
+  terminal.value.writeln('  reload  - 重新加载服务器配置')
   terminal.value.writeln('  status  - 显示连接状态')
   terminal.value.writeln('  clear   - 清空屏幕')
   terminal.value.writeln('  exit    - 退出系统')
   terminal.value.writeln('')
-  terminal.value.write('请选择服务器 (1-5) 或输入命令: ')
+  terminal.value.write(`请选择服务器 (1-${servers.value.length}) 或输入命令: `)
 }
 
 // 处理服务器选择
@@ -239,16 +280,27 @@ const handleServerSelection = async (input: string) => {
     case 'list':
       showServerSelectionMenu()
       break
+    case 'reload':
+      terminal.value.writeln('正在重新加载服务器配置...')
+      await loadServersFromDatabase()
+      setTimeout(() => {
+        showServerSelectionMenu()
+      }, 500)
+      break
     case 'status':
-      terminal.value.writeln('连接状态:')
-      servers.value.forEach((server, index) => {
-        const serverIcon = getServerIcon(server)
-        const statusIcon = server.status === 'connected' ? '●' : '○'
-        const statusText = server.status === 'connected' ? '已连接' : '未连接'
-        terminal.value?.writeln(`  [${index + 1}] ${serverIcon}${statusIcon} ${server.name}: ${statusText}`)
-      })
+      if (servers.value.length === 0) {
+        terminal.value.writeln('暂无服务器配置')
+      } else {
+        terminal.value.writeln('连接状态:')
+        servers.value.forEach((server, index) => {
+          const serverIcon = getServerIcon(server)
+          const statusIcon = server.status === 'connected' ? '●' : '○'
+          const statusText = server.status === 'connected' ? '已连接' : '未连接'
+          terminal.value?.writeln(`  [${index + 1}] ${serverIcon}${statusIcon} ${server.name}: ${statusText}`)
+        })
+      }
       terminal.value.writeln('')
-      terminal.value.write('请选择服务器 (1-5) 或输入命令: ')
+      terminal.value.write(`请选择服务器 (1-${servers.value.length || 0}) 或输入命令: `)
       break
     case 'clear':
       showServerSelectionMenu()
@@ -262,8 +314,13 @@ const handleServerSelection = async (input: string) => {
       break
     default:
       terminal.value.writeln(`未知命令: ${input}`)
-      terminal.value.writeln('输入 1-5 选择服务器，或输入 "list" 查看服务器列表')
-      terminal.value.write('请选择服务器 (1-5) 或输入命令: ')
+      if (servers.value.length > 0) {
+        terminal.value.writeln(`输入 1-${servers.value.length} 选择服务器，或输入 "list" 查看服务器列表`)
+        terminal.value.write(`请选择服务器 (1-${servers.value.length}) 或输入命令: `)
+      } else {
+        terminal.value.writeln('输入 "reload" 重新加载服务器配置')
+        terminal.value.write('请输入命令: ')
+      }
   }
 }
 
@@ -381,6 +438,16 @@ const handleResize = () => {
     }
   }
 }
+
+// 监听服务器加载状态变化
+watch([isLoading, servers], ([loading, serverList], [prevLoading, prevServerList]) => {
+  // 当加载完成且在服务器选择模式时，刷新菜单
+  if (prevLoading && !loading && isInServerSelection.value && terminal.value) {
+    setTimeout(() => {
+      showServerSelectionMenu()
+    }, 100)
+  }
+}, { deep: true })
 
 // 组件挂载
 onMounted(async () => {
