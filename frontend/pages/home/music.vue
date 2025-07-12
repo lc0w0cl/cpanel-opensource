@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { Icon } from '@iconify/vue'
 import { useMusicApi, type MusicSearchResult } from '~/composables/useMusicApi'
 import { useMusicState } from '~/composables/useMusicState'
 import FormatSelector from '~/components/FormatSelector.vue'
+import LyricsDisplay from '~/components/LyricsDisplay.vue'
 import './music.css'
 
 // 使用音乐状态管理
@@ -25,6 +26,13 @@ const {
   platform,
   isSearching,
   searchError,
+
+  // 歌词状态
+  currentLyrics,
+  lyricsType,
+  lyricsSource,
+  isLyricsLoading,
+  showLyrics,
 
   // 计算属性
   hasResults,
@@ -55,6 +63,14 @@ const {
   removeDownloadProgress,
   clearPlayingState,
   clearAllState,
+
+  // 歌词方法
+  setCurrentLyrics,
+  setLyricsType,
+  setLyricsSource,
+  setLyricsLoading,
+  setShowLyrics,
+  clearLyrics,
 
   // 歌单信息
   playlistInfo,
@@ -91,7 +107,7 @@ const {
 } = useMusicState()
 
 // 音乐API
-const { searchMusic, downloadMusic, getAudioStreamByUrl, getPlayableAudioUrl, getFallbackAudioUrl, parsePlaylist, getSupportedPlatforms, getAvailableFormats, detectPlatform, processImageUrl } = useMusicApi()
+const { searchMusic, downloadMusic, getAudioStreamByUrl, getPlayableAudioUrl, getFallbackAudioUrl, parsePlaylist, getSupportedPlatforms, getAvailableFormats, detectPlatform, processImageUrl, getLyrics } = useMusicApi()
 
 // 下载相关状态
 const isDownloading = ref(false)
@@ -306,6 +322,7 @@ const handlePlaylistParse = async () => {
 const startPlaylistBatchDownload = async () => {
   if (!playlistInfo.value) return
 
+  // 创建歌单歌曲列表的副本，避免在遍历过程中队列被修改导致遍历异常
   const playlistSongs = downloadQueue.value.filter(item => isPlaylistSong(item))
 
   if (playlistSongs.length === 0) {
@@ -363,71 +380,144 @@ const isMatchedOrDownloadable = (item: MusicSearchResult) => {
   return false
 }
 
-// 获取歌单中的下一首歌
-const getNextPlaylistSong = (currentSong: MusicSearchResult): MusicSearchResult | null => {
-  if (!playlistInfo.value || !isPlaylistSong(currentSong)) {
-    return null
+// 获取当前播放列表（支持歌单和搜索结果）
+const getCurrentPlaylist = (): MusicSearchResult[] => {
+  // 如果当前播放的是歌单歌曲，返回歌单歌曲列表
+  if (currentPlaying.value && isPlaylistSong(currentPlaying.value)) {
+    return currentSearchResults.value.filter(song => isPlaylistSong(song))
   }
 
-  // 获取当前搜索结果（歌单歌曲列表）
-  const playlistSongs = currentSearchResults.value.filter(song => isPlaylistSong(song))
+  // 否则返回当前搜索结果作为播放列表
+  return currentSearchResults.value
+}
 
-  if (playlistSongs.length === 0) {
-    return null
-  }
+// 获取歌曲在当前播放列表中的索引
+const getCurrentSongIndex = (song: MusicSearchResult): number => {
+  const playlist = getCurrentPlaylist()
+  return playlist.findIndex(item => item.id === song.id)
+}
 
-  // 找到当前歌曲在歌单中的位置
-  const currentIndex = playlistSongs.findIndex(song => song.id === currentSong.id)
+// 获取下一首歌
+const getNextSong = (currentSong?: MusicSearchResult): MusicSearchResult | null => {
+  const song = currentSong || currentPlaying.value
+  if (!song) return null
+
+  const playlist = getCurrentPlaylist()
+  if (playlist.length === 0) return null
+
+  const currentIndex = getCurrentSongIndex(song)
 
   if (currentIndex === -1) {
     // 如果没找到当前歌曲，返回第一首
-    return playlistSongs[0]
+    return playlist[0]
   }
 
   // 如果是最后一首，返回null（不循环播放）
-  if (currentIndex >= playlistSongs.length - 1) {
+  if (currentIndex >= playlist.length - 1) {
     return null
   }
 
   // 返回下一首歌
-  return playlistSongs[currentIndex + 1]
+  return playlist[currentIndex + 1]
 }
 
-// 自动播放歌单中的下一首歌
-const playNextPlaylistSong = async () => {
+// 获取上一首歌
+const getPreviousSong = (currentSong?: MusicSearchResult): MusicSearchResult | null => {
+  const song = currentSong || currentPlaying.value
+  if (!song) return null
+
+  const playlist = getCurrentPlaylist()
+  if (playlist.length === 0) return null
+
+  const currentIndex = getCurrentSongIndex(song)
+
+  if (currentIndex === -1) {
+    // 如果没找到当前歌曲，返回最后一首
+    return playlist[playlist.length - 1]
+  }
+
+  // 如果是第一首，返回null（不循环播放）
+  if (currentIndex <= 0) {
+    return null
+  }
+
+  // 返回上一首歌
+  return playlist[currentIndex - 1]
+}
+
+// 获取歌单中的下一首歌（保留兼容性）
+const getNextPlaylistSong = (currentSong: MusicSearchResult): MusicSearchResult | null => {
+  return getNextSong(currentSong)
+}
+
+// 播放下一首歌
+const playNextSong = async () => {
   if (!currentPlaying.value) {
+    showNotification('当前没有正在播放的歌曲', 'error')
     return
   }
 
-  const nextSong = getNextPlaylistSong(currentPlaying.value)
+  const nextSong = getNextSong(currentPlaying.value)
 
   if (nextSong) {
-    console.log('自动播放歌单下一首:', nextSong.title, '-', nextSong.artist)
-    showNotification(`自动播放下一首: ${nextSong.title}`, 'info')
-
-    // 播放下一首歌
+    console.log('播放下一首:', nextSong.title, '-', nextSong.artist)
+    showNotification(`播放下一首: ${nextSong.title}`, 'info')
     await playMusic(nextSong)
   } else {
-    console.log('歌单播放完毕')
-    showNotification('歌单播放完毕', 'info')
+    console.log('已经是最后一首歌曲')
+    showNotification('已经是最后一首歌曲', 'info')
   }
 }
 
-// 获取歌曲在歌单中的位置信息
+// 播放上一首歌
+const playPreviousSong = async () => {
+  if (!currentPlaying.value) {
+    showNotification('当前没有正在播放的歌曲', 'error')
+    return
+  }
+
+  const previousSong = getPreviousSong(currentPlaying.value)
+
+  if (previousSong) {
+    console.log('播放上一首:', previousSong.title, '-', previousSong.artist)
+    showNotification(`播放上一首: ${previousSong.title}`, 'info')
+    await playMusic(previousSong)
+  } else {
+    console.log('已经是第一首歌曲')
+    showNotification('已经是第一首歌曲', 'info')
+  }
+}
+
+// 自动播放歌单中的下一首歌（保留兼容性）
+const playNextPlaylistSong = async () => {
+  await playNextSong()
+}
+
+// 获取歌曲在播放列表中的位置信息
 const getPlaylistPosition = (song: MusicSearchResult): string => {
-  if (!playlistInfo.value || !isPlaylistSong(song)) {
+  if (!song) return ''
+
+  const playlist = getCurrentPlaylist()
+  const currentIndex = getCurrentSongIndex(song)
+
+  if (currentIndex === -1 || playlist.length === 0) {
     return ''
   }
 
-  const playlistSongs = currentSearchResults.value.filter(s => isPlaylistSong(s))
-  const currentIndex = playlistSongs.findIndex(s => s.id === song.id)
-
-  if (currentIndex === -1) {
-    return ''
-  }
-
-  return `${currentIndex + 1}/${playlistSongs.length}`
+  return `${currentIndex + 1}/${playlist.length}`
 }
+
+// 计算属性：是否有上一首歌曲
+const hasPreviousSong = computed(() => {
+  if (!currentPlaying.value) return false
+  return getPreviousSong(currentPlaying.value) !== null
+})
+
+// 计算属性：是否有下一首歌曲
+const hasNextSong = computed(() => {
+  if (!currentPlaying.value) return false
+  return getNextSong(currentPlaying.value) !== null
+})
 
 // 从已匹配的歌曲中提取B站资源信息
 const extractMatchedResult = (item: MusicSearchResult): MusicSearchResult | null => {
@@ -748,6 +838,12 @@ const playMusic = async (result: MusicSearchResult) => {
       return
     }
 
+    // 如果当前正在加载其他歌曲，则忽略新的播放请求
+    if (isLoading.value && currentPlaying.value?.id !== result.id) {
+      console.log('当前正在加载其他歌曲，忽略播放请求:', result.title)
+      return
+    }
+
     // 停止当前播放
     if (audioElement.value) {
       audioElement.value.pause()
@@ -839,6 +935,9 @@ const playMusic = async (result: MusicSearchResult) => {
     await audio.play()
     setPlaying(true)
 
+    // 获取歌词（异步，不阻塞播放）
+    loadLyrics(result)
+
   } catch (error) {
     console.error('播放音乐失败:', error)
     setCurrentPlaying(null)
@@ -882,6 +981,100 @@ const setVolumeValue = (newVolume: number) => {
   if (audioElement.value) {
     audioElement.value.volume = newVolume
   }
+}
+
+// 键盘快捷键处理
+const handleKeydown = (event: KeyboardEvent) => {
+  // 只在没有输入框聚焦时响应快捷键
+  if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) {
+    return
+  }
+
+  switch (event.code) {
+    case 'Space':
+      event.preventDefault()
+      if (currentPlaying.value) {
+        if (isPlaying.value) {
+          pauseMusic()
+        } else {
+          resumeMusic()
+        }
+      }
+      break
+    case 'ArrowLeft':
+      event.preventDefault()
+      if (hasPreviousSong.value && !isLoading.value) {
+        playPreviousSong()
+      }
+      break
+    case 'ArrowRight':
+      event.preventDefault()
+      if (hasNextSong.value && !isLoading.value) {
+        playNextSong()
+      }
+      break
+    case 'Escape':
+      event.preventDefault()
+      stopMusic()
+      break
+  }
+}
+
+// 组件挂载时添加键盘事件监听
+onMounted(() => {
+  if (process.client) {
+    document.addEventListener('keydown', handleKeydown)
+  }
+})
+
+// 组件卸载时移除键盘事件监听
+onUnmounted(() => {
+  if (process.client) {
+    document.removeEventListener('keydown', handleKeydown)
+  }
+})
+
+// 获取歌词
+const loadLyrics = async (music: MusicSearchResult) => {
+  try {
+    setLyricsLoading(true)
+    clearLyrics()
+
+    console.log('开始获取歌词:', music.title, music.artist)
+
+    const lyricsData = await getLyrics(music.url, music.title, music.artist)
+
+    console.log('歌词API返回数据:', lyricsData)
+
+    if (lyricsData) {
+      console.log('歌词内容:', lyricsData.lyrics)
+      console.log('歌词类型:', lyricsData.type)
+      console.log('歌词来源:', lyricsData.source)
+
+      setCurrentLyrics(lyricsData.lyrics || '')
+      setLyricsType(lyricsData.type || '')
+      setLyricsSource(lyricsData.source || '')
+      console.log('歌词设置成功')
+    } else {
+      console.log('未获取到歌词')
+      setCurrentLyrics('暂无歌词')
+      setLyricsType('placeholder')
+      setLyricsSource('')
+    }
+
+  } catch (error) {
+    console.error('获取歌词失败:', error)
+    setCurrentLyrics('歌词获取失败')
+    setLyricsType('error')
+    setLyricsSource('')
+  } finally {
+    setLyricsLoading(false)
+  }
+}
+
+// 切换歌词显示
+const toggleLyrics = () => {
+  setShowLyrics(!showLyrics.value)
 }
 
 // 格式化时间
@@ -1425,11 +1618,14 @@ const startBatchDownload = async () => {
   }
 
   isDownloading.value = true
-  showNotification(`开始下载 ${downloadQueue.value.length} 首歌曲`, 'success')
+
+  // 创建下载队列的副本，避免在遍历过程中队列被修改导致遍历异常
+  const songsToDownload = [...downloadQueue.value]
+  showNotification(`开始下载 ${songsToDownload.length} 首歌曲`, 'success')
 
   try {
     // 下载所有歌曲
-    for (const song of downloadQueue.value) {
+    for (const song of songsToDownload) {
       if (isPaused.value) break
       if (downloadProgress.value[song.id] === undefined) {
         // 对于批量下载，使用默认格式
@@ -1717,7 +1913,11 @@ const startBatchDownload = async () => {
                 v-for="result in currentSearchResults"
                 :key="result.id"
                 class="result-card"
-                :class="{ selected: selectedResults.has(result.id) }"
+                :class="{
+                  selected: selectedResults.has(result.id),
+                  playing: currentPlaying?.id === result.id && isPlaying,
+                  loading: currentPlaying?.id === result.id && isLoading
+                }"
               >
                 <!-- 选择框 -->
                 <div class="result-checkbox">
@@ -1735,6 +1935,32 @@ const startBatchDownload = async () => {
                 <!-- 缩略图区域 -->
                 <div class="result-thumbnail" @click="toggleSelection(result.id)" style="cursor: pointer;">
                   <img :src="processImageUrl(result.thumbnail)" :alt="result.title" class="thumbnail-img" />
+
+                  <!-- 播放状态指示器 -->
+                  <div v-if="currentPlaying?.id === result.id" class="playing-indicator">
+                    <div class="playing-icon-wrapper">
+                      <Icon
+                        v-if="isLoading"
+                        icon="mdi:loading"
+                        class="playing-icon loading"
+                      />
+                      <Icon
+                        v-else-if="isPlaying"
+                        icon="mdi:volume-high"
+                        class="playing-icon playing"
+                      />
+                      <Icon
+                        v-else
+                        icon="mdi:pause"
+                        class="playing-icon paused"
+                      />
+                    </div>
+                    <div v-if="isPlaying" class="sound-waves">
+                      <div class="wave wave-1"></div>
+                      <div class="wave wave-2"></div>
+                      <div class="wave wave-3"></div>
+                    </div>
+                  </div>
 
                   <!-- 时长显示在图片上 -->
                   <div class="duration-overlay">
@@ -1823,9 +2049,17 @@ const startBatchDownload = async () => {
                       class="play-btn"
                       :class="{
                         playing: currentPlaying?.id === result.id && isPlaying,
-                        loading: currentPlaying?.id === result.id && isLoading
+                        loading: currentPlaying?.id === result.id && isLoading,
+                        disabled: isLoading && currentPlaying?.id !== result.id
                       }"
-                      :title="currentPlaying?.id === result.id && isPlaying ? '暂停' : '播放'"
+                      :disabled="isLoading && currentPlaying?.id !== result.id"
+                      :title="
+                        isLoading && currentPlaying?.id !== result.id
+                          ? '其他歌曲正在加载中...'
+                          : currentPlaying?.id === result.id && isPlaying
+                            ? '暂停'
+                            : '播放'
+                      "
                     >
                       <Icon
                         v-if="currentPlaying?.id === result.id && isLoading"
@@ -1923,6 +2157,13 @@ const startBatchDownload = async () => {
               ({{ getPlaylistPosition(currentPlaying) }})
             </span>
           </p>
+          <p v-else-if="getCurrentPlaylist().length > 1 && getPlaylistPosition(currentPlaying)" class="player-playlist">
+            <Icon icon="mdi:music-note-multiple" class="playlist-icon" />
+            播放列表
+            <span class="playlist-position">
+              ({{ getPlaylistPosition(currentPlaying) }})
+            </span>
+          </p>
         </div>
       </div>
 
@@ -1931,6 +2172,17 @@ const startBatchDownload = async () => {
         <button @click="stopMusic" class="control-btn" title="停止">
           <Icon icon="mdi:stop" />
         </button>
+
+        <button
+          @click="playPreviousSong"
+          class="control-btn"
+          :disabled="!hasPreviousSong || isLoading"
+          :class="{ disabled: !hasPreviousSong }"
+          title="上一首"
+        >
+          <Icon icon="mdi:skip-previous" />
+        </button>
+
         <button
           @click="isPlaying ? pauseMusic() : resumeMusic()"
           class="control-btn play-control"
@@ -1950,6 +2202,25 @@ const startBatchDownload = async () => {
             v-else
             icon="mdi:play"
           />
+        </button>
+
+        <button
+          @click="playNextSong"
+          class="control-btn"
+          :disabled="!hasNextSong || isLoading"
+          :class="{ disabled: !hasNextSong }"
+          title="下一首"
+        >
+          <Icon icon="mdi:skip-next" />
+        </button>
+
+        <button
+          @click="toggleLyrics"
+          class="control-btn lyrics-btn"
+          :class="{ active: showLyrics }"
+          title="显示/隐藏歌词"
+        >
+          <Icon icon="mdi:music-note-outline" />
         </button>
       </div>
 
@@ -1983,7 +2254,22 @@ const startBatchDownload = async () => {
         />
       </div>
     </div>
+
   </div>
+
+  <!-- 全屏歌词显示 -->
+  <LyricsDisplay
+    v-if="showLyrics && currentPlaying"
+    :lyrics="currentLyrics"
+    :lyrics-type="lyricsType"
+    :lyrics-source="lyricsSource"
+    :is-loading="isLyricsLoading"
+    :current-time="currentTime"
+    :song-title="currentPlaying.title"
+    :song-artist="currentPlaying.artist"
+    @close="setShowLyrics(false)"
+  />
+
 
   <!-- 格式选择弹窗 -->
   <FormatSelector

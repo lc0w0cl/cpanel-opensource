@@ -1073,6 +1073,36 @@ public class MusicController {
     }
 
     /**
+     * 获取歌词
+     */
+    @PostMapping("/lyrics")
+    public ApiResponse<Map<String, Object>> getLyrics(@RequestBody Map<String, String> request) {
+        try {
+            String url = request.get("url");
+            String title = request.get("title");
+            String artist = request.get("artist");
+
+            log.info("获取歌词: url={}, title={}, artist={}", url, title, artist);
+
+            if (url == null || url.trim().isEmpty()) {
+                return ApiResponse.error("URL不能为空");
+            }
+
+            Map<String, Object> lyrics = musicSearchService.getLyrics(url, title, artist);
+
+            if (lyrics != null && !lyrics.isEmpty()) {
+                return ApiResponse.success(lyrics);
+            } else {
+                return ApiResponse.error("未找到歌词");
+            }
+
+        } catch (Exception e) {
+            log.error("获取歌词时发生错误", e);
+            return ApiResponse.error("获取歌词失败: " + e.getMessage());
+        }
+    }
+
+    /**
      * 测试VIP歌曲检测
      */
     @PostMapping("/test/vip-detection")
