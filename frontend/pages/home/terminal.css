@@ -1,9 +1,13 @@
 /* 主容器样式 */
 .terminal-dashboard {
+  /* 使用可用空间而不是固定的视口高度 */
   height: 100%;
+  min-height: calc(100vh - 4rem); /* 最大高度限制，防止超出视口 */
   display: flex;
   flex-direction: column;
   background: rgba(255, 255, 255, 0.02);
+  overflow: hidden; /* 防止内容溢出 */
+  box-sizing: border-box; /* 确保 padding 包含在高度计算中 */
 }
 
 /* 页面标题样式 */
@@ -26,6 +30,7 @@
 .header-actions {
   display: flex;
   gap: 0.75rem;
+  flex-shrink: 0; /* 防止头部操作按钮被压缩 */
 }
 
 .action-btn {
@@ -73,6 +78,7 @@
   border-radius: 8px;
   color: #fca5a5;
   margin-bottom: 1rem;
+  flex-shrink: 0; /* 防止错误消息被压缩 */
 }
 
 .error-icon {
@@ -89,6 +95,7 @@
   display: flex;
   flex-direction: column;
   min-height: 0;
+  max-height: 100%; /* 确保不超过父容器高度 */
   overflow: hidden;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
 }
@@ -113,6 +120,7 @@
   background: #1a1a1a;
   border-bottom: 1px solid rgba(255, 255, 255, 0.15);
   border-radius: 12px 12px 0 0;
+  flex-shrink: 0; /* 防止终端头部被压缩 */
 }
 
 .terminal-title {
