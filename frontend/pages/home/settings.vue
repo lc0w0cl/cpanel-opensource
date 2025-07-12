@@ -50,6 +50,7 @@ const isPasswordSettingsCollapsed = ref(true)
 const isSystemConfigCollapsed = ref(true)
 const isThemeSettingsCollapsed = ref(true)
 const isMusicSettingsCollapsed = ref(true)
+const isServerSettingsCollapsed = ref(true)
 const isBackupRestoreCollapsed = ref(true)
 const isSystemInfoCollapsed = ref(true)
 
@@ -84,6 +85,81 @@ const bilibiliCookie = ref('')
 const youtubeCookie = ref('')
 const cookieSettingsLoading = ref(false)
 const cookieSettingsSaving = ref(false)
+
+// 服务器设置相关
+const serverConfigs = ref([])
+const serverSettingsLoading = ref(false)
+const serverSettingsSaving = ref(false)
+const showAddServerForm = ref(false)
+const showEditServerForm = ref(false)
+const editingServerId = ref(null)
+const showDeleteServerConfirm = ref(false)
+const deletingServer = ref(null)
+const deleteServerLoading = ref(false)
+
+// 私钥管理相关
+const privateKeys = ref([])
+const privateKeysLoading = ref(false)
+const showPrivateKeyManager = ref(false)
+const showAddPrivateKeyForm = ref(false)
+const showEditPrivateKeyForm = ref(false)
+const editingPrivateKeyId = ref(null)
+const privateKeyForm = ref({
+  keyName: '',
+  privateKey: '',
+  privateKeyPassword: '',
+  description: '',
+  keyType: ''
+})
+const privateKeySaving = ref(false)
+const showDeletePrivateKeyConfirm = ref(false)
+const deletingPrivateKey = ref(null)
+const deletePrivateKeyLoading = ref(false)
+
+// 服务器表单数据
+const serverForm = ref({
+  serverName: '',
+  host: '',
+  port: 22,
+  username: '',
+  authType: 'password', // 'password' 或 'publickey'
+  password: '',
+  privateKey: '',
+  privateKeyPassword: '',
+  selectedPrivateKeyId: '', // 选择的已保存私钥ID
+  useExistingKey: false, // 是否使用已保存的私钥
+  description: '',
+  isDefault: false
+})
+
+// 重置服务器表单
+const resetServerForm = () => {
+  serverForm.value = {
+    serverName: '',
+    host: '',
+    port: 22,
+    username: '',
+    authType: 'password',
+    password: '',
+    privateKey: '',
+    privateKeyPassword: '',
+    selectedPrivateKeyId: '',
+    useExistingKey: false,
+    description: '',
+    isDefault: false
+  }
+}
+
+// 重置私钥表单
+const resetPrivateKeyForm = () => {
+  privateKeyForm.value = {
+    keyName: '',
+    privateKey: '',
+    privateKeyPassword: '',
+    description: '',
+    keyType: ''
+  }
+}
 
 // API配置
 const config = useRuntimeConfig()
@@ -353,6 +429,7 @@ const toggleAllSections = () => {
                       isSystemConfigCollapsed.value &&
                       isThemeSettingsCollapsed.value &&
                       isMusicSettingsCollapsed.value &&
+                      isServerSettingsCollapsed.value &&
                       isBackupRestoreCollapsed.value &&
                       isSystemInfoCollapsed.value
 
@@ -363,6 +440,7 @@ const toggleAllSections = () => {
   isSystemConfigCollapsed.value = newState
   isThemeSettingsCollapsed.value = newState
   isMusicSettingsCollapsed.value = newState
+  isServerSettingsCollapsed.value = newState
   isBackupRestoreCollapsed.value = newState
   isSystemInfoCollapsed.value = newState
 }
@@ -374,6 +452,7 @@ const allSectionsCollapsed = computed(() => {
          isSystemConfigCollapsed.value &&
          isThemeSettingsCollapsed.value &&
          isMusicSettingsCollapsed.value &&
+         isServerSettingsCollapsed.value &&
          isBackupRestoreCollapsed.value &&
          isSystemInfoCollapsed.value
 })
@@ -698,6 +777,342 @@ const saveCookieConfig = async () => {
   }
 }
 
+// 服务器设置相关函数
+const loadServerConfigs = async () => {
+  serverSettingsLoading.value = true
+  try {
+    const response = await apiRequest(`${API_BASE_URL}/system-config/servers`)
+    const result = await response.json()
+
+    if (result.success) {
+      serverConfigs.value = result.data || []
+    } else {
+      console.error('加载服务器配置失败:', result.message)
+    }
+  } catch (error) {
+    console.error('加载服务器配置失败:', error)
+  } finally {
+    serverSettingsLoading.value = false
+  }
+}
+
+const saveServerConfig = async () => {
+  if (!serverForm.value.serverName.trim()) {
+    console.error('服务器名称不能为空')
+    return
+  }
+  if (!serverForm.value.host.trim()) {
+    console.error('服务器地址不能为空')
+    return
+  }
+  if (!serverForm.value.username.trim()) {
+    console.error('用户名不能为空')
+    return
+  }
+
+  if (serverForm.value.authType === 'password' && !serverForm.value.password.trim()) {
+    console.error('密码认证时密码不能为空')
+    return
+  }
+  if (serverForm.value.authType === 'publickey' && !serverForm.value.privateKey.trim()) {
+    console.error('公钥认证时私钥不能为空')
+    return
+  }
+
+  serverSettingsSaving.value = true
+  try {
+    const url = editingServerId.value
+      ? `${API_BASE_URL}/system-config/servers/${editingServerId.value}`
+      : `${API_BASE_URL}/system-config/servers`
+
+    const method = editingServerId.value ? 'PUT' : 'POST'
+
+    const response = await apiRequest(url, {
+      method: method,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(serverForm.value)
+    })
+
+    const result = await response.json()
+
+    if (result.success) {
+      console.log('服务器配置保存成功')
+      resetServerForm()
+      showAddServerForm.value = false
+      showEditServerForm.value = false
+      editingServerId.value = null
+      await loadServerConfigs()
+    } else {
+      console.error('服务器配置保存失败:', result.message)
+    }
+  } catch (error) {
+    console.error('服务器配置保存失败:', error)
+  } finally {
+    serverSettingsSaving.value = false
+  }
+}
+
+const startEditServer = (server) => {
+  editingServerId.value = server.id
+  serverForm.value = {
+    serverName: server.serverName || '',
+    host: server.host || '',
+    port: server.port || 22,
+    username: server.username || '',
+    authType: server.authType || 'password',
+    password: '', // 不显示已保存的密码
+    privateKey: '', // 不显示已保存的私钥
+    privateKeyPassword: '',
+    description: server.description || '',
+    isDefault: server.isDefault || false
+  }
+  showEditServerForm.value = true
+}
+
+const cancelServerEdit = () => {
+  resetServerForm()
+  showAddServerForm.value = false
+  showEditServerForm.value = false
+  editingServerId.value = null
+}
+
+const showDeleteServerConfirmDialog = (server) => {
+  deletingServer.value = server
+  showDeleteServerConfirm.value = true
+}
+
+const confirmDeleteServer = async () => {
+  if (!deletingServer.value) return
+
+  deleteServerLoading.value = true
+  try {
+    const response = await apiRequest(`${API_BASE_URL}/system-config/servers/${deletingServer.value.id}`, {
+      method: 'DELETE'
+    })
+
+    const result = await response.json()
+
+    if (result.success) {
+      console.log('服务器配置删除成功')
+      showDeleteServerConfirm.value = false
+      deletingServer.value = null
+      await loadServerConfigs()
+    } else {
+      console.error('服务器配置删除失败:', result.message)
+    }
+  } catch (error) {
+    console.error('服务器配置删除失败:', error)
+  } finally {
+    deleteServerLoading.value = false
+  }
+}
+
+const cancelDeleteServer = () => {
+  deletingServer.value = null
+  showDeleteServerConfirm.value = false
+}
+
+const setDefaultServer = async (serverId) => {
+  try {
+    const response = await apiRequest(`${API_BASE_URL}/system-config/servers/${serverId}/set-default`, {
+      method: 'POST'
+    })
+
+    const result = await response.json()
+
+    if (result.success) {
+      console.log('默认服务器设置成功')
+      await loadServerConfigs()
+    } else {
+      console.error('默认服务器设置失败:', result.message)
+    }
+  } catch (error) {
+    console.error('默认服务器设置失败:', error)
+  }
+}
+
+const testServerConnection = async () => {
+  if (!serverForm.value.host.trim() || !serverForm.value.username.trim()) {
+    console.error('请填写完整的服务器信息')
+    return
+  }
+
+  try {
+    const response = await apiRequest(`${API_BASE_URL}/system-config/servers/test`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(serverForm.value)
+    })
+
+    const result = await response.json()
+
+    if (result.success) {
+      console.log('服务器连接测试成功')
+    } else {
+      console.error('服务器连接测试失败:', result.message)
+    }
+  } catch (error) {
+    console.error('服务器连接测试失败:', error)
+  }
+}
+
+// 私钥管理相关函数
+const loadPrivateKeys = async () => {
+  privateKeysLoading.value = true
+  try {
+    const response = await apiRequest(`${API_BASE_URL}/system-config/private-keys`)
+    const result = await response.json()
+
+    if (result.success) {
+      privateKeys.value = result.data || []
+    } else {
+      console.error('加载私钥配置失败:', result.message)
+    }
+  } catch (error) {
+    console.error('加载私钥配置失败:', error)
+  } finally {
+    privateKeysLoading.value = false
+  }
+}
+
+const savePrivateKey = async () => {
+  if (!privateKeyForm.value.keyName.trim()) {
+    console.error('私钥名称不能为空')
+    return
+  }
+  if (!privateKeyForm.value.privateKey.trim()) {
+    console.error('私钥内容不能为空')
+    return
+  }
+
+  privateKeySaving.value = true
+  try {
+    const url = editingPrivateKeyId.value
+      ? `${API_BASE_URL}/system-config/private-keys/${editingPrivateKeyId.value}`
+      : `${API_BASE_URL}/system-config/private-keys`
+
+    const method = editingPrivateKeyId.value ? 'PUT' : 'POST'
+
+    const response = await apiRequest(url, {
+      method: method,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(privateKeyForm.value)
+    })
+
+    const result = await response.json()
+
+    if (result.success) {
+      console.log('私钥配置保存成功')
+      resetPrivateKeyForm()
+      showAddPrivateKeyForm.value = false
+      showEditPrivateKeyForm.value = false
+      editingPrivateKeyId.value = null
+      await loadPrivateKeys()
+    } else {
+      console.error('私钥配置保存失败:', result.message)
+    }
+  } catch (error) {
+    console.error('私钥配置保存失败:', error)
+  } finally {
+    privateKeySaving.value = false
+  }
+}
+
+const startEditPrivateKey = async (privateKey) => {
+  try {
+    // 获取私钥详情（包含私钥内容）
+    const response = await apiRequest(`${API_BASE_URL}/system-config/private-keys/${privateKey.id}`)
+    const result = await response.json()
+
+    if (result.success) {
+      editingPrivateKeyId.value = privateKey.id
+      privateKeyForm.value = {
+        keyName: result.data.keyName || '',
+        privateKey: result.data.privateKey || '',
+        privateKeyPassword: result.data.privateKeyPassword || '',
+        description: result.data.description || '',
+        keyType: result.data.keyType || ''
+      }
+      showEditPrivateKeyForm.value = true
+    } else {
+      console.error('获取私钥详情失败:', result.message)
+    }
+  } catch (error) {
+    console.error('获取私钥详情失败:', error)
+  }
+}
+
+const cancelPrivateKeyEdit = () => {
+  resetPrivateKeyForm()
+  showAddPrivateKeyForm.value = false
+  showEditPrivateKeyForm.value = false
+  editingPrivateKeyId.value = null
+}
+
+const showDeletePrivateKeyConfirmDialog = (privateKey) => {
+  deletingPrivateKey.value = privateKey
+  showDeletePrivateKeyConfirm.value = true
+}
+
+const confirmDeletePrivateKey = async () => {
+  if (!deletingPrivateKey.value) return
+
+  deletePrivateKeyLoading.value = true
+  try {
+    const response = await apiRequest(`${API_BASE_URL}/system-config/private-keys/${deletingPrivateKey.value.id}`, {
+      method: 'DELETE'
+    })
+
+    const result = await response.json()
+
+    if (result.success) {
+      console.log('私钥配置删除成功')
+      showDeletePrivateKeyConfirm.value = false
+      deletingPrivateKey.value = null
+      await loadPrivateKeys()
+    } else {
+      console.error('私钥配置删除失败:', result.message)
+    }
+  } catch (error) {
+    console.error('私钥配置删除失败:', error)
+  } finally {
+    deletePrivateKeyLoading.value = false
+  }
+}
+
+const cancelDeletePrivateKey = () => {
+  deletingPrivateKey.value = null
+  showDeletePrivateKeyConfirm.value = false
+}
+
+const selectExistingPrivateKey = async (keyId) => {
+  if (!keyId) {
+    serverForm.value.privateKey = ''
+    serverForm.value.privateKeyPassword = ''
+    return
+  }
+
+  try {
+    const response = await apiRequest(`${API_BASE_URL}/system-config/private-keys/${keyId}`)
+    const result = await response.json()
+
+    if (result.success) {
+      serverForm.value.privateKey = result.data.privateKey || ''
+      serverForm.value.privateKeyPassword = result.data.privateKeyPassword || ''
+    } else {
+      console.error('获取私钥详情失败:', result.message)
+    }
+  } catch (error) {
+    console.error('获取私钥详情失败:', error)
+  }
+}
+
 // 动画事件处理函数
 const onEnter = (el: HTMLElement) => {
   // 获取元素的实际高度
@@ -740,6 +1155,8 @@ onMounted(async () => {
   await loadLogoConfig()
   await loadMusicConfig()
   await loadCookieConfig()
+  await loadServerConfigs()
+  await loadPrivateKeys()
 })
 </script>
 
@@ -1432,6 +1849,533 @@ onMounted(async () => {
           </ClientOnly>
         </div>
 
+        <!-- 服务器设置 -->
+        <div class="settings-item server-settings-item">
+          <ClientOnly>
+            <div class="settings-wrapper">
+              <div class="item-header" @click="isServerSettingsCollapsed = !isServerSettingsCollapsed">
+                <div class="header-content">
+                  <Icon icon="mdi:server" class="header-icon" />
+                  <div>
+                    <h2 class="item-title">服务器设置</h2>
+                    <p class="item-description">配置SSH服务器连接</p>
+                  </div>
+                </div>
+                <div class="header-actions">
+                  <button
+                    v-if="!showAddServerForm && !showEditServerForm && !isServerSettingsCollapsed"
+                    class="add-server-btn"
+                    @click.stop="showAddServerForm = true"
+                  >
+                    <Icon icon="mdi:plus" class="btn-icon" />
+                    添加服务器
+                  </button>
+                  <button class="collapse-btn" :class="{ collapsed: isServerSettingsCollapsed }">
+                    <Icon icon="mdi:chevron-down" class="collapse-icon" />
+                  </button>
+                </div>
+              </div>
+
+              <Transition
+                name="expand"
+                mode="out-in"
+                @enter="onEnter"
+                @after-enter="onAfterEnter"
+                @leave="onLeave"
+                @after-leave="onAfterLeave"
+              >
+                <div v-if="!isServerSettingsCollapsed" class="item-content">
+                  <div v-if="serverSettingsLoading" class="loading-state compact">
+                    <Icon icon="mdi:loading" class="loading-icon spin" />
+                    <p>加载中...</p>
+                  </div>
+
+                  <!-- 添加服务器表单 -->
+                  <div v-else-if="showAddServerForm || showEditServerForm" class="server-form">
+                    <div class="form-header">
+                      <h3 class="form-title">{{ showEditServerForm ? '编辑服务器' : '添加服务器' }}</h3>
+                      <p class="form-description">配置SSH服务器连接信息</p>
+                    </div>
+
+                    <div class="form-grid">
+                      <!-- 基本信息 -->
+                      <div class="form-section">
+                        <h4 class="section-title">基本信息</h4>
+
+                        <div class="form-group">
+                          <label class="form-label">服务器名称</label>
+                          <input
+                            v-model="serverForm.serverName"
+                            type="text"
+                            class="form-input"
+                            placeholder="请输入服务器名称"
+                            :disabled="serverSettingsSaving"
+                          />
+                        </div>
+
+                        <div class="form-row">
+                          <div class="form-group">
+                            <label class="form-label">服务器地址</label>
+                            <input
+                              v-model="serverForm.host"
+                              type="text"
+                              class="form-input"
+                              placeholder="IP地址或域名"
+                              :disabled="serverSettingsSaving"
+                            />
+                          </div>
+                          <div class="form-group">
+                            <label class="form-label">端口</label>
+                            <input
+                              v-model="serverForm.port"
+                              type="number"
+                              class="form-input"
+                              placeholder="22"
+                              min="1"
+                              max="65535"
+                              :disabled="serverSettingsSaving"
+                            />
+                          </div>
+                        </div>
+
+                        <div class="form-group">
+                          <label class="form-label">用户名</label>
+                          <input
+                            v-model="serverForm.username"
+                            type="text"
+                            class="form-input"
+                            placeholder="SSH用户名"
+                            :disabled="serverSettingsSaving"
+                          />
+                        </div>
+
+                        <div class="form-group">
+                          <label class="form-label">描述</label>
+                          <textarea
+                            v-model="serverForm.description"
+                            class="form-textarea"
+                            placeholder="服务器描述（可选）"
+                            rows="2"
+                            :disabled="serverSettingsSaving"
+                          ></textarea>
+                        </div>
+                      </div>
+
+                      <!-- 认证信息 -->
+                      <div class="form-section">
+                        <h4 class="section-title">认证方式</h4>
+
+                        <div class="auth-type-selector">
+                          <label class="radio-option" :class="{ active: serverForm.authType === 'password' }">
+                            <input
+                              type="radio"
+                              v-model="serverForm.authType"
+                              value="password"
+                              :disabled="serverSettingsSaving"
+                            />
+                            <div class="radio-content">
+                              <Icon icon="mdi:key" class="option-icon" />
+                              <span class="option-title">密码认证</span>
+                            </div>
+                          </label>
+
+                          <label class="radio-option" :class="{ active: serverForm.authType === 'publickey' }">
+                            <input
+                              type="radio"
+                              v-model="serverForm.authType"
+                              value="publickey"
+                              :disabled="serverSettingsSaving"
+                            />
+                            <div class="radio-content">
+                              <Icon icon="mdi:key-variant" class="option-icon" />
+                              <span class="option-title">公钥认证</span>
+                            </div>
+                          </label>
+                        </div>
+
+                        <!-- 密码认证 -->
+                        <div v-if="serverForm.authType === 'password'" class="auth-fields">
+                          <div class="form-group">
+                            <label class="form-label">密码</label>
+                            <input
+                              v-model="serverForm.password"
+                              type="password"
+                              class="form-input"
+                              placeholder="SSH登录密码"
+                              :disabled="serverSettingsSaving"
+                            />
+                          </div>
+                        </div>
+
+                        <!-- 公钥认证 -->
+                        <div v-if="serverForm.authType === 'publickey'" class="auth-fields">
+                          <!-- 私钥选择方式 -->
+                          <div class="private-key-selector">
+                            <div class="selector-header">
+                              <button
+                                type="button"
+                                class="manage-keys-btn"
+                                @click="showPrivateKeyManager = true"
+                                :disabled="serverSettingsSaving"
+                              >
+                                <Icon icon="mdi:key-plus" class="btn-icon" />
+                                管理私钥
+                              </button>
+                            </div>
+
+                            <div class="key-source-options">
+                              <label class="radio-option" :class="{ active: !serverForm.useExistingKey }">
+                                <input
+                                  type="radio"
+                                  v-model="serverForm.useExistingKey"
+                                  :value="false"
+                                  :disabled="serverSettingsSaving"
+                                />
+                                <div class="radio-content">
+                                  <Icon icon="mdi:text-box" class="option-icon" />
+                                  <span class="option-title">手动输入私钥</span>
+                                </div>
+                              </label>
+
+                              <label class="radio-option" :class="{ active: serverForm.useExistingKey }">
+                                <input
+                                  type="radio"
+                                  v-model="serverForm.useExistingKey"
+                                  :value="true"
+                                  :disabled="serverSettingsSaving"
+                                />
+                                <div class="radio-content">
+                                  <Icon icon="mdi:key-chain" class="option-icon" />
+                                  <span class="option-title">选择已保存的私钥</span>
+                                </div>
+                              </label>
+                            </div>
+                          </div>
+
+                          <!-- 选择已保存的私钥 -->
+                          <div v-if="serverForm.useExistingKey" class="existing-key-selector">
+                            <div class="form-group">
+                              <label class="form-label">选择私钥</label>
+                              <select
+                                v-model="serverForm.selectedPrivateKeyId"
+                                class="form-select"
+                                @change="selectExistingPrivateKey(serverForm.selectedPrivateKeyId)"
+                                :disabled="serverSettingsSaving"
+                              >
+                                <option value="">请选择私钥</option>
+                                <option
+                                  v-for="key in privateKeys"
+                                  :key="key.id"
+                                  :value="key.id"
+                                >
+                                  {{ key.keyName }} {{ key.description ? `(${key.description})` : '' }}
+                                </option>
+                              </select>
+                            </div>
+                          </div>
+
+                          <!-- 手动输入私钥 -->
+                          <div v-else class="manual-key-input">
+                            <div class="form-group">
+                              <label class="form-label">私钥</label>
+                              <textarea
+                                v-model="serverForm.privateKey"
+                                class="form-textarea"
+                                placeholder="请粘贴私钥内容（PEM格式）"
+                                rows="8"
+                                :disabled="serverSettingsSaving"
+                              ></textarea>
+                              <p class="form-hint">
+                                支持RSA、ECDSA、Ed25519等格式的私钥
+                              </p>
+                            </div>
+
+                            <div class="form-group">
+                              <label class="form-label">私钥密码（可选）</label>
+                              <input
+                                v-model="serverForm.privateKeyPassword"
+                                type="password"
+                                class="form-input"
+                                placeholder="如果私钥有密码保护，请输入"
+                                :disabled="serverSettingsSaving"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- 表单操作按钮 -->
+                    <div class="form-actions">
+                      <div class="action-left">
+                        <button
+                          class="test-btn"
+                          @click="testServerConnection"
+                          :disabled="serverSettingsSaving"
+                        >
+                          <Icon icon="mdi:connection" class="btn-icon" />
+                          测试连接
+                        </button>
+                      </div>
+
+                      <div class="action-right">
+                        <button
+                          class="cancel-btn"
+                          @click="cancelServerEdit"
+                          :disabled="serverSettingsSaving"
+                        >
+                          取消
+                        </button>
+                        <button
+                          class="save-btn"
+                          @click="saveServerConfig"
+                          :disabled="serverSettingsSaving || !serverForm.serverName.trim() || !serverForm.host.trim() || !serverForm.username.trim()"
+                        >
+                          <Icon v-if="serverSettingsSaving" icon="mdi:loading" class="spin btn-icon" />
+                          <Icon v-else icon="mdi:check" class="btn-icon" />
+                          {{ serverSettingsSaving ? '保存中...' : '保存' }}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- 服务器列表 -->
+                  <div v-else class="server-list">
+                    <div v-if="serverConfigs.length === 0" class="empty-state compact">
+                      <Icon icon="mdi:server-off" class="empty-icon" />
+                      <p>暂无服务器配置</p>
+                      <button class="add-first-btn" @click="showAddServerForm = true">
+                        <Icon icon="mdi:plus" class="btn-icon" />
+                        添加第一个服务器
+                      </button>
+                    </div>
+
+                    <div v-else class="servers-grid">
+                      <div
+                        v-for="server in serverConfigs"
+                        :key="server.id"
+                        class="server-card"
+                        :class="{ 'is-default': server.isDefault }"
+                      >
+                        <div class="server-header">
+                          <div class="server-info">
+                            <h4 class="server-name">{{ server.serverName }}</h4>
+                            <p class="server-address">{{ server.username }}@{{ server.host }}:{{ server.port }}</p>
+                          </div>
+                          <div class="server-badges">
+                            <span v-if="server.isDefault" class="default-badge">默认</span>
+                            <span class="auth-badge" :class="server.authType">
+                              <Icon :icon="server.authType === 'password' ? 'mdi:key' : 'mdi:key-variant'" />
+                              {{ server.authType === 'password' ? '密码' : '公钥' }}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div v-if="server.description" class="server-description">
+                          {{ server.description }}
+                        </div>
+
+                        <div class="server-actions">
+                          <button
+                            v-if="!server.isDefault"
+                            class="set-default-btn"
+                            @click="setDefaultServer(server.id)"
+                            title="设为默认"
+                          >
+                            <Icon icon="mdi:star-outline" />
+                          </button>
+                          <button
+                            class="edit-btn"
+                            @click="startEditServer(server)"
+                            title="编辑"
+                          >
+                            <Icon icon="mdi:pencil" />
+                          </button>
+                          <button
+                            class="delete-btn"
+                            @click="showDeleteServerConfirmDialog(server)"
+                            title="删除"
+                            :disabled="server.isDefault"
+                          >
+                            <Icon icon="mdi:delete" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </Transition>
+
+              <BorderBeam
+                  v-if="!isServerSettingsCollapsed"
+                  :size="220"
+                  :duration="14"
+                  :delay="7"
+                  :border-width="1.5"
+                  color-from="#06b6d4"
+                  color-to="#0891b2"
+              />
+            </div>
+          </ClientOnly>
+        </div>
+
+        <!-- 私钥管理器模态框 -->
+        <div v-if="showPrivateKeyManager" class="modal-overlay" @click="showPrivateKeyManager = false">
+          <div class="private-key-manager-modal" @click.stop>
+            <div class="modal-header">
+              <h3 class="modal-title">
+                <Icon icon="mdi:key-variant" class="title-icon" />
+                私钥管理
+              </h3>
+              <button class="modal-close-btn" @click="showPrivateKeyManager = false">
+                <Icon icon="mdi:close" />
+              </button>
+            </div>
+
+            <div class="modal-content">
+              <!-- 私钥表单 -->
+              <div v-if="showAddPrivateKeyForm || showEditPrivateKeyForm" class="private-key-form">
+                <div class="form-header">
+                  <h4 class="form-title">{{ showEditPrivateKeyForm ? '编辑私钥' : '添加私钥' }}</h4>
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label">私钥名称</label>
+                  <input
+                    v-model="privateKeyForm.keyName"
+                    type="text"
+                    class="form-input"
+                    placeholder="请输入私钥名称"
+                    :disabled="privateKeySaving"
+                  />
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label">私钥类型（可选）</label>
+                  <select v-model="privateKeyForm.keyType" class="form-select" :disabled="privateKeySaving">
+                    <option value="">自动检测</option>
+                    <option value="RSA">RSA</option>
+                    <option value="ECDSA">ECDSA</option>
+                    <option value="Ed25519">Ed25519</option>
+                  </select>
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label">私钥内容</label>
+                  <textarea
+                    v-model="privateKeyForm.privateKey"
+                    class="form-textarea"
+                    placeholder="请粘贴私钥内容（PEM格式）"
+                    rows="10"
+                    :disabled="privateKeySaving"
+                  ></textarea>
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label">私钥密码（可选）</label>
+                  <input
+                    v-model="privateKeyForm.privateKeyPassword"
+                    type="password"
+                    class="form-input"
+                    placeholder="如果私钥有密码保护，请输入"
+                    :disabled="privateKeySaving"
+                  />
+                </div>
+
+                <div class="form-group">
+                  <label class="form-label">描述（可选）</label>
+                  <input
+                    v-model="privateKeyForm.description"
+                    type="text"
+                    class="form-input"
+                    placeholder="私钥用途描述"
+                    :disabled="privateKeySaving"
+                  />
+                </div>
+
+                <div class="form-actions">
+                  <button
+                    class="cancel-btn"
+                    @click="cancelPrivateKeyEdit"
+                    :disabled="privateKeySaving"
+                  >
+                    取消
+                  </button>
+                  <button
+                    class="save-btn"
+                    @click="savePrivateKey"
+                    :disabled="privateKeySaving || !privateKeyForm.keyName.trim() || !privateKeyForm.privateKey.trim()"
+                  >
+                    <Icon v-if="privateKeySaving" icon="mdi:loading" class="spin btn-icon" />
+                    <Icon v-else icon="mdi:check" class="btn-icon" />
+                    {{ privateKeySaving ? '保存中...' : '保存' }}
+                  </button>
+                </div>
+              </div>
+
+              <!-- 私钥列表 -->
+              <div v-else class="private-key-list">
+                <div class="list-header">
+                  <h4 class="list-title">已保存的私钥</h4>
+                  <button
+                    class="add-key-btn"
+                    @click="showAddPrivateKeyForm = true"
+                  >
+                    <Icon icon="mdi:plus" class="btn-icon" />
+                    添加私钥
+                  </button>
+                </div>
+
+                <div v-if="privateKeysLoading" class="loading-state">
+                  <Icon icon="mdi:loading" class="loading-icon spin" />
+                  <p>加载中...</p>
+                </div>
+
+                <div v-else-if="privateKeys.length === 0" class="empty-state">
+                  <Icon icon="mdi:key-off" class="empty-icon" />
+                  <p>暂无私钥配置</p>
+                  <button class="add-first-btn" @click="showAddPrivateKeyForm = true">
+                    <Icon icon="mdi:plus" class="btn-icon" />
+                    添加第一个私钥
+                  </button>
+                </div>
+
+                <div v-else class="keys-list">
+                  <div
+                    v-for="key in privateKeys"
+                    :key="key.id"
+                    class="key-item"
+                  >
+                    <div class="key-info">
+                      <h5 class="key-name">{{ key.keyName }}</h5>
+                      <p v-if="key.description" class="key-description">{{ key.description }}</p>
+                      <div class="key-meta">
+                        <span v-if="key.keyType" class="key-type">{{ key.keyType }}</span>
+                      </div>
+                    </div>
+                    <div class="key-actions">
+                      <button
+                        class="edit-btn"
+                        @click="startEditPrivateKey(key)"
+                        title="编辑"
+                      >
+                        <Icon icon="mdi:pencil" />
+                      </button>
+                      <button
+                        class="delete-btn"
+                        @click="showDeletePrivateKeyConfirmDialog(key)"
+                        title="删除"
+                      >
+                        <Icon icon="mdi:delete" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- 备份恢复 -->
         <div class="settings-item backup-restore-item">
           <ClientOnly>
@@ -1577,6 +2521,82 @@ onMounted(async () => {
         </div>
       </div>
     </div>
+
+    <!-- 服务器删除确认对话框 -->
+    <div v-if="showDeleteServerConfirm" class="modal-overlay" @click="cancelDeleteServer">
+      <div class="delete-confirm-dialog" @click.stop>
+        <div class="dialog-header">
+          <Icon icon="mdi:alert-circle" class="warning-icon" />
+          <h3 class="dialog-title">确认删除服务器</h3>
+        </div>
+
+        <div class="dialog-content">
+          <p class="dialog-message">
+            您确定要删除服务器 <strong>"{{ deletingServer?.serverName }}"</strong> 吗？
+          </p>
+          <p class="dialog-warning">
+            此操作不可撤销，服务器配置信息将被永久删除。
+          </p>
+        </div>
+
+        <div class="dialog-actions">
+          <button
+            class="dialog-cancel-btn"
+            @click="cancelDeleteServer"
+            :disabled="deleteServerLoading"
+          >
+            取消
+          </button>
+          <button
+            class="dialog-confirm-btn"
+            @click="confirmDeleteServer"
+            :disabled="deleteServerLoading"
+          >
+            <Icon v-if="deleteServerLoading" icon="mdi:loading" class="spin btn-icon" />
+            <Icon v-else icon="mdi:delete" class="btn-icon" />
+            {{ deleteServerLoading ? '删除中...' : '确认删除' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 私钥删除确认对话框 -->
+    <div v-if="showDeletePrivateKeyConfirm" class="modal-overlay" @click="cancelDeletePrivateKey">
+      <div class="delete-confirm-dialog" @click.stop>
+        <div class="dialog-header">
+          <Icon icon="mdi:alert-circle" class="warning-icon" />
+          <h3 class="dialog-title">确认删除私钥</h3>
+        </div>
+
+        <div class="dialog-content">
+          <p class="dialog-message">
+            您确定要删除私钥 <strong>"{{ deletingPrivateKey?.keyName }}"</strong> 吗？
+          </p>
+          <p class="dialog-warning">
+            此操作不可撤销，私钥配置信息将被永久删除。
+          </p>
+        </div>
+
+        <div class="dialog-actions">
+          <button
+            class="dialog-cancel-btn"
+            @click="cancelDeletePrivateKey"
+            :disabled="deletePrivateKeyLoading"
+          >
+            取消
+          </button>
+          <button
+            class="dialog-confirm-btn"
+            @click="confirmDeletePrivateKey"
+            :disabled="deletePrivateKeyLoading"
+          >
+            <Icon v-if="deletePrivateKeyLoading" icon="mdi:loading" class="spin btn-icon" />
+            <Icon v-else icon="mdi:delete" class="btn-icon" />
+            {{ deletePrivateKeyLoading ? '删除中...' : '确认删除' }}
+          </button>
+        </div>
+      </div>
+    </div>
   </NuxtLayout>
 </template>
 
@@ -1654,7 +2674,7 @@ onMounted(async () => {
 /* 设置网格布局 */
 .settings-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
   gap: 1.5rem;
   align-items: start;
 }
@@ -1684,6 +2704,20 @@ onMounted(async () => {
 .backup-restore-item,
 .system-info-item {
   position: relative;
+}
+
+/* 服务器设置项 - 扩大宽度 */
+.server-settings-item {
+  position: relative;
+  grid-column: 1 / -1; /* 占据整行 */
+}
+
+.server-settings-item .settings-wrapper {
+  max-width: none; /* 移除最大宽度限制 */
+}
+
+.server-settings-item .item-content {
+  padding: 2rem; /* 增加内边距 */
 }
 
 /* 主题设置项 - 扩大宽度 */
@@ -3672,5 +4706,569 @@ onMounted(async () => {
   opacity: 0.6;
   cursor: not-allowed;
   transform: none;
+}
+
+/* 服务器设置样式 */
+.server-form {
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 0.75rem;
+  padding: 1.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: 2.5rem;
+  margin-top: 1rem;
+}
+
+@media (max-width: 1024px) {
+  .form-grid {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+}
+
+.form-section {
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 0.5rem;
+  padding: 1.25rem;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.section-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+  margin: 0 0 1rem 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 1rem;
+}
+
+@media (max-width: 640px) {
+  .form-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+.form-textarea {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 0.5rem;
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 0.875rem;
+  resize: vertical;
+  min-height: 80px;
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+}
+
+.form-textarea:focus {
+  outline: none;
+  border-color: rgba(59, 130, 246, 0.5);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.form-textarea::placeholder {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.auth-type-selector {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.auth-fields {
+  margin-top: 1rem;
+}
+
+.form-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.action-left,
+.action-right {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.test-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.25rem;
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  border-radius: 0.5rem;
+  background: rgba(34, 197, 94, 0.1);
+  color: rgba(34, 197, 94, 0.9);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.test-btn:hover:not(:disabled) {
+  background: rgba(34, 197, 94, 0.2);
+  border-color: rgba(34, 197, 94, 0.5);
+  transform: translateY(-1px);
+}
+
+.test-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.server-list {
+  margin-top: 1rem;
+}
+
+.servers-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(450px, 1fr));
+  gap: 1.5rem;
+  max-width: none;
+}
+
+.server-card {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0.75rem;
+  padding: 1.5rem;
+  transition: all 0.3s ease;
+  position: relative;
+  min-height: 140px;
+}
+
+.server-card:hover {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.2);
+  transform: translateY(-2px);
+}
+
+.server-card.is-default {
+  border-color: rgba(59, 130, 246, 0.4);
+  background: rgba(59, 130, 246, 0.05);
+}
+
+.server-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 0.75rem;
+}
+
+.server-info {
+  flex: 1;
+}
+
+.server-name {
+  font-size: 1rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+  margin: 0 0 0.25rem 0;
+}
+
+.server-address {
+  font-size: 0.875rem;
+  color: rgba(255, 255, 255, 0.6);
+  margin: 0;
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+}
+
+.server-badges {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  align-items: flex-end;
+}
+
+.default-badge {
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  background: rgba(59, 130, 246, 0.2);
+  color: rgba(59, 130, 246, 0.9);
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.auth-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.auth-badge.password {
+  background: rgba(34, 197, 94, 0.2);
+  color: rgba(34, 197, 94, 0.9);
+}
+
+.auth-badge.publickey {
+  background: rgba(168, 85, 247, 0.2);
+  color: rgba(168, 85, 247, 0.9);
+}
+
+.server-description {
+  font-size: 0.875rem;
+  color: rgba(255, 255, 255, 0.7);
+  margin-bottom: 1rem;
+  line-height: 1.4;
+}
+
+.server-actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+}
+
+.server-actions button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border: none;
+  border-radius: 0.375rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-size: 0.875rem;
+}
+
+.set-default-btn {
+  background: rgba(255, 193, 7, 0.1);
+  color: rgba(255, 193, 7, 0.8);
+  border: 1px solid rgba(255, 193, 7, 0.2);
+}
+
+.set-default-btn:hover {
+  background: rgba(255, 193, 7, 0.2);
+  border-color: rgba(255, 193, 7, 0.4);
+}
+
+.edit-btn {
+  background: rgba(59, 130, 246, 0.1);
+  color: rgba(59, 130, 246, 0.8);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+}
+
+.edit-btn:hover {
+  background: rgba(59, 130, 246, 0.2);
+  border-color: rgba(59, 130, 246, 0.4);
+}
+
+.delete-btn {
+  background: rgba(239, 68, 68, 0.1);
+  color: rgba(239, 68, 68, 0.8);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.delete-btn:hover:not(:disabled) {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: rgba(239, 68, 68, 0.4);
+}
+
+.delete-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.add-server-btn,
+.add-first-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.25rem;
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  border-radius: 0.5rem;
+  background: rgba(34, 197, 94, 0.1);
+  color: rgba(34, 197, 94, 0.9);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.add-server-btn:hover,
+.add-first-btn:hover {
+  background: rgba(34, 197, 94, 0.2);
+  border-color: rgba(34, 197, 94, 0.5);
+  transform: translateY(-1px);
+}
+
+.add-first-btn {
+  margin-top: 1rem;
+}
+
+/* 私钥管理样式 */
+.private-key-selector {
+  margin-bottom: 1rem;
+}
+
+.selector-header {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 1rem;
+}
+
+.manage-keys-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border: 1px solid rgba(168, 85, 247, 0.3);
+  border-radius: 0.375rem;
+  background: rgba(168, 85, 247, 0.1);
+  color: rgba(168, 85, 247, 0.9);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.manage-keys-btn:hover:not(:disabled) {
+  background: rgba(168, 85, 247, 0.2);
+  border-color: rgba(168, 85, 247, 0.5);
+}
+
+.key-source-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.form-select {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 0.5rem;
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 0.875rem;
+}
+
+.form-select:focus {
+  outline: none;
+  border-color: rgba(59, 130, 246, 0.5);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.form-select option {
+  background: rgba(30, 30, 30, 0.95);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+/* 私钥管理器模态框 */
+.private-key-manager-modal {
+  background: rgba(20, 20, 20, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 1rem;
+  width: 90vw;
+  max-width: 800px;
+  max-height: 90vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  backdrop-filter: blur(20px);
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.modal-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+  margin: 0;
+}
+
+.title-icon {
+  font-size: 1.5rem;
+  color: rgba(168, 85, 247, 0.8);
+}
+
+.modal-close-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border: none;
+  border-radius: 0.375rem;
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.7);
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.modal-close-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.modal-content {
+  flex: 1;
+  padding: 1.5rem;
+  overflow-y: auto;
+}
+
+.private-key-form {
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.list-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.5rem;
+}
+
+.list-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+  margin: 0;
+}
+
+.add-key-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.25rem;
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  border-radius: 0.5rem;
+  background: rgba(34, 197, 94, 0.1);
+  color: rgba(34, 197, 94, 0.9);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.add-key-btn:hover {
+  background: rgba(34, 197, 94, 0.2);
+  border-color: rgba(34, 197, 94, 0.5);
+}
+
+.keys-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.key-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0.5rem;
+  transition: all 0.3s ease;
+}
+
+.key-item:hover {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.key-info {
+  flex: 1;
+}
+
+.key-name {
+  font-size: 1rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+  margin: 0 0 0.25rem 0;
+}
+
+.key-description {
+  font-size: 0.875rem;
+  color: rgba(255, 255, 255, 0.6);
+  margin: 0 0 0.5rem 0;
+}
+
+.key-meta {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.key-type {
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  background: rgba(168, 85, 247, 0.2);
+  color: rgba(168, 85, 247, 0.9);
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.key-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.key-actions button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border: none;
+  border-radius: 0.375rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-size: 0.875rem;
+}
+
+.key-actions .edit-btn {
+  background: rgba(59, 130, 246, 0.1);
+  color: rgba(59, 130, 246, 0.8);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+}
+
+.key-actions .edit-btn:hover {
+  background: rgba(59, 130, 246, 0.2);
+  border-color: rgba(59, 130, 246, 0.4);
+}
+
+.key-actions .delete-btn {
+  background: rgba(239, 68, 68, 0.1);
+  color: rgba(239, 68, 68, 0.8);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.key-actions .delete-btn:hover {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: rgba(239, 68, 68, 0.4);
 }
 </style>

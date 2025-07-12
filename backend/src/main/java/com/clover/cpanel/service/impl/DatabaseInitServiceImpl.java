@@ -105,6 +105,9 @@ public class DatabaseInitServiceImpl implements DatabaseInitService {
             // 检查并初始化音乐配置
             initializeMusicConfig();
 
+            // 检查并初始化服务器配置
+            initializeServerConfig();
+
             // 可以在这里添加其他表结构更新检查
 
         } catch (Exception e) {
@@ -244,6 +247,30 @@ public class DatabaseInitServiceImpl implements DatabaseInitService {
             log.info("音乐配置检查完成");
         } catch (Exception e) {
             log.error("初始化音乐配置失败", e);
+        }
+    }
+
+    /**
+     * 初始化服务器配置
+     */
+    private void initializeServerConfig() {
+        try {
+            log.info("检查服务器配置初始化状态...");
+
+            // 检查默认服务器配置是否存在
+            if (!checkConfigExists("default_server_id")) {
+                log.info("默认服务器配置不存在，开始初始化...");
+                String insertSql = """
+                    INSERT INTO panel_system_config (config_key, config_value, description, config_type, created_at, updated_at)
+                    VALUES ('default_server_id', '', '默认服务器ID', 'server', NOW(), NOW())
+                    """;
+                jdbcTemplate.update(insertSql);
+                log.info("默认服务器配置初始化完成");
+            }
+
+            log.info("服务器配置检查完成");
+        } catch (Exception e) {
+            log.error("初始化服务器配置失败", e);
         }
     }
 

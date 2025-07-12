@@ -30,6 +30,12 @@ public class ConfigType {
     public static final String MUSIC = "music";
 
     /**
+     * 服务器配置类型
+     * 包括：SSH服务器连接配置、公钥设置等
+     */
+    public static final String SERVER = "server";
+
+    /**
      * 私有构造函数，防止实例化
      */
     private ConfigType() {

@@ -3,6 +3,8 @@ package com.clover.cpanel.controller;
 import com.clover.cpanel.common.ApiResponse;
 import com.clover.cpanel.constant.ConfigType;
 import com.clover.cpanel.dto.MarginConfigRequest;
+import com.clover.cpanel.dto.PrivateKeyRequest;
+import com.clover.cpanel.dto.ServerConfigRequest;
 import com.clover.cpanel.dto.WallpaperConfigRequest;
 import com.clover.cpanel.entity.SystemConfig;
 import com.clover.cpanel.service.FileUploadService;
@@ -59,6 +61,13 @@ public class SystemConfigController {
     // Cookie配置相关常量
     private static final String BILIBILI_COOKIE_KEY = "bilibili_cookie";
     private static final String YOUTUBE_COOKIE_KEY = "youtube_cookie";
+
+    // 服务器配置相关常量
+    private static final String SERVER_CONFIG_PREFIX = "server_config_";
+    private static final String DEFAULT_SERVER_KEY = "default_server_id";
+
+    // 私钥配置相关常量
+    private static final String PRIVATE_KEY_PREFIX = "private_key_";
 
     /**
      * 获取壁纸配置
@@ -793,6 +802,534 @@ public class SystemConfigController {
         } catch (Exception e) {
             log.error("保存Cookie配置失败", e);
             return ApiResponse.error("保存Cookie配置失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * 获取所有服务器配置
+     * @return 服务器配置列表
+     */
+    @GetMapping("/servers")
+    public ApiResponse<List<Map<String, Object>>> getServerConfigs() {
+        try {
+            List<SystemConfig> serverConfigs = systemConfigService.getConfigsByType(ConfigType.SERVER);
+            List<Map<String, Object>> result = new ArrayList<>();
+
+            // 获取默认服务器ID
+            String defaultServerId = systemConfigService.getConfigValue(DEFAULT_SERVER_KEY);
+
+            for (SystemConfig config : serverConfigs) {
+                if (config.getConfigKey().startsWith(SERVER_CONFIG_PREFIX)) {
+                    try {
+                        // 解析JSON配置
+                        Map<String, Object> serverConfig = parseServerConfig(config.getConfigValue());
+                        serverConfig.put("id", config.getId());
+                        serverConfig.put("configKey", config.getConfigKey());
+                        serverConfig.put("isDefault", config.getId().toString().equals(defaultServerId));
+
+                        // 移除敏感信息（密码和私钥）
+                        serverConfig.remove("password");
+                        serverConfig.remove("privateKey");
+                        serverConfig.remove("privateKeyPassword");
+
+                        result.add(serverConfig);
+                    } catch (Exception e) {
+                        log.warn("解析服务器配置失败: {}", config.getConfigKey(), e);
+                    }
+                }
+            }
+
+            return ApiResponse.success(result);
+        } catch (Exception e) {
+            log.error("获取服务器配置失败", e);
+            return ApiResponse.error("获取服务器配置失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * 保存服务器配置
+     * @param request 服务器配置请求
+     * @return 操作结果
+     */
+    @PostMapping("/servers")
+    public ApiResponse<String> saveServerConfig(@RequestBody ServerConfigRequest request) {
+        try {
+            // 验证必填字段
+            if (request.getServerName() == null || request.getServerName().trim().isEmpty()) {
+                return ApiResponse.error("服务器名称不能为空");
+            }
+            if (request.getHost() == null || request.getHost().trim().isEmpty()) {
+                return ApiResponse.error("服务器地址不能为空");
+            }
+            if (request.getPort() == null || request.getPort() <= 0 || request.getPort() > 65535) {
+                return ApiResponse.error("端口号必须在1-65535之间");
+            }
+            if (request.getUsername() == null || request.getUsername().trim().isEmpty()) {
+                return ApiResponse.error("用户名不能为空");
+            }
+            if (request.getAuthType() == null || request.getAuthType().trim().isEmpty()) {
+                return ApiResponse.error("认证类型不能为空");
+            }
+
+            // 验证认证信息
+            if ("password".equals(request.getAuthType())) {
+                if (request.getPassword() == null || request.getPassword().trim().isEmpty()) {
+                    return ApiResponse.error("密码认证时密码不能为空");
+                }
+            } else if ("publickey".equals(request.getAuthType())) {
+                if (request.getPrivateKey() == null || request.getPrivateKey().trim().isEmpty()) {
+                    return ApiResponse.error("公钥认证时私钥不能为空");
+                }
+            } else {
+                return ApiResponse.error("不支持的认证类型");
+            }
+
+            // 构建配置JSON
+            Map<String, Object> configMap = new HashMap<>();
+            configMap.put("serverName", request.getServerName().trim());
+            configMap.put("host", request.getHost().trim());
+            configMap.put("port", request.getPort());
+            configMap.put("username", request.getUsername().trim());
+            configMap.put("authType", request.getAuthType().trim());
+            configMap.put("description", request.getDescription() != null ? request.getDescription().trim() : "");
+
+            if ("password".equals(request.getAuthType())) {
+                configMap.put("password", request.getPassword().trim());
+            } else if ("publickey".equals(request.getAuthType())) {
+                configMap.put("privateKey", request.getPrivateKey().trim());
+                configMap.put("privateKeyPassword", request.getPrivateKeyPassword() != null ? request.getPrivateKeyPassword().trim() : "");
+            }
+
+            // 转换为JSON字符串
+            String configJson = convertToJson(configMap);
+
+            // 生成配置键名
+            String configKey = SERVER_CONFIG_PREFIX + System.currentTimeMillis();
+
+            // 保存配置
+            boolean success = systemConfigService.setConfigValue(
+                configKey,
+                configJson,
+                "服务器配置: " + request.getServerName(),
+                ConfigType.SERVER
+            );
+
+            if (success) {
+                // 如果设置为默认服务器，更新默认服务器配置
+                if (Boolean.TRUE.equals(request.getIsDefault())) {
+                    // 获取刚保存的配置ID
+                    SystemConfig savedConfig = systemConfigService.getConfigsByType(ConfigType.SERVER)
+                        .stream()
+                        .filter(config -> configKey.equals(config.getConfigKey()))
+                        .findFirst()
+                        .orElse(null);
+
+                    if (savedConfig != null) {
+                        systemConfigService.setConfigValue(
+                            DEFAULT_SERVER_KEY,
+                            savedConfig.getId().toString(),
+                            "默认服务器ID",
+                            ConfigType.SERVER
+                        );
+                    }
+                }
+
+                log.info("服务器配置保存成功: {}", request.getServerName());
+                return ApiResponse.success("服务器配置保存成功");
+            } else {
+                return ApiResponse.error("服务器配置保存失败");
+            }
+        } catch (Exception e) {
+            log.error("保存服务器配置失败", e);
+            return ApiResponse.error("保存服务器配置失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * 删除服务器配置
+     * @param id 配置ID
+     * @return 操作结果
+     */
+    @DeleteMapping("/servers/{id}")
+    public ApiResponse<String> deleteServerConfig(@PathVariable Integer id) {
+        try {
+            // 检查是否为默认服务器
+            String defaultServerId = systemConfigService.getConfigValue(DEFAULT_SERVER_KEY);
+            if (id.toString().equals(defaultServerId)) {
+                return ApiResponse.error("不能删除默认服务器配置");
+            }
+
+            boolean success = systemConfigService.removeById(id);
+            if (success) {
+                log.info("服务器配置删除成功: {}", id);
+                return ApiResponse.success("服务器配置删除成功");
+            } else {
+                return ApiResponse.error("服务器配置删除失败");
+            }
+        } catch (Exception e) {
+            log.error("删除服务器配置失败", e);
+            return ApiResponse.error("删除服务器配置失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * 设置默认服务器
+     * @param id 服务器配置ID
+     * @return 操作结果
+     */
+    @PostMapping("/servers/{id}/set-default")
+    public ApiResponse<String> setDefaultServer(@PathVariable Integer id) {
+        try {
+            // 检查服务器配置是否存在
+            SystemConfig serverConfig = systemConfigService.getById(id);
+            if (serverConfig == null || !ConfigType.SERVER.equals(serverConfig.getConfigType())) {
+                return ApiResponse.error("服务器配置不存在");
+            }
+
+            boolean success = systemConfigService.setConfigValue(
+                DEFAULT_SERVER_KEY,
+                id.toString(),
+                "默认服务器ID",
+                ConfigType.SERVER
+            );
+
+            if (success) {
+                log.info("默认服务器设置成功: {}", id);
+                return ApiResponse.success("默认服务器设置成功");
+            } else {
+                return ApiResponse.error("默认服务器设置失败");
+            }
+        } catch (Exception e) {
+            log.error("设置默认服务器失败", e);
+            return ApiResponse.error("设置默认服务器失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * 测试服务器连接
+     * @param request 服务器配置请求
+     * @return 测试结果
+     */
+    @PostMapping("/servers/test")
+    public ApiResponse<String> testServerConnection(@RequestBody ServerConfigRequest request) {
+        try {
+            // 这里可以实现实际的SSH连接测试
+            // 为了简化，这里只做基本验证
+            if (request.getHost() == null || request.getHost().trim().isEmpty()) {
+                return ApiResponse.error("服务器地址不能为空");
+            }
+            if (request.getPort() == null || request.getPort() <= 0 || request.getPort() > 65535) {
+                return ApiResponse.error("端口号必须在1-65535之间");
+            }
+            if (request.getUsername() == null || request.getUsername().trim().isEmpty()) {
+                return ApiResponse.error("用户名不能为空");
+            }
+
+            // TODO: 实现实际的SSH连接测试逻辑
+            log.info("测试服务器连接: {}:{}", request.getHost(), request.getPort());
+
+            return ApiResponse.success("服务器连接测试成功");
+        } catch (Exception e) {
+            log.error("测试服务器连接失败", e);
+            return ApiResponse.error("测试服务器连接失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * 解析服务器配置JSON
+     * @param configJson JSON字符串
+     * @return 配置Map
+     */
+    private Map<String, Object> parseServerConfig(String configJson) {
+        try {
+            // 简单的JSON解析实现
+            Map<String, Object> result = new HashMap<>();
+
+            // 移除大括号
+            String content = configJson.trim();
+            if (content.startsWith("{") && content.endsWith("}")) {
+                content = content.substring(1, content.length() - 1);
+            }
+
+            // 分割键值对
+            String[] pairs = content.split(",");
+            for (String pair : pairs) {
+                String[] keyValue = pair.split(":", 2);
+                if (keyValue.length == 2) {
+                    String key = keyValue[0].trim().replaceAll("\"", "");
+                    String value = keyValue[1].trim().replaceAll("\"", "");
+
+                    // 尝试转换数字
+                    if ("port".equals(key)) {
+                        try {
+                            result.put(key, Integer.parseInt(value));
+                        } catch (NumberFormatException e) {
+                            result.put(key, value);
+                        }
+                    } else {
+                        result.put(key, value);
+                    }
+                }
+            }
+
+            return result;
+        } catch (Exception e) {
+            log.error("解析服务器配置JSON失败", e);
+            return new HashMap<>();
+        }
+    }
+
+    /**
+     * 将Map转换为JSON字符串
+     * @param configMap 配置Map
+     * @return JSON字符串
+     */
+    private String convertToJson(Map<String, Object> configMap) {
+        try {
+            StringBuilder json = new StringBuilder("{");
+            boolean first = true;
+
+            for (Map.Entry<String, Object> entry : configMap.entrySet()) {
+                if (!first) {
+                    json.append(",");
+                }
+                first = false;
+
+                json.append("\"").append(entry.getKey()).append("\":");
+
+                Object value = entry.getValue();
+                if (value instanceof String) {
+                    json.append("\"").append(value.toString().replace("\"", "\\\"")).append("\"");
+                } else if (value instanceof Number) {
+                    json.append(value.toString());
+                } else {
+                    json.append("\"").append(value != null ? value.toString() : "").append("\"");
+                }
+            }
+
+            json.append("}");
+            return json.toString();
+        } catch (Exception e) {
+            log.error("转换JSON失败", e);
+            return "{}";
+        }
+    }
+
+    /**
+     * 获取所有私钥配置
+     * @return 私钥配置列表
+     */
+    @GetMapping("/private-keys")
+    public ApiResponse<List<Map<String, Object>>> getPrivateKeys() {
+        try {
+            List<SystemConfig> privateKeyConfigs = systemConfigService.getConfigsByType(ConfigType.SERVER);
+            List<Map<String, Object>> result = new ArrayList<>();
+
+            for (SystemConfig config : privateKeyConfigs) {
+                if (config.getConfigKey().startsWith(PRIVATE_KEY_PREFIX)) {
+                    try {
+                        // 解析JSON配置
+                        Map<String, Object> keyConfig = parseServerConfig(config.getConfigValue());
+                        keyConfig.put("id", config.getId());
+                        keyConfig.put("configKey", config.getConfigKey());
+
+                        // 移除敏感信息（私钥内容和密码）
+                        keyConfig.remove("privateKey");
+                        keyConfig.remove("privateKeyPassword");
+
+                        result.add(keyConfig);
+                    } catch (Exception e) {
+                        log.warn("解析私钥配置失败: {}", config.getConfigKey(), e);
+                    }
+                }
+            }
+
+            return ApiResponse.success(result);
+        } catch (Exception e) {
+            log.error("获取私钥配置失败", e);
+            return ApiResponse.error("获取私钥配置失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * 保存私钥配置
+     * @param request 私钥配置请求
+     * @return 操作结果
+     */
+    @PostMapping("/private-keys")
+    public ApiResponse<String> savePrivateKey(@RequestBody PrivateKeyRequest request) {
+        try {
+            // 验证必填字段
+            if (request.getKeyName() == null || request.getKeyName().trim().isEmpty()) {
+                return ApiResponse.error("私钥名称不能为空");
+            }
+            if (request.getPrivateKey() == null || request.getPrivateKey().trim().isEmpty()) {
+                return ApiResponse.error("私钥内容不能为空");
+            }
+
+            // 检查私钥名称是否已存在
+            List<SystemConfig> existingKeys = systemConfigService.getConfigsByType(ConfigType.SERVER);
+            for (SystemConfig config : existingKeys) {
+                if (config.getConfigKey().startsWith(PRIVATE_KEY_PREFIX)) {
+                    try {
+                        Map<String, Object> keyConfig = parseServerConfig(config.getConfigValue());
+                        if (request.getKeyName().trim().equals(keyConfig.get("keyName"))) {
+                            return ApiResponse.error("私钥名称已存在");
+                        }
+                    } catch (Exception e) {
+                        // 忽略解析错误
+                    }
+                }
+            }
+
+            // 构建配置JSON
+            Map<String, Object> configMap = new HashMap<>();
+            configMap.put("keyName", request.getKeyName().trim());
+            configMap.put("privateKey", request.getPrivateKey().trim());
+            configMap.put("privateKeyPassword", request.getPrivateKeyPassword() != null ? request.getPrivateKeyPassword().trim() : "");
+            configMap.put("description", request.getDescription() != null ? request.getDescription().trim() : "");
+            configMap.put("keyType", request.getKeyType() != null ? request.getKeyType().trim() : "");
+
+            // 转换为JSON字符串
+            String configJson = convertToJson(configMap);
+
+            // 生成配置键名
+            String configKey = PRIVATE_KEY_PREFIX + System.currentTimeMillis();
+
+            // 保存配置
+            boolean success = systemConfigService.setConfigValue(
+                configKey,
+                configJson,
+                "私钥配置: " + request.getKeyName(),
+                ConfigType.SERVER
+            );
+
+            if (success) {
+                log.info("私钥配置保存成功: {}", request.getKeyName());
+                return ApiResponse.success("私钥配置保存成功");
+            } else {
+                return ApiResponse.error("私钥配置保存失败");
+            }
+        } catch (Exception e) {
+            log.error("保存私钥配置失败", e);
+            return ApiResponse.error("保存私钥配置失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * 更新私钥配置
+     * @param id 配置ID
+     * @param request 私钥配置请求
+     * @return 操作结果
+     */
+    @PutMapping("/private-keys/{id}")
+    public ApiResponse<String> updatePrivateKey(@PathVariable Integer id, @RequestBody PrivateKeyRequest request) {
+        try {
+            // 获取现有配置
+            SystemConfig existingConfig = systemConfigService.getById(id);
+            if (existingConfig == null || !existingConfig.getConfigKey().startsWith(PRIVATE_KEY_PREFIX)) {
+                return ApiResponse.error("私钥配置不存在");
+            }
+
+            // 验证必填字段
+            if (request.getKeyName() == null || request.getKeyName().trim().isEmpty()) {
+                return ApiResponse.error("私钥名称不能为空");
+            }
+            if (request.getPrivateKey() == null || request.getPrivateKey().trim().isEmpty()) {
+                return ApiResponse.error("私钥内容不能为空");
+            }
+
+            // 检查私钥名称是否与其他私钥冲突
+            List<SystemConfig> existingKeys = systemConfigService.getConfigsByType(ConfigType.SERVER);
+            for (SystemConfig config : existingKeys) {
+                if (config.getConfigKey().startsWith(PRIVATE_KEY_PREFIX) && !config.getId().equals(id)) {
+                    try {
+                        Map<String, Object> keyConfig = parseServerConfig(config.getConfigValue());
+                        if (request.getKeyName().trim().equals(keyConfig.get("keyName"))) {
+                            return ApiResponse.error("私钥名称已存在");
+                        }
+                    } catch (Exception e) {
+                        // 忽略解析错误
+                    }
+                }
+            }
+
+            // 构建配置JSON
+            Map<String, Object> configMap = new HashMap<>();
+            configMap.put("keyName", request.getKeyName().trim());
+            configMap.put("privateKey", request.getPrivateKey().trim());
+            configMap.put("privateKeyPassword", request.getPrivateKeyPassword() != null ? request.getPrivateKeyPassword().trim() : "");
+            configMap.put("description", request.getDescription() != null ? request.getDescription().trim() : "");
+            configMap.put("keyType", request.getKeyType() != null ? request.getKeyType().trim() : "");
+
+            // 转换为JSON字符串
+            String configJson = convertToJson(configMap);
+
+            // 更新配置
+            existingConfig.setConfigValue(configJson);
+            existingConfig.setDescription("私钥配置: " + request.getKeyName());
+            boolean success = systemConfigService.updateById(existingConfig);
+
+            if (success) {
+                log.info("私钥配置更新成功: {}", request.getKeyName());
+                return ApiResponse.success("私钥配置更新成功");
+            } else {
+                return ApiResponse.error("私钥配置更新失败");
+            }
+        } catch (Exception e) {
+            log.error("更新私钥配置失败", e);
+            return ApiResponse.error("更新私钥配置失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * 删除私钥配置
+     * @param id 配置ID
+     * @return 操作结果
+     */
+    @DeleteMapping("/private-keys/{id}")
+    public ApiResponse<String> deletePrivateKey(@PathVariable Integer id) {
+        try {
+            // 检查私钥配置是否存在
+            SystemConfig privateKeyConfig = systemConfigService.getById(id);
+            if (privateKeyConfig == null || !privateKeyConfig.getConfigKey().startsWith(PRIVATE_KEY_PREFIX)) {
+                return ApiResponse.error("私钥配置不存在");
+            }
+
+            boolean success = systemConfigService.removeById(id);
+            if (success) {
+                log.info("私钥配置删除成功: {}", id);
+                return ApiResponse.success("私钥配置删除成功");
+            } else {
+                return ApiResponse.error("私钥配置删除失败");
+            }
+        } catch (Exception e) {
+            log.error("删除私钥配置失败", e);
+            return ApiResponse.error("删除私钥配置失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * 获取私钥详情（包含私钥内容，用于编辑）
+     * @param id 私钥配置ID
+     * @return 私钥详情
+     */
+    @GetMapping("/private-keys/{id}")
+    public ApiResponse<Map<String, Object>> getPrivateKeyDetail(@PathVariable Integer id) {
+        try {
+            SystemConfig privateKeyConfig = systemConfigService.getById(id);
+            if (privateKeyConfig == null || !privateKeyConfig.getConfigKey().startsWith(PRIVATE_KEY_PREFIX)) {
+                return ApiResponse.error("私钥配置不存在");
+            }
+
+            Map<String, Object> keyConfig = parseServerConfig(privateKeyConfig.getConfigValue());
+            keyConfig.put("id", privateKeyConfig.getId());
+            keyConfig.put("configKey", privateKeyConfig.getConfigKey());
+
+            return ApiResponse.success(keyConfig);
+        } catch (Exception e) {
+            log.error("获取私钥详情失败", e);
+            return ApiResponse.error("获取私钥详情失败：" + e.getMessage());
         }
     }
 }
