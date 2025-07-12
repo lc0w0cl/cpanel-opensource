@@ -334,7 +334,7 @@ const scrollToCurrentLine = () => {
     rgba(0, 0, 0, 0.95) 100%
   );
   backdrop-filter: blur(20px);
-  z-index: 2000;
+  z-index: 900;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -540,7 +540,7 @@ const scrollToCurrentLine = () => {
 
 .lyrics-source {
   position: absolute;
-  bottom: 2rem;
+  bottom: 8rem;
   left: 50%;
   transform: translateX(-50%);
   padding: 1rem 1.5rem;
@@ -554,6 +554,7 @@ const scrollToCurrentLine = () => {
   flex-direction: column;
   gap: 0.75rem;
   min-width: 300px;
+  max-width: 90vw;
 }
 
 .source-info {
@@ -721,6 +722,15 @@ const scrollToCurrentLine = () => {
   }
 }
 
+/* 平板端适配 */
+@media (max-width: 768px) and (min-width: 481px) {
+  .lyrics-source {
+    bottom: 7rem;
+    max-width: 88vw;
+    font-size: 0.85rem;
+  }
+}
+
 @media (max-width: 480px) {
   .lyrics-spacer-top,
   .lyrics-spacer-bottom {
@@ -748,9 +758,10 @@ const scrollToCurrentLine = () => {
   }
 
   .lyrics-source {
-    bottom: 1rem;
+    bottom: 6rem;
     font-size: 0.8rem;
     min-width: 280px;
+    max-width: 85vw;
     padding: 0.8rem 1rem;
   }
 
