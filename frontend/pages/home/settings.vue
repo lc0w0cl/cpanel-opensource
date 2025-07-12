@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { VueDraggable } from 'vue-draggable-plus'
 import { Icon } from '@iconify/vue'
 
@@ -115,6 +115,8 @@ const privateKeySaving = ref(false)
 const showDeletePrivateKeyConfirm = ref(false)
 const deletingPrivateKey = ref(null)
 const deletePrivateKeyLoading = ref(false)
+const showPrivateKeyDropdown = ref(false)
+const showKeyTypeDropdown = ref(false)
 
 // 服务器表单数据
 const serverForm = ref({
@@ -1113,6 +1115,39 @@ const selectExistingPrivateKey = async (keyId) => {
   }
 }
 
+// 私钥下拉选择相关方法
+const getSelectedPrivateKeyName = () => {
+  if (!serverForm.value.selectedPrivateKeyId) return ''
+  const selectedKey = privateKeys.value.find(key => key.id === serverForm.value.selectedPrivateKeyId)
+  if (!selectedKey) return ''
+
+  let name = selectedKey.keyName
+  if (selectedKey.description) {
+    name += ` (${selectedKey.description})`
+  }
+  return name
+}
+
+const selectPrivateKeyOption = async (keyId) => {
+  serverForm.value.selectedPrivateKeyId = keyId
+  showPrivateKeyDropdown.value = false
+  await selectExistingPrivateKey(keyId)
+}
+
+const selectKeyTypeOption = (keyType) => {
+  privateKeyForm.value.keyType = keyType
+  showKeyTypeDropdown.value = false
+}
+
+// 点击外部关闭下拉框
+const handleClickOutside = (event) => {
+  const selectWrapper = event.target.closest('.custom-select-wrapper')
+  if (!selectWrapper) {
+    showPrivateKeyDropdown.value = false
+    showKeyTypeDropdown.value = false
+  }
+}
+
 // 动画事件处理函数
 const onEnter = (el: HTMLElement) => {
   // 获取元素的实际高度
@@ -1157,6 +1192,14 @@ onMounted(async () => {
   await loadCookieConfig()
   await loadServerConfigs()
   await loadPrivateKeys()
+
+  // 添加点击外部关闭下拉框的事件监听
+  document.addEventListener('click', handleClickOutside)
+})
+
+// 页面卸载时移除事件监听
+onUnmounted(() => {
+  document.removeEventListener('click', handleClickOutside)
 })
 </script>
 
@@ -2056,21 +2099,59 @@ onMounted(async () => {
                           <div v-if="serverForm.useExistingKey" class="existing-key-selector">
                             <div class="form-group">
                               <label class="form-label">选择私钥</label>
-                              <select
-                                v-model="serverForm.selectedPrivateKeyId"
-                                class="form-select"
-                                @change="selectExistingPrivateKey(serverForm.selectedPrivateKeyId)"
-                                :disabled="serverSettingsSaving"
-                              >
-                                <option value="">请选择私钥</option>
-                                <option
-                                  v-for="key in privateKeys"
-                                  :key="key.id"
-                                  :value="key.id"
+                              <div class="custom-select-wrapper">
+                                <div
+                                  class="custom-select"
+                                  :class="{
+                                    'is-open': showPrivateKeyDropdown,
+                                    'is-disabled': serverSettingsSaving,
+                                    'has-value': serverForm.selectedPrivateKeyId
+                                  }"
+                                  @click="!serverSettingsSaving && (showPrivateKeyDropdown = !showPrivateKeyDropdown)"
                                 >
-                                  {{ key.keyName }} {{ key.description ? `(${key.description})` : '' }}
-                                </option>
-                              </select>
+                                  <div class="select-display">
+                                    <span v-if="!serverForm.selectedPrivateKeyId" class="placeholder">
+                                      请选择私钥
+                                    </span>
+                                    <span v-else class="selected-value">
+                                      {{ getSelectedPrivateKeyName() }}
+                                    </span>
+                                  </div>
+                                  <Icon
+                                    icon="mdi:chevron-down"
+                                    class="select-arrow"
+                                    :class="{ 'is-open': showPrivateKeyDropdown }"
+                                  />
+                                </div>
+
+                                <Transition name="dropdown">
+                                  <div v-if="showPrivateKeyDropdown" class="select-dropdown">
+                                    <div class="dropdown-content">
+                                      <div
+                                        class="dropdown-item"
+                                        :class="{ 'is-selected': !serverForm.selectedPrivateKeyId }"
+                                        @click="selectPrivateKeyOption('')"
+                                      >
+                                        <span class="item-text">请选择私钥</span>
+                                      </div>
+                                      <div
+                                        v-for="key in privateKeys"
+                                        :key="key.id"
+                                        class="dropdown-item"
+                                        :class="{ 'is-selected': serverForm.selectedPrivateKeyId === key.id }"
+                                        @click="selectPrivateKeyOption(key.id)"
+                                      >
+                                        <div class="item-content">
+                                          <span class="item-name">{{ key.keyName }}</span>
+                                          <span v-if="key.description" class="item-description">{{ key.description }}</span>
+                                          <span v-if="key.keyType" class="item-type">{{ key.keyType }}</span>
+                                        </div>
+                                        <Icon v-if="serverForm.selectedPrivateKeyId === key.id" icon="mdi:check" class="check-icon" />
+                                      </div>
+                                    </div>
+                                  </div>
+                                </Transition>
+                              </div>
                             </div>
                           </div>
 
@@ -2252,12 +2333,56 @@ onMounted(async () => {
 
                 <div class="form-group">
                   <label class="form-label">私钥类型（可选）</label>
-                  <select v-model="privateKeyForm.keyType" class="form-select" :disabled="privateKeySaving">
-                    <option value="">自动检测</option>
-                    <option value="RSA">RSA</option>
-                    <option value="ECDSA">ECDSA</option>
-                    <option value="Ed25519">Ed25519</option>
-                  </select>
+                  <div class="custom-select-wrapper">
+                    <div
+                      class="custom-select"
+                      :class="{
+                        'is-open': showKeyTypeDropdown,
+                        'is-disabled': privateKeySaving,
+                        'has-value': privateKeyForm.keyType
+                      }"
+                      @click="!privateKeySaving && (showKeyTypeDropdown = !showKeyTypeDropdown)"
+                    >
+                      <div class="select-display">
+                        <span v-if="!privateKeyForm.keyType" class="placeholder">
+                          自动检测
+                        </span>
+                        <span v-else class="selected-value">
+                          {{ privateKeyForm.keyType }}
+                        </span>
+                      </div>
+                      <Icon
+                        icon="mdi:chevron-down"
+                        class="select-arrow"
+                        :class="{ 'is-open': showKeyTypeDropdown }"
+                      />
+                    </div>
+
+                    <Transition name="dropdown">
+                      <div v-if="showKeyTypeDropdown" class="select-dropdown">
+                        <div class="dropdown-content">
+                          <div
+                            class="dropdown-item"
+                            :class="{ 'is-selected': !privateKeyForm.keyType }"
+                            @click="selectKeyTypeOption('')"
+                          >
+                            <span class="item-text">自动检测</span>
+                            <Icon v-if="!privateKeyForm.keyType" icon="mdi:check" class="check-icon" />
+                          </div>
+                          <div
+                            v-for="type in ['RSA', 'ECDSA', 'Ed25519']"
+                            :key="type"
+                            class="dropdown-item"
+                            :class="{ 'is-selected': privateKeyForm.keyType === type }"
+                            @click="selectKeyTypeOption(type)"
+                          >
+                            <span class="item-text">{{ type }}</span>
+                            <Icon v-if="privateKeyForm.keyType === type" icon="mdi:check" class="check-icon" />
+                          </div>
+                        </div>
+                      </div>
+                    </Transition>
+                  </div>
                 </div>
 
                 <div class="form-group">
@@ -2717,7 +2842,7 @@ onMounted(async () => {
 }
 
 .server-settings-item .item-content {
-  padding: 2rem; /* 增加内边距 */
+  //padding: 2rem; /* 增加内边距 */
 }
 
 /* 主题设置项 - 扩大宽度 */
@@ -2826,7 +2951,7 @@ onMounted(async () => {
 }
 
 .item-content {
-  padding: 0 1.5rem 1.5rem 1.5rem;
+  //padding: 0 1.5rem 1.5rem 1.5rem;
   overflow: hidden;
   transform-origin: top;
   /* 启用硬件加速 */
@@ -5076,6 +5201,165 @@ onMounted(async () => {
 .form-select option {
   background: rgba(30, 30, 30, 0.95);
   color: rgba(255, 255, 255, 0.9);
+}
+
+/* 自定义下拉选择器样式 */
+.custom-select-wrapper {
+  position: relative;
+}
+
+.custom-select {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 0.5rem;
+  background: rgba(255, 255, 255, 0.05);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(10px);
+}
+
+.custom-select:hover:not(.is-disabled) {
+  border-color: rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.custom-select.is-open {
+  border-color: rgba(59, 130, 246, 0.5);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.custom-select.is-disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.select-display {
+  flex: 1;
+  display: flex;
+  align-items: center;
+}
+
+.placeholder {
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 0.875rem;
+}
+
+.selected-value {
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 0.875rem;
+}
+
+.select-arrow {
+  font-size: 1.25rem;
+  color: rgba(255, 255, 255, 0.6);
+  transition: transform 0.3s ease;
+}
+
+.select-arrow.is-open {
+  transform: rotate(180deg);
+}
+
+.select-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  margin-top: 0.25rem;
+}
+
+.dropdown-content {
+  background: rgba(20, 20, 20, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 0.5rem;
+  backdrop-filter: blur(20px);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.dropdown-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.dropdown-item:last-child {
+  border-bottom: none;
+}
+
+.dropdown-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.dropdown-item.is-selected {
+  background: rgba(59, 130, 246, 0.15);
+  border-color: rgba(59, 130, 246, 0.3);
+}
+
+.item-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.item-text {
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 0.875rem;
+}
+
+.item-name {
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.item-description {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.75rem;
+}
+
+.item-type {
+  display: inline-block;
+  padding: 0.125rem 0.375rem;
+  border-radius: 0.25rem;
+  background: rgba(168, 85, 247, 0.2);
+  color: rgba(168, 85, 247, 0.9);
+  font-size: 0.625rem;
+  font-weight: 500;
+  margin-top: 0.25rem;
+  width: fit-content;
+}
+
+.check-icon {
+  color: rgba(34, 197, 94, 0.8);
+  font-size: 1rem;
+}
+
+/* 下拉动画 */
+.dropdown-enter-active,
+.dropdown-leave-active {
+  transition: all 0.3s ease;
+}
+
+.dropdown-enter-from {
+  opacity: 0;
+  transform: translateY(-10px) scale(0.95);
+}
+
+.dropdown-leave-to {
+  opacity: 0;
+  transform: translateY(-10px) scale(0.95);
 }
 
 /* 私钥管理器模态框 */

@@ -946,6 +946,97 @@ public class SystemConfigController {
     }
 
     /**
+     * 更新服务器配置
+     * @param id 配置ID
+     * @param request 服务器配置请求
+     * @return 操作结果
+     */
+    @PutMapping("/servers/{id}")
+    public ApiResponse<String> updateServerConfig(@PathVariable Integer id, @RequestBody ServerConfigRequest request) {
+        try {
+            // 获取现有配置
+            SystemConfig existingConfig = systemConfigService.getById(id);
+            if (existingConfig == null) {
+                return ApiResponse.error("服务器配置不存在");
+            }
+
+            // 验证必填字段（与保存时相同的验证逻辑）
+            if (request.getServerName() == null || request.getServerName().trim().isEmpty()) {
+                return ApiResponse.error("服务器名称不能为空");
+            }
+            if (request.getHost() == null || request.getHost().trim().isEmpty()) {
+                return ApiResponse.error("服务器地址不能为空");
+            }
+            if (request.getPort() == null || request.getPort() <= 0 || request.getPort() > 65535) {
+                return ApiResponse.error("端口号必须在1-65535之间");
+            }
+            if (request.getUsername() == null || request.getUsername().trim().isEmpty()) {
+                return ApiResponse.error("用户名不能为空");
+            }
+            if (request.getAuthType() == null || request.getAuthType().trim().isEmpty()) {
+                return ApiResponse.error("认证类型不能为空");
+            }
+
+            // 验证认证信息
+            if ("password".equals(request.getAuthType())) {
+                if (request.getPassword() == null || request.getPassword().trim().isEmpty()) {
+                    return ApiResponse.error("密码认证时密码不能为空");
+                }
+            } else if ("publickey".equals(request.getAuthType())) {
+                if (request.getPrivateKey() == null || request.getPrivateKey().trim().isEmpty()) {
+                    return ApiResponse.error("公钥认证时私钥不能为空");
+                }
+            } else {
+                return ApiResponse.error("不支持的认证类型");
+            }
+
+            // 构建配置JSON
+            Map<String, Object> configMap = new HashMap<>();
+            configMap.put("serverName", request.getServerName().trim());
+            configMap.put("host", request.getHost().trim());
+            configMap.put("port", request.getPort());
+            configMap.put("username", request.getUsername().trim());
+            configMap.put("authType", request.getAuthType().trim());
+            configMap.put("description", request.getDescription() != null ? request.getDescription().trim() : "");
+
+            if ("password".equals(request.getAuthType())) {
+                configMap.put("password", request.getPassword().trim());
+            } else if ("publickey".equals(request.getAuthType())) {
+                configMap.put("privateKey", request.getPrivateKey().trim());
+                configMap.put("privateKeyPassword", request.getPrivateKeyPassword() != null ? request.getPrivateKeyPassword().trim() : "");
+            }
+
+            // 转换为JSON字符串
+            String configJson = convertToJson(configMap);
+
+            // 更新配置
+            existingConfig.setConfigValue(configJson);
+            existingConfig.setDescription("服务器配置: " + request.getServerName());
+            boolean success = systemConfigService.updateById(existingConfig);
+
+            if (success) {
+                // 如果设置为默认服务器，更新默认服务器配置
+                if (Boolean.TRUE.equals(request.getIsDefault())) {
+                    systemConfigService.setConfigValue(
+                        DEFAULT_SERVER_KEY,
+                        id.toString(),
+                        "默认服务器ID",
+                        ConfigType.SERVER
+                    );
+                }
+
+                log.info("服务器配置更新成功: {}", request.getServerName());
+                return ApiResponse.success("服务器配置更新成功");
+            } else {
+                return ApiResponse.error("服务器配置更新失败");
+            }
+        } catch (Exception e) {
+            log.error("更新服务器配置失败", e);
+            return ApiResponse.error("更新服务器配置失败：" + e.getMessage());
+        }
+    }
+
+    /**
      * 删除服务器配置
      * @param id 配置ID
      * @return 操作结果
