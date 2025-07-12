@@ -31,10 +31,16 @@ public class SshService {
         private BufferedReader reader;
         private String sessionId;
         private boolean connected;
+        private String lastCommand;
+        private long lastCommandTime;
+        private boolean isInitialConnection;
 
         public SshConnection(String sessionId) {
             this.sessionId = sessionId;
             this.connected = false;
+            this.lastCommand = null;
+            this.lastCommandTime = 0;
+            this.isInitialConnection = true;
         }
 
         // Getters and Setters
@@ -51,9 +57,18 @@ public class SshService {
         public void setReader(BufferedReader reader) { this.reader = reader; }
         
         public String getSessionId() { return sessionId; }
-        
+
         public boolean isConnected() { return connected; }
         public void setConnected(boolean connected) { this.connected = connected; }
+
+        public String getLastCommand() { return lastCommand; }
+        public void setLastCommand(String lastCommand) { this.lastCommand = lastCommand; }
+
+        public long getLastCommandTime() { return lastCommandTime; }
+        public void setLastCommandTime(long lastCommandTime) { this.lastCommandTime = lastCommandTime; }
+
+        public boolean isInitialConnection() { return isInitialConnection; }
+        public void setInitialConnection(boolean initialConnection) { this.isInitialConnection = initialConnection; }
     }
 
     /**
@@ -147,6 +162,13 @@ public class SshService {
         SshConnection connection = activeSessions.get(sessionId);
         if (connection != null && connection.isConnected()) {
             try {
+                // 记录最近发送的命令，用于过滤回显
+                connection.setLastCommand(command);
+                connection.setLastCommandTime(System.currentTimeMillis());
+
+                // 标记不再是初始连接
+                connection.setInitialConnection(false);
+
                 connection.getWriter().println(command);
                 connection.getWriter().flush();
                 log.debug("发送命令到会话 {}: {}", sessionId, command);
@@ -168,7 +190,7 @@ public class SshService {
             try {
                 StringBuilder output = new StringBuilder();
                 BufferedReader reader = connection.getReader();
-                
+
                 // 非阻塞读取
                 while (reader.ready()) {
                     char[] buffer = new char[1024];
@@ -177,14 +199,176 @@ public class SshService {
                         output.append(buffer, 0, length);
                     }
                 }
-                
-                return output.toString();
+
+                String rawOutput = output.toString();
+
+                // 过滤掉命令回显
+                return filterCommandEcho(connection, rawOutput);
             } catch (Exception e) {
                 log.error("读取输出失败", e);
                 return "";
             }
         }
         return "";
+    }
+
+    /**
+     * 过滤掉命令回显和多余的提示符
+     */
+    private String filterCommandEcho(SshConnection connection, String output) {
+        if (output.isEmpty()) {
+            return output;
+        }
+
+        // 如果是初始连接，不进行任何过滤，保留MOTD和初始提示符
+        if (connection.isInitialConnection()) {
+            log.debug("初始连接状态，不进行过滤，输出长度: {}", output.length());
+            // 检查输出是否包含提示符，如果包含则说明初始化完成
+            if (containsPrompt(output)) {
+                log.debug("检测到初始提示符，标记初始连接完成");
+                // 不立即设置为false，等到第一个命令发送时再设置
+            }
+            return output;
+        }
+
+        String lastCommand = connection.getLastCommand();
+        long lastCommandTime = connection.getLastCommandTime();
+
+        // 如果没有最近的命令，或者命令发送时间超过5秒，只进行提示符过滤
+        if (lastCommand == null || lastCommand.isEmpty() ||
+            (System.currentTimeMillis() - lastCommandTime) > 5000) {
+            return filterTrailingPrompt(output);
+        }
+
+        String filteredOutput = output;
+
+        // 1. 首先移除命令回显
+        String commandEcho = lastCommand + "\r\n";
+        if (filteredOutput.startsWith(commandEcho)) {
+            filteredOutput = filteredOutput.substring(commandEcho.length());
+            log.debug("过滤掉命令回显: {}", lastCommand);
+        } else if (filteredOutput.startsWith(lastCommand)) {
+            // 处理部分回显
+            int crlfIndex = filteredOutput.indexOf("\r\n");
+            if (crlfIndex > 0 && crlfIndex >= lastCommand.length()) {
+                filteredOutput = filteredOutput.substring(crlfIndex + 2);
+                log.debug("过滤掉部分命令回显: {}", lastCommand);
+            }
+        }
+
+        // 2. 然后移除末尾的提示符
+        String beforePromptFilter = filteredOutput;
+        filteredOutput = filterTrailingPrompt(filteredOutput);
+
+        // 记录过滤结果
+        if (!beforePromptFilter.equals(filteredOutput)) {
+            log.debug("提示符过滤前长度: {}, 过滤后长度: {}", beforePromptFilter.length(), filteredOutput.length());
+        }
+
+        // 清除已处理的命令记录
+        connection.setLastCommand(null);
+        connection.setLastCommandTime(0);
+
+        return filteredOutput;
+    }
+
+    /**
+     * 过滤掉末尾的提示符
+     */
+    private String filterTrailingPrompt(String output) {
+        if (output.isEmpty()) {
+            return output;
+        }
+
+        String filtered = output;
+
+        // 多种提示符模式，按优先级尝试
+        String[] promptPatterns = {
+            // 模式1: \r\n\ruser@host:path# \r\n\ruser@host:path# (重复的提示符)
+            "\\r\\n\\r[^\\r\\n]*[@][^\\r\\n]*[#$][^\\r\\n]*\\r\\n\\r[^\\r\\n]*[@][^\\r\\n]*[#$][^\\r\\n]*$",
+            // 模式2: \r\nuser@host:path# \r\n\ruser@host:path#
+            "\\r\\n[^\\r\\n]*[@][^\\r\\n]*[#$][^\\r\\n]*\\r\\n\\r[^\\r\\n]*[@][^\\r\\n]*[#$][^\\r\\n]*$",
+            // 模式3: \r\n\ruser@host:path#
+            "\\r\\n\\r[^\\r\\n]*[@][^\\r\\n]*[#$][^\\r\\n]*$",
+            // 模式4: \r\nuser@host:path#
+            "\\r\\n[^\\r\\n]*[@][^\\r\\n]*[#$][^\\r\\n]*$"
+        };
+
+        // 尝试每个模式
+        for (String pattern : promptPatterns) {
+            String temp = filtered.replaceAll(pattern, "");
+            if (!temp.equals(filtered)) {
+                log.debug("使用模式过滤提示符: {}", pattern);
+                filtered = temp;
+                break;
+            }
+        }
+
+        // 如果正则表达式没有匹配，使用字符串查找方式
+        if (filtered.equals(output)) {
+            filtered = filterPromptByStringSearch(output);
+        }
+
+        return filtered;
+    }
+
+    /**
+     * 通过字符串搜索方式过滤提示符
+     */
+    private String filterPromptByStringSearch(String output) {
+        // 查找最后一个包含 @ 和 # 或 $ 的行，这很可能是提示符
+        String[] lines = output.split("\\r\\n");
+        if (lines.length < 2) {
+            return output;
+        }
+
+        // 从后往前查找提示符
+        int promptLineIndex = -1;
+        for (int i = lines.length - 1; i >= 0; i--) {
+            String line = lines[i];
+            // 移除开头的 \r 字符
+            if (line.startsWith("\r")) {
+                line = line.substring(1);
+            }
+
+            // 检查是否是提示符格式：包含 @ 和 # 或 $
+            if (line.contains("@") && (line.contains("#") || line.contains("$"))) {
+                // 进一步验证：提示符通常以 # 或 $ 结尾，后面可能有空格
+                if (line.trim().endsWith("#") || line.trim().endsWith("$")) {
+                    promptLineIndex = i;
+                    break;
+                }
+            }
+        }
+
+        // 如果找到了提示符行，移除它及其后面的所有内容
+        if (promptLineIndex >= 0) {
+            StringBuilder result = new StringBuilder();
+            for (int i = 0; i < promptLineIndex; i++) {
+                if (i > 0) {
+                    result.append("\r\n");
+                }
+                result.append(lines[i]);
+            }
+
+            String filtered = result.toString();
+            log.debug("通过字符串搜索过滤掉提示符，从第{}行开始", promptLineIndex);
+            return filtered;
+        }
+
+        return output;
+    }
+
+    /**
+     * 检查输出是否包含提示符
+     */
+    private boolean containsPrompt(String output) {
+        if (output == null || output.isEmpty()) {
+            return false;
+        }
+
+        // 检查是否包含典型的提示符格式：用户名@主机名
+        return output.contains("@") && (output.contains("#") || output.contains("$"));
     }
 
     /**
