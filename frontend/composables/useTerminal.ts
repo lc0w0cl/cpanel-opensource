@@ -1,5 +1,6 @@
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, watch } from 'vue'
 import { apiRequest } from '~/composables/useJwt'
+import { useWebSocket, type WebSocketMessage } from '~/composables/useWebSocket'
 
 // 服务器连接信息接口
 export interface ServerConnection {
@@ -102,6 +103,60 @@ export const useTerminal = () => {
     terminalOutput: []
   })
 
+  // WebSocket连接
+  const config = useRuntimeConfig()
+  const wsUrl = `ws://localhost:8080/ws/terminal`
+
+  const {
+    status: wsStatus,
+    lastMessage,
+    connect: wsConnect,
+    disconnect: wsDisconnect,
+    send: wsSend
+  } = useWebSocket({
+    url: wsUrl,
+    reconnectInterval: 3000,
+    maxReconnectAttempts: 5
+  })
+
+  // 监听WebSocket消息
+  watch(lastMessage, (message) => {
+    if (message) {
+      handleWebSocketMessage(message)
+    }
+  })
+
+  // 处理WebSocket消息
+  const handleWebSocketMessage = (message: WebSocketMessage) => {
+    switch (message.type) {
+      case 'connected':
+        terminalState.isConnected = true
+        isConnecting.value = false
+        connectionError.value = ''
+        console.log('SSH连接成功:', message.data)
+        break
+      case 'output':
+        // 将输出添加到终端
+        terminalState.terminalOutput.push({
+          type: 'output',
+          content: message.data,
+          timestamp: new Date()
+        })
+        break
+      case 'error':
+        connectionError.value = message.data
+        isConnecting.value = false
+        console.error('SSH连接错误:', message.data)
+        break
+      case 'disconnected':
+        terminalState.isConnected = false
+        terminalState.currentServer = undefined
+        selectedServer.value = null
+        console.log('SSH连接已断开:', message.data)
+        break
+    }
+  }
+
   // 从数据库加载服务器配置
   const loadServersFromDatabase = async () => {
     isLoading.value = true
@@ -138,7 +193,7 @@ export const useTerminal = () => {
     return servers.value.find(server => server.id === id)
   }
 
-  // 连接到服务器（虚拟实现）
+  // 连接到服务器（真实SSH连接）
   const connectToServer = async (serverId: number) => {
     const server = getServerById(serverId)
     if (!server) {
@@ -146,34 +201,111 @@ export const useTerminal = () => {
       return false
     }
 
+    if (isConnecting.value) return false
+
     isConnecting.value = true
     connectionError.value = ''
-    
+    selectedServer.value = server
+
     try {
-      // 模拟连接延迟
-      await new Promise(resolve => setTimeout(resolve, 2000))
-      
-      // 更新服务器状态
-      server.status = 'connected'
-      server.lastConnected = new Date().toLocaleString('zh-CN')
-      
-      // 更新终端状态
-      terminalState.isConnected = true
-      terminalState.currentServer = server
-      terminalState.connectionHistory.push(`Connected to ${server.name} at ${server.lastConnected}`)
-      
-      // 添加欢迎信息到终端输出
-      terminalState.terminalOutput = [
-        `Welcome to ${server.name}`,
-        `Last login: ${server.lastConnected}`,
-        `${server.username}@${server.host}:~$ `
-      ]
-      
-      selectedServer.value = server
-      return true
+      // 首先建立WebSocket连接
+      if (wsStatus.value !== 'connected') {
+        wsConnect()
+        // 等待WebSocket连接建立
+        await new Promise((resolve, reject) => {
+          const timeout = setTimeout(() => reject(new Error('WebSocket连接超时')), 10000)
+          const checkConnection = () => {
+            if (wsStatus.value === 'connected') {
+              clearTimeout(timeout)
+              resolve(true)
+            } else if (wsStatus.value === 'error') {
+              clearTimeout(timeout)
+              reject(new Error('WebSocket连接失败'))
+            } else {
+              setTimeout(checkConnection, 100)
+            }
+          }
+          checkConnection()
+        })
+      }
+
+      // 获取服务器配置详情（包含认证信息）
+      const API_BASE_URL = getApiBaseUrl()
+      const response = await apiRequest(`${API_BASE_URL}/system-config/servers/${server.id}/auth-info`)
+      const result = await response.json()
+
+      if (!result.success) {
+        throw new Error('获取服务器配置失败: ' + result.message)
+      }
+
+      const serverConfig = result.data
+      if (!serverConfig) {
+        throw new Error('服务器配置不存在')
+      }
+
+      console.log('服务器配置详情:', serverConfig)
+
+      // 验证必需字段
+      if (!serverConfig.host) {
+        throw new Error('服务器地址不能为空')
+      }
+      if (!serverConfig.username) {
+        throw new Error('用户名不能为空')
+      }
+      if (!serverConfig.authType) {
+        throw new Error('认证类型不能为空')
+      }
+
+      // 发送SSH连接请求
+      const connectMessage: WebSocketMessage = {
+        type: 'connect',
+        data: {
+          host: serverConfig.host,
+          port: serverConfig.port || 22,
+          username: serverConfig.username,
+          authType: serverConfig.authType,
+          password: serverConfig.password || null,
+          privateKey: serverConfig.privateKey || null,
+          privateKeyPassword: serverConfig.privateKeyPassword || null
+        }
+      }
+
+      console.log('发送连接消息:', connectMessage)
+
+      const sent = wsSend(connectMessage)
+      if (!sent) {
+        throw new Error('发送连接请求失败')
+      }
+
+      // 等待连接结果
+      return new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          reject(new Error('SSH连接超时'))
+        }, 30000) // 30秒超时
+
+        const checkResult = () => {
+          if (terminalState.isConnected) {
+            clearTimeout(timeout)
+            // 更新服务器状态
+            server.status = 'connected'
+            server.lastConnected = new Date().toLocaleString('zh-CN')
+            terminalState.currentServer = server
+            terminalState.connectionHistory.push(`Connected to ${server.name} at ${server.lastConnected}`)
+            resolve(true)
+          } else if (connectionError.value) {
+            clearTimeout(timeout)
+            reject(new Error(connectionError.value))
+          } else {
+            setTimeout(checkResult, 100)
+          }
+        }
+        checkResult()
+      })
+
     } catch (error) {
-      connectionError.value = '连接失败'
+      connectionError.value = error instanceof Error ? error.message : '连接失败'
       server.status = 'disconnected'
+      console.error(`连接服务器失败: ${server.name}`, error)
       return false
     } finally {
       isConnecting.value = false
@@ -183,70 +315,46 @@ export const useTerminal = () => {
   // 断开连接
   const disconnectFromServer = () => {
     if (terminalState.currentServer) {
+      // 发送断开连接消息
+      wsSend({
+        type: 'disconnect',
+        data: {}
+      })
+
       terminalState.currentServer.status = 'disconnected'
       terminalState.connectionHistory.push(`Disconnected from ${terminalState.currentServer.name} at ${new Date().toLocaleString('zh-CN')}`)
     }
-    
+
     terminalState.isConnected = false
     terminalState.currentServer = undefined
     terminalState.terminalOutput = []
     selectedServer.value = null
+
+    // 断开WebSocket连接
+    wsDisconnect()
   }
 
-  // 发送命令到终端（虚拟实现）
+  // 发送命令到终端（真实SSH实现）
   const sendCommand = (command: string) => {
     if (!terminalState.isConnected || !terminalState.currentServer) {
-      return
+      console.warn('未连接到服务器')
+      return false
     }
 
-    // 添加命令到输出
-    terminalState.terminalOutput.push(`${terminalState.currentServer.username}@${terminalState.currentServer.host}:~$ ${command}`)
-    
-    // 模拟命令响应
-    setTimeout(() => {
-      let response = ''
-      
-      switch (command.toLowerCase().trim()) {
-        case 'ls':
-          response = 'Documents  Downloads  Pictures  Videos  workspace'
-          break
-        case 'pwd':
-          response = `/home/${terminalState.currentServer?.username}`
-          break
-        case 'whoami':
-          response = terminalState.currentServer?.username || 'unknown'
-          break
-        case 'date':
-          response = new Date().toString()
-          break
-        case 'uname -a':
-          response = 'Linux server 5.4.0-74-generic #83-Ubuntu SMP Sat May 8 02:35:39 UTC 2021 x86_64 x86_64 x86_64 GNU/Linux'
-          break
-        case 'df -h':
-          response = `Filesystem      Size  Used Avail Use% Mounted on
-/dev/sda1        20G  8.5G   11G  45% /
-tmpfs           2.0G     0  2.0G   0% /dev/shm`
-          break
-        case 'free -h':
-          response = `              total        used        free      shared  buff/cache   available
-Mem:           4.0G        1.2G        1.8G         50M        1.0G        2.6G
-Swap:          2.0G          0B        2.0G`
-          break
-        case 'clear':
-          terminalState.terminalOutput = []
-          return
-        case 'exit':
-          disconnectFromServer()
-          return
-        default:
-          response = `bash: ${command}: command not found`
+    // 通过WebSocket发送命令到SSH会话
+    const sent = wsSend({
+      type: 'command',
+      data: {
+        command: command
       }
-      
-      if (response) {
-        terminalState.terminalOutput.push(response)
-        terminalState.terminalOutput.push(`${terminalState.currentServer?.username}@${terminalState.currentServer?.host}:~$ `)
-      }
-    }, 100)
+    })
+
+    if (!sent) {
+      console.error('发送命令失败：WebSocket未连接')
+      return false
+    }
+
+    return true
   }
 
   // 清空终端输出
@@ -296,6 +404,7 @@ Swap:          2.0G          0B        2.0G`
     connectionError,
     isLoading,
     terminalState,
+    wsStatus,
 
     // 方法
     getServers,

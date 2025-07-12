@@ -21,6 +21,7 @@ const {
   connectionError,
   isLoading,
   terminalState,
+  wsStatus,
   connectToServer,
   disconnectFromServer,
   sendCommand,
@@ -357,46 +358,12 @@ const handleConnectedCommand = (command: string) => {
     return
   }
   
-  // 模拟命令响应
-  setTimeout(() => {
-    let response = ''
-    
-    switch (cmd) {
-      case 'ls':
-        response = 'Documents  Downloads  Pictures  Videos  workspace'
-        break
-      case 'pwd':
-        response = `/home/${terminalState.currentServer?.username}`
-        break
-      case 'whoami':
-        response = terminalState.currentServer?.username || 'unknown'
-        break
-      case 'date':
-        response = new Date().toLocaleString('zh-CN')
-        break
-      case 'uname -a':
-        response = 'Linux server 5.4.0-74-generic #83-Ubuntu SMP Sat May 8 02:35:39 UTC 2021 x86_64 x86_64 x86_64 GNU/Linux'
-        break
-      case 'df -h':
-        response = `Filesystem      Size  Used Avail Use% Mounted on
-/dev/sda1        20G  8.5G   11G  45% /
-tmpfs           2.0G     0  2.0G   0% /dev/shm
-/dev/sda2       100G   45G   50G  47% /home`
-        break
-      case 'free -h':
-        response = `              total        used        free      shared  buff/cache   available
-Mem:           4.0G        1.2G        1.8G         50M        1.0G        2.6G
-Swap:          2.0G          0B        2.0G`
-        break
-      default:
-        response = `bash: ${command}: command not found`
-    }
-    
-    if (response) {
-      terminal.value?.writeln(response)
-      terminal.value?.write(`${terminalState.currentServer?.username}@${terminalState.currentServer?.host}:~$ `)
-    }
-  }, 100)
+  // 发送命令到SSH服务器
+  const success = sendCommand(command)
+  if (!success) {
+    terminal.value.writeln('发送命令失败：连接已断开')
+    terminal.value.write(`${terminalState.currentServer.username}@${terminalState.currentServer.host}:~$ `)
+  }
 }
 
 // 断开连接处理
@@ -448,6 +415,26 @@ watch([isLoading, servers], ([loading, serverList], [prevLoading, prevServerList
     }, 100)
   }
 }, { deep: true })
+
+// 监听终端输出变化，将SSH输出显示到xterm
+watch(() => terminalState.terminalOutput, (newOutput) => {
+  if (terminal.value && newOutput.length > 0) {
+    const lastOutput = newOutput[newOutput.length - 1]
+    if (typeof lastOutput === 'object' && lastOutput.type === 'output') {
+      terminal.value.write(lastOutput.content)
+    }
+  }
+}, { deep: true })
+
+// 监听连接状态变化
+watch(() => terminalState.isConnected, (connected) => {
+  if (connected && terminal.value) {
+    isInServerSelection.value = false
+    terminal.value.clear()
+    terminal.value.writeln('SSH连接已建立')
+    terminal.value.writeln('')
+  }
+})
 
 // 组件挂载
 onMounted(async () => {

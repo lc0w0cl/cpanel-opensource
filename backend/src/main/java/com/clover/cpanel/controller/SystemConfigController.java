@@ -847,6 +847,37 @@ public class SystemConfigController {
     }
 
     /**
+     * 获取服务器配置详情（包含认证信息，用于SSH连接）
+     * @param id 服务器配置ID
+     * @return 服务器配置详情
+     */
+    @GetMapping("/servers/{id}/auth-info")
+    public ApiResponse<Map<String, Object>> getServerAuthInfo(@PathVariable Integer id) {
+        try {
+            SystemConfig serverConfig = systemConfigService.getById(id);
+            if (serverConfig == null || !serverConfig.getConfigKey().startsWith(SERVER_CONFIG_PREFIX)) {
+                return ApiResponse.error("服务器配置不存在");
+            }
+
+            // 解析配置JSON（包含敏感信息）
+            Map<String, Object> config = parseServerConfig(serverConfig.getConfigValue());
+            config.put("id", serverConfig.getId());
+            config.put("configKey", serverConfig.getConfigKey());
+
+            // 获取默认服务器ID
+            String defaultServerId = systemConfigService.getConfigValue(DEFAULT_SERVER_KEY);
+            config.put("isDefault", serverConfig.getId().toString().equals(defaultServerId));
+
+            log.info("获取服务器认证信息: {}", config.get("serverName"));
+            return ApiResponse.success(config);
+
+        } catch (Exception e) {
+            log.error("获取服务器认证信息失败", e);
+            return ApiResponse.error("获取服务器认证信息失败：" + e.getMessage());
+        }
+    }
+
+    /**
      * 保存服务器配置
      * @param request 服务器配置请求
      * @return 操作结果
