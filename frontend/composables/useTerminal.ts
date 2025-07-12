@@ -137,6 +137,7 @@ export const useTerminal = () => {
         break
       case 'output':
         // 将输出添加到终端（保留ANSI序列供xterm.js处理）
+        console.log('收到输出消息，长度:', message.data?.length, '内容:', message.data)
         terminalState.terminalOutput.push({
           type: 'output',
           content: message.data,
@@ -342,12 +343,19 @@ export const useTerminal = () => {
     }
 
     // 通过WebSocket发送命令到SSH会话
-    const sent = wsSend({
+    const message = {
       type: 'command',
       data: {
         command: command
       }
-    })
+    }
+
+    // 特殊处理Tab字符的日志
+    if (command === '\t') {
+      console.log('发送Tab补全命令:', message)
+    }
+
+    const sent = wsSend(message)
 
     if (!sent) {
       console.error('发送命令失败：WebSocket未连接')

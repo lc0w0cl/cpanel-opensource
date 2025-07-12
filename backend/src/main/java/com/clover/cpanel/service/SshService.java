@@ -162,16 +162,34 @@ public class SshService {
         SshConnection connection = activeSessions.get(sessionId);
         if (connection != null && connection.isConnected()) {
             try {
-                // 记录最近发送的命令，用于过滤回显
-                connection.setLastCommand(command);
-                connection.setLastCommandTime(System.currentTimeMillis());
+                // 检查是否是控制字符或特殊字符
+                if (isControlCharacter(command)) {
+                    // 控制字符（如Ctrl+C、Tab等）直接发送，不换行
+                    connection.getWriter().print(command);
+                    connection.getWriter().flush();
 
-                // 标记不再是初始连接
-                connection.setInitialConnection(false);
+                    if (command.contains("\t")) {
+                        log.info("发送Tab补全到会话 {}, 命令: {}", sessionId, command.replace("\t", "\\t"));
+                    } else if ("\u0003".equals(command)) {
+                        log.info("发送Ctrl+C中断信号到会话 {}", sessionId);
+                    } else {
+                        log.info("发送控制字符到会话 {}, ASCII码: {}", sessionId,
+                               command.length() > 0 ? (int)command.charAt(0) : -1);
+                    }
 
-                connection.getWriter().println(command);
-                connection.getWriter().flush();
-                log.debug("发送命令到会话 {}: {}", sessionId, command);
+                    // 不记录为普通命令，避免过滤控制字符的响应
+                } else {
+                    // 记录最近发送的命令，用于过滤回显
+                    connection.setLastCommand(command);
+                    connection.setLastCommandTime(System.currentTimeMillis());
+
+                    // 标记不再是初始连接
+                    connection.setInitialConnection(false);
+
+                    connection.getWriter().println(command);
+                    connection.getWriter().flush();
+                    log.debug("发送命令到会话 {}: {}", sessionId, command);
+                }
             } catch (Exception e) {
                 log.error("发送命令失败", e);
                 throw new RuntimeException("发送命令失败: " + e.getMessage());
@@ -233,6 +251,13 @@ public class SshService {
 
         String lastCommand = connection.getLastCommand();
         long lastCommandTime = connection.getLastCommandTime();
+
+        // 检查是否是Tab补全或控制字符相关的输出
+        if (isTabCompletionOutput(output) || isControlCharacterOutput(output)) {
+            log.info("检测到特殊输出（Tab补全或控制字符），不进行过滤，输出长度: {}, 内容: {}",
+                    output.length(), output.replace("\r", "\\r").replace("\n", "\\n").replace("\t", "\\t"));
+            return output;
+        }
 
         // 如果没有最近的命令，或者命令发送时间超过5秒，只进行提示符过滤
         if (lastCommand == null || lastCommand.isEmpty() ||
@@ -369,6 +394,111 @@ public class SshService {
 
         // 检查是否包含典型的提示符格式：用户名@主机名
         return output.contains("@") && (output.contains("#") || output.contains("$"));
+    }
+
+    /**
+     * 检查是否是控制字符
+     */
+    private boolean isControlCharacter(String command) {
+        if (command == null || command.isEmpty()) {
+            return false;
+        }
+
+        // 检查常见的控制字符
+        return command.contains("\t") ||        // Tab (0x09)
+               "\u0003".equals(command) ||      // Ctrl+C (ETX, 0x03)
+               "\u0004".equals(command) ||      // Ctrl+D (EOT, 0x04)
+               "\u001A".equals(command) ||      // Ctrl+Z (SUB, 0x1A)
+               "\u0012".equals(command) ||      // Ctrl+R (DC2, 0x12)
+               "\u0015".equals(command) ||      // Ctrl+U (NAK, 0x15)
+               "\u0017".equals(command) ||      // Ctrl+W (ETB, 0x17)
+               "\u001B".equals(command) ||      // ESC (0x1B)
+               command.matches(".*[\\u0000-\\u001F].*"); // 其他控制字符
+    }
+
+    /**
+     * 检查是否是Tab补全相关的输出
+     */
+    private boolean isTabCompletionOutput(String output) {
+        if (output == null || output.isEmpty()) {
+            return false;
+        }
+
+        // Tab补全的特征：
+        // 1. 包含制表符字符
+        if (output.contains("\t")) {
+            log.debug("检测到Tab字符，判断为补全输出");
+            return true;
+        }
+
+        // 2. 包含光标移动序列（Tab补全时常见）
+        if (output.matches(".*\\u001B\\[[0-9]*[ABCD].*")) {
+            log.debug("检测到光标移动序列，判断为补全输出");
+            return true;
+        }
+
+        // 3. 包含光标定位序列
+        if (output.matches(".*\\u001B\\[[0-9]*;[0-9]*[Hf].*")) {
+            log.debug("检测到光标定位序列，判断为补全输出");
+            return true;
+        }
+
+        // 4. 短输出且不包含提示符（可能是补全的部分文本）
+        if (output.length() < 100 && !output.contains("\r\n") &&
+            !output.contains("@") && !output.contains("#") && !output.contains("$") &&
+            output.matches(".*[a-zA-Z0-9._/-].*")) {
+            log.debug("检测到短文本输出，可能是补全结果");
+            return true;
+        }
+
+        // 5. 包含多个选项的补全列表（用空格分隔）
+        if (output.contains("  ") && output.length() < 500 &&
+            !output.contains("@") && !output.contains("#") && !output.contains("$")) {
+            // 进一步检查是否像文件/命令列表
+            String[] parts = output.split("\\s+");
+            if (parts.length > 1 && parts.length < 20) {
+                log.debug("检测到补全选项列表");
+                return true;
+            }
+        }
+
+        // 6. 检查是否是单个字符或很短的补全（如文件名的一部分）
+        if (output.length() <= 20 && !output.contains("\r") && !output.contains("\n") &&
+            output.matches("[a-zA-Z0-9._/-]+")) {
+            log.debug("检测到短补全文本");
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * 检查是否是控制字符相关的输出
+     */
+    private boolean isControlCharacterOutput(String output) {
+        if (output == null || output.isEmpty()) {
+            return false;
+        }
+
+        // Ctrl+C通常会产生 "^C" 输出或者中断当前进程
+        if (output.contains("^C")) {
+            log.debug("检测到Ctrl+C输出");
+            return true;
+        }
+
+        // 检查是否包含中断信号的响应
+        if (output.matches(".*\\^[A-Z].*")) {
+            log.debug("检测到控制字符输出");
+            return true;
+        }
+
+        // 检查是否是很短的输出（可能是控制字符响应）
+        if (output.length() <= 10 && !output.contains("@") &&
+            !output.contains("#") && !output.contains("$")) {
+            return true;
+        }
+
+        return false;
     }
 
     /**

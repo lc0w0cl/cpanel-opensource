@@ -39,6 +39,8 @@ const showTerminal = ref(true) // 默认显示终端
 const currentCommand = ref('')
 const isInServerSelection = ref(true) // 是否在服务器选择模式
 const isConnectedToServer = ref(false) // 是否已连接到服务器
+const isTabCompleting = ref(false) // 是否正在进行Tab补全
+const tabCompletionInput = ref('') // Tab补全时的原始输入
 
 // 初始化xterm.js终端
 const initTerminal = async () => {
@@ -126,10 +128,48 @@ const initTerminal = async () => {
         currentCommand.value = currentCommand.value.slice(0, -1)
         terminal.value?.write('\b \b')
       }
+    } else if (data === '\u0003') {
+      // Ctrl+C - 中断信号
+      if (terminalState.isConnected && !isInServerSelection.value) {
+        console.log('发送Ctrl+C中断信号')
+        sendCommand('\u0003') // 发送ETX字符
+        currentCommand.value = '' // 清空当前命令
+        terminal.value?.write('^C\r\n') // 显示^C并换行
+      }
+    } else if (data === '\u0004') {
+      // Ctrl+D - EOF信号
+      if (terminalState.isConnected && !isInServerSelection.value) {
+        console.log('发送Ctrl+D EOF信号')
+        sendCommand('\u0004')
+        currentCommand.value = ''
+        terminal.value?.write('^D\r\n')
+      }
+    } else if (data === '\u001A') {
+      // Ctrl+Z - 挂起信号
+      if (terminalState.isConnected && !isInServerSelection.value) {
+        console.log('发送Ctrl+Z挂起信号')
+        sendCommand('\u001A')
+        currentCommand.value = ''
+        terminal.value?.write('^Z\r\n')
+      }
+    } else if (data === '\t') {
+      // Tab键 - 自动补全
+      if (terminalState.isConnected && !isInServerSelection.value) {
+        // 发送Tab补全请求，包含当前已输入的内容
+        console.log('发送Tab补全请求，当前命令:', currentCommand.value)
+        handleTabCompletion(currentCommand.value)
+        // 不要在本地终端显示Tab字符，等待服务器响应
+      }
     } else if (data >= ' ') {
       // 可打印字符
       currentCommand.value += data
       terminal.value?.write(data)
+    } else {
+      // 其他控制字符直接发送到SSH会话
+      if (terminalState.isConnected && !isInServerSelection.value) {
+        console.log('发送控制字符，ASCII码:', data.charCodeAt(0))
+        sendCommand(data)
+      }
     }
   })
 
@@ -443,7 +483,15 @@ watch(() => terminalState.terminalOutput, (newOutput) => {
   if (terminal.value && newOutput.length > 0) {
     const lastOutput = newOutput[newOutput.length - 1]
     if (typeof lastOutput === 'object' && lastOutput.type === 'output') {
-      terminal.value.write(lastOutput.content)
+      const content = lastOutput.content
+
+      // 检查是否是Tab补全结果
+      if (isTabCompleting.value && tabCompletionInput.value) {
+        handleTabCompletionOutput(content)
+      } else {
+        // 正常输出
+        terminal.value.write(content)
+      }
     }
   }
 }, { deep: true })
@@ -520,6 +568,95 @@ onUnmounted(() => {
     }
   }
 })
+
+// 处理Tab补全
+const handleTabCompletion = (currentInput: string) => {
+  if (!terminalState.isConnected) {
+    return
+  }
+
+  console.log('发送Tab补全，当前输入:', currentInput)
+
+  // 标记正在进行Tab补全
+  isTabCompleting.value = true
+  tabCompletionInput.value = currentInput
+
+  // 发送Tab补全请求
+  const commandWithTab = currentInput + '\t'
+  const success = sendCommand(commandWithTab)
+
+  if (!success) {
+    console.error('发送Tab补全请求失败')
+    isTabCompleting.value = false
+  }
+
+  // 设置超时
+  setTimeout(() => {
+    if (isTabCompleting.value) {
+      isTabCompleting.value = false
+      console.log('Tab补全超时')
+    }
+  }, 2000)
+}
+
+// 处理Tab补全输出
+const handleTabCompletionOutput = (output: string) => {
+  console.log('处理Tab补全输出:', output)
+
+  try {
+    // 清除Tab补全状态
+    isTabCompleting.value = false
+
+    const originalInput = tabCompletionInput.value
+    tabCompletionInput.value = ''
+
+    // 分析补全结果
+    if (output.includes(originalInput)) {
+      // 查找补全后的完整命令
+      const lines = output.split(/\r?\n/)
+      let completedCommand = ''
+
+      for (const line of lines) {
+        const trimmedLine = line.trim()
+        if (trimmedLine.startsWith(originalInput) && trimmedLine !== originalInput) {
+          completedCommand = trimmedLine
+          break
+        }
+      }
+
+      if (completedCommand) {
+        // 找到了补全结果，更新当前命令
+        console.log('找到补全结果:', completedCommand)
+
+        // 清除当前显示的输入
+        for (let i = 0; i < currentCommand.value.length; i++) {
+          terminal.value?.write('\b \b')
+        }
+
+        // 写入补全后的命令
+        currentCommand.value = completedCommand
+        terminal.value?.write(completedCommand)
+
+        return
+      }
+    }
+
+    // 如果没有找到单一补全结果，可能是选项列表，直接显示
+    if (output.trim()) {
+      terminal.value?.write('\r\n' + output)
+      // 重新显示提示符和当前输入
+      if (terminalState.currentServer) {
+        terminal.value?.write(`\r\n${terminalState.currentServer.username}@${terminalState.currentServer.host}:~$ `)
+        terminal.value?.write(currentCommand.value)
+      }
+    }
+
+  } catch (error) {
+    console.error('处理Tab补全输出失败:', error)
+    // 出错时直接显示原始输出
+    terminal.value?.write(output)
+  }
+}
 </script>
 
 <template>
