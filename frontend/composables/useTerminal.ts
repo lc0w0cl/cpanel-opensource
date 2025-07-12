@@ -136,7 +136,7 @@ export const useTerminal = () => {
         console.log('SSH连接成功:', message.data)
         break
       case 'output':
-        // 将输出添加到终端
+        // 将输出添加到终端（保留ANSI序列供xterm.js处理）
         terminalState.terminalOutput.push({
           type: 'output',
           content: message.data,

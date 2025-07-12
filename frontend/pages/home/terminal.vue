@@ -69,10 +69,32 @@ const initTerminal = async () => {
       background: '#1a1a1a',
       foreground: '#ffffff',
       cursor: '#ffffff',
-      selection: '#3e3e3e'
+      selection: '#3e3e3e',
+      // 添加标准ANSI颜色支持
+      black: '#000000',
+      red: '#ff0000',
+      green: '#00ff00',
+      yellow: '#ffff00',
+      blue: '#0000ff',
+      magenta: '#ff00ff',
+      cyan: '#00ffff',
+      white: '#ffffff',
+      brightBlack: '#808080',
+      brightRed: '#ff8080',
+      brightGreen: '#80ff80',
+      brightYellow: '#ffff80',
+      brightBlue: '#8080ff',
+      brightMagenta: '#ff80ff',
+      brightCyan: '#80ffff',
+      brightWhite: '#ffffff'
     },
     cols: 80,
-    rows: 24
+    rows: 24,
+    // 启用ANSI颜色支持
+    allowTransparency: false,
+    convertEol: true,
+    // 支持256色
+    allowProposedApi: true
   })
 
   // 创建适配插件

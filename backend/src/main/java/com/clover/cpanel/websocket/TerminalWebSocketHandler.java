@@ -237,7 +237,7 @@ public class TerminalWebSocketHandler implements WebSocketHandler {
     }
 
     /**
-     * 处理终端输出，移除或转换ANSI转义序列
+     * 处理终端输出，转换ANSI转义序列为前端可识别的格式
      */
     private String processTerminalOutput(String output) {
         try {
@@ -245,24 +245,25 @@ public class TerminalWebSocketHandler implements WebSocketHandler {
             if (ansiProcessor.containsAnsi(output)) {
                 log.debug("检测到ANSI转义序列，进行处理");
 
-                // 移除ANSI序列，返回纯文本
-                String cleanOutput = ansiProcessor.stripAnsi(output);
+                // 选择处理方式：保留颜色信息转换为HTML格式
+                String processedOutput = ansiProcessor.ansiToHtml(output);
 
-                // 如果清理后的输出为空或只包含空白字符，可能是纯控制序列
-                if (cleanOutput.trim().isEmpty() && !output.trim().isEmpty()) {
+                // 如果转换后的输出为空或只包含空白字符，可能是纯控制序列
+                String textOnly = ansiProcessor.stripAnsi(output);
+                if (textOnly.trim().isEmpty() && !output.trim().isEmpty()) {
                     log.debug("输出主要包含控制序列，跳过发送");
                     return ""; // 返回空字符串，调用方会跳过发送
                 }
 
-                log.debug("原始输出长度: {}, 处理后长度: {}", output.length(), cleanOutput.length());
-                return cleanOutput;
+                log.debug("原始输出长度: {}, 处理后长度: {}", output.length(), processedOutput.length());
+                return processedOutput;
             }
 
             return output;
         } catch (Exception e) {
             log.warn("处理终端输出失败: {}", e.getMessage());
-            // 失败时尝试简单清理
-            return output.replaceAll("\u001B\\[[;\\d]*m", "");
+            // 失败时返回纯文本
+            return ansiProcessor.stripAnsi(output);
         }
     }
 

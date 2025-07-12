@@ -50,7 +50,7 @@ public class AnsiProcessor {
     }
 
     /**
-     * 将ANSI转义序列转换为HTML格式（保留颜色信息）
+     * 将ANSI转义序列转换为xterm.js可识别的格式
      */
     public String ansiToHtml(String text) {
         if (text == null || text.isEmpty()) {
@@ -58,31 +58,33 @@ public class AnsiProcessor {
         }
 
         try {
-            StringBuilder html = new StringBuilder();
-            String[] parts = text.split("\u001B\\[");
-            
-            html.append(escapeHtml(parts[0])); // 第一部分没有ANSI序列
-            
-            for (int i = 1; i < parts.length; i++) {
-                String part = parts[i];
-                int mIndex = part.indexOf('m');
-                
-                if (mIndex != -1) {
-                    String ansiCode = part.substring(0, mIndex);
-                    String content = part.substring(mIndex + 1);
-                    
-                    // 解析ANSI颜色代码并转换为HTML
-                    String htmlTag = parseAnsiCode(ansiCode);
-                    html.append(htmlTag).append(escapeHtml(content));
-                } else {
-                    // 不是颜色序列，直接添加
-                    html.append(escapeHtml(part));
-                }
-            }
-            
-            return html.toString();
+            // 对于xterm.js，我们保留颜色序列但移除可能导致问题的控制序列
+            String result = text;
+
+            // 移除可能导致显示问题的控制序列
+            result = result.replaceAll("\u001B\\[\\?25[lh]", ""); // 光标显示/隐藏
+            result = result.replaceAll("\u001B\\[\\d*[ABCD]", ""); // 光标移动（上下左右）
+            result = result.replaceAll("\u001B\\[\\d*;\\d*[Hf]", ""); // 光标定位
+            result = result.replaceAll("\u001B\\[\\d*[JK]", ""); // 清屏/清行
+            result = result.replaceAll("\u001B\\[\\d*[STP]", ""); // 滚动控制
+            result = result.replaceAll("\u001B\\[[?]\\d*[hl]", ""); // 私有模式设置
+            result = result.replaceAll("\u001B\\]\\d*;[^\\u0007]*\\u0007", ""); // OSC序列
+            result = result.replaceAll("\u001B\\([AB]", ""); // 字符集选择
+            result = result.replaceAll("\u001B[=>]", ""); // 应用程序键盘模式
+            result = result.replaceAll("\u001B[78]", ""); // 保存/恢复光标
+
+            // 保留颜色序列，xterm.js会正确渲染：
+            // - 标准颜色：\u001B[30-37m, \u001B[40-47m
+            // - 亮色：\u001B[90-97m, \u001B[100-107m
+            // - 256色：\u001B[38;5;XXXm, \u001B[48;5;XXXm
+            // - RGB色：\u001B[38;2;R;G;Bm, \u001B[48;2;R;G;Bm
+            // - 重置：\u001B[0m, \u001B[39m, \u001B[49m
+            // - 格式：\u001B[1m (粗体), \u001B[4m (下划线)
+
+            log.debug("ANSI处理: 原始长度={}, 处理后长度={}", text.length(), result.length());
+            return result;
         } catch (Exception e) {
-            log.warn("转换ANSI到HTML失败: {}", e.getMessage());
+            log.warn("转换ANSI失败: {}", e.getMessage());
             return stripAnsi(text); // 失败时返回纯文本
         }
     }
