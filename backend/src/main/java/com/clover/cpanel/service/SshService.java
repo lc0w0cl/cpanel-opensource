@@ -162,34 +162,34 @@ public class SshService {
         SshConnection connection = activeSessions.get(sessionId);
         if (connection != null && connection.isConnected()) {
             try {
-                // 检查是否是控制字符或特殊字符
-                if (isControlCharacter(command)) {
-                    // 控制字符（如Ctrl+C、Tab等）直接发送，不换行
-                    connection.getWriter().print(command);
-                    connection.getWriter().flush();
+                // 所有输入都直接发送给SSH会话，不做任何处理
+                // 这样可以确保服务器完全控制终端的行为
+                connection.getWriter().print(command);
+                connection.getWriter().flush();
 
-                    if (command.contains("\t")) {
-                        log.info("发送Tab补全到会话 {}, 命令: {}", sessionId, command.replace("\t", "\\t"));
-                    } else if ("\u0003".equals(command)) {
-                        log.info("发送Ctrl+C中断信号到会话 {}", sessionId);
+                // 记录发送的内容用于调试
+                if (command.length() == 1) {
+                    char c = command.charAt(0);
+                    if (c == '\r') {
+                        log.info("发送回车到会话 {}", sessionId);
+                    } else if (c == '\t') {
+                        log.info("发送Tab到会话 {}", sessionId);
+                    } else if (c == '\u007F') {
+                        log.info("发送退格到会话 {}", sessionId);
+                    } else if (c == '\u0003') {
+                        log.info("发送Ctrl+C到会话 {}", sessionId);
+                    } else if (c >= 32 && c <= 126) {
+                        log.debug("发送字符到会话 {}: '{}'", sessionId, c);
                     } else {
-                        log.info("发送控制字符到会话 {}, ASCII码: {}", sessionId,
-                               command.length() > 0 ? (int)command.charAt(0) : -1);
+                        log.info("发送控制字符到会话 {}, ASCII码: {}", sessionId, (int)c);
                     }
-
-                    // 不记录为普通命令，避免过滤控制字符的响应
                 } else {
-                    // 记录最近发送的命令，用于过滤回显
-                    connection.setLastCommand(command);
-                    connection.setLastCommandTime(System.currentTimeMillis());
-
-                    // 标记不再是初始连接
-                    connection.setInitialConnection(false);
-
-                    connection.getWriter().println(command);
-                    connection.getWriter().flush();
-                    log.debug("发送命令到会话 {}: {}", sessionId, command);
+                    log.debug("发送字符串到会话 {}, 长度: {}", sessionId, command.length());
                 }
+
+                // 标记不再是初始连接
+                connection.setInitialConnection(false);
+
             } catch (Exception e) {
                 log.error("发送命令失败", e);
                 throw new RuntimeException("发送命令失败: " + e.getMessage());
@@ -241,60 +241,33 @@ public class SshService {
         // 如果是初始连接，不进行任何过滤，保留MOTD和初始提示符
         if (connection.isInitialConnection()) {
             log.debug("初始连接状态，不进行过滤，输出长度: {}", output.length());
-            // 检查输出是否包含提示符，如果包含则说明初始化完成
-            if (containsPrompt(output)) {
-                log.debug("检测到初始提示符，标记初始连接完成");
-                // 不立即设置为false，等到第一个命令发送时再设置
-            }
             return output;
         }
 
-        String lastCommand = connection.getLastCommand();
-        long lastCommandTime = connection.getLastCommandTime();
+        // 现在前端发送的是单个字符，不再需要复杂的命令回显过滤
+        // 只需要简单的重复提示符过滤
+        return filterDuplicatePrompts(output);
+    }
 
-        // 检查是否是Tab补全或控制字符相关的输出
-        if (isTabCompletionOutput(output) || isControlCharacterOutput(output)) {
-            log.info("检测到特殊输出（Tab补全或控制字符），不进行过滤，输出长度: {}, 内容: {}",
-                    output.length(), output.replace("\r", "\\r").replace("\n", "\\n").replace("\t", "\\t"));
+    /**
+     * 过滤重复的提示符
+     */
+    private String filterDuplicatePrompts(String output) {
+        if (output == null || output.isEmpty()) {
             return output;
         }
 
-        // 如果没有最近的命令，或者命令发送时间超过5秒，只进行提示符过滤
-        if (lastCommand == null || lastCommand.isEmpty() ||
-            (System.currentTimeMillis() - lastCommandTime) > 5000) {
-            return filterTrailingPrompt(output);
+        // 简单的重复提示符过滤
+        // 如果输出只包含提示符且没有其他内容，可能是重复的
+        String trimmed = output.trim();
+
+        // 检查是否是单独的提示符行
+        if (trimmed.matches(".*@.*[:~].*[$#]\\s*") && trimmed.length() < 100) {
+            log.debug("检测到可能的重复提示符，长度: {}, 内容: {}", trimmed.length(), trimmed);
+            // 暂时保留，让前端处理
         }
 
-        String filteredOutput = output;
-
-        // 1. 首先移除命令回显
-        String commandEcho = lastCommand + "\r\n";
-        if (filteredOutput.startsWith(commandEcho)) {
-            filteredOutput = filteredOutput.substring(commandEcho.length());
-            log.debug("过滤掉命令回显: {}", lastCommand);
-        } else if (filteredOutput.startsWith(lastCommand)) {
-            // 处理部分回显
-            int crlfIndex = filteredOutput.indexOf("\r\n");
-            if (crlfIndex > 0 && crlfIndex >= lastCommand.length()) {
-                filteredOutput = filteredOutput.substring(crlfIndex + 2);
-                log.debug("过滤掉部分命令回显: {}", lastCommand);
-            }
-        }
-
-        // 2. 然后移除末尾的提示符
-        String beforePromptFilter = filteredOutput;
-        filteredOutput = filterTrailingPrompt(filteredOutput);
-
-        // 记录过滤结果
-        if (!beforePromptFilter.equals(filteredOutput)) {
-            log.debug("提示符过滤前长度: {}, 过滤后长度: {}", beforePromptFilter.length(), filteredOutput.length());
-        }
-
-        // 清除已处理的命令记录
-        connection.setLastCommand(null);
-        connection.setLastCommandTime(0);
-
-        return filteredOutput;
+        return output;
     }
 
     /**

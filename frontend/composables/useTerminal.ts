@@ -350,11 +350,6 @@ export const useTerminal = () => {
       }
     }
 
-    // 特殊处理Tab字符的日志
-    if (command === '\t') {
-      console.log('发送Tab补全命令:', message)
-    }
-
     const sent = wsSend(message)
 
     if (!sent) {
@@ -368,9 +363,7 @@ export const useTerminal = () => {
   // 清空终端输出
   const clearTerminal = () => {
     terminalState.terminalOutput = []
-    if (terminalState.currentServer) {
-      terminalState.terminalOutput.push(`${terminalState.currentServer.username}@${terminalState.currentServer.host}:~$ `)
-    }
+    // 不再在前端生成提示符，完全依赖服务器输出
   }
 
   // 获取连接状态颜色

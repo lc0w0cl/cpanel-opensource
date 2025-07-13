@@ -111,70 +111,21 @@ const initTerminal = async () => {
 
   // 监听输入
   terminal.value.onData((data) => {
-    if (data === '\r') {
-      // 回车键 - 执行命令
-      if (currentCommand.value.trim()) {
-        if (isInServerSelection.value) {
-          handleServerSelection(currentCommand.value.trim())
-        } else {
-          handleConnectedCommand(currentCommand.value.trim())
-        }
-        currentCommand.value = ''
-      }
-      terminal.value?.write('\r\n')
-    } else if (data === '\u007F') {
-      // 退格键
-      if (currentCommand.value.length > 0) {
-        currentCommand.value = currentCommand.value.slice(0, -1)
-        terminal.value?.write('\b \b')
-      }
-    } else if (data === '\u0003') {
-      // Ctrl+C - 中断信号
-      if (terminalState.isConnected && !isInServerSelection.value) {
-        console.log('发送Ctrl+C中断信号')
-        sendCommand('\u0003') // 发送ETX字符
-        currentCommand.value = '' // 清空当前命令
-        terminal.value?.write('^C\r\n') // 显示^C并换行
-      }
-    } else if (data === '\u0004') {
-      // Ctrl+D - EOF信号
-      if (terminalState.isConnected && !isInServerSelection.value) {
-        console.log('发送Ctrl+D EOF信号')
-        sendCommand('\u0004')
-        currentCommand.value = ''
-        terminal.value?.write('^D\r\n')
-      }
-    } else if (data === '\u001A') {
-      // Ctrl+Z - 挂起信号
-      if (terminalState.isConnected && !isInServerSelection.value) {
-        console.log('发送Ctrl+Z挂起信号')
-        sendCommand('\u001A')
-        currentCommand.value = ''
-        terminal.value?.write('^Z\r\n')
-      }
-    } else if (data === '\t') {
-      // Tab键 - 自动补全
-      if (terminalState.isConnected && !isInServerSelection.value) {
-        // 发送Tab补全请求，包含当前已输入的内容
-        console.log('发送Tab补全请求，当前命令:', currentCommand.value)
-        handleTabCompletion(currentCommand.value)
-        // 不要在本地终端显示Tab字符，等待服务器响应
-      }
-    } else if (data >= ' ') {
-      // 可打印字符
-      currentCommand.value += data
-      terminal.value?.write(data)
+    if (terminalState.isConnected) {
+      // 已连接到服务器，所有输入都直接发送给服务器
+      console.log('发送输入到服务器，ASCII码:', data.charCodeAt(0), '内容:', data.replace('\r', '\\r').replace('\n', '\\n').replace('\t', '\\t'))
+      sendCommand(data)
+      // 不在本地显示任何内容，完全依赖服务器的响应
     } else {
-      // 其他控制字符直接发送到SSH会话
-      if (terminalState.isConnected && !isInServerSelection.value) {
-        console.log('发送控制字符，ASCII码:', data.charCodeAt(0))
-        sendCommand(data)
+      // 未连接时，显示提示信息
+      if (data === '\r') {
+        terminal.value?.write('\r\n请在左侧服务器列表中选择要连接的服务器。\r\n')
       }
     }
   })
 
-  // 显示服务器选择菜单
-  showServerSelectionMenu()
+  // 显示欢迎信息
+  showWelcomeMessage()
 }
 
 // Iconify图标到终端字符的映射
@@ -218,8 +169,8 @@ const getServerIconColor = (iconName: string) => {
   return colorMap[iconName] || 'text-gray-300'
 }
 
-// 显示服务器选择菜单
-const showServerSelectionMenu = () => {
+// 显示欢迎信息
+const showWelcomeMessage = () => {
   if (!terminal.value) return
 
   terminal.value.clear()
@@ -227,204 +178,43 @@ const showServerSelectionMenu = () => {
   terminal.value.writeln('║                    服务器连接管理系统                        ║')
   terminal.value.writeln('╚══════════════════════════════════════════════════════════════╝')
   terminal.value.writeln('')
-
-  // 检查是否正在加载
-  if (isLoading.value) {
-    terminal.value.writeln('正在加载服务器配置...')
-    terminal.value.writeln('')
-    terminal.value.write('请稍候...')
-    return
-  }
-
-  // 检查是否有连接错误
-  if (connectionError.value) {
-    terminal.value.writeln('❌ 加载服务器配置失败:')
-    terminal.value.writeln(`   ${connectionError.value}`)
-    terminal.value.writeln('')
-    terminal.value.writeln('可用命令:')
-    terminal.value.writeln('  reload  - 重新加载服务器配置')
-    terminal.value.writeln('  clear   - 清空屏幕')
-    terminal.value.writeln('  exit    - 退出系统')
-    terminal.value.writeln('')
-    terminal.value.write('请输入命令: ')
-    return
-  }
-
-  // 检查是否有服务器
-  if (servers.value.length === 0) {
-    terminal.value.writeln('⚠️  未找到可用的服务器配置')
-    terminal.value.writeln('')
-    terminal.value.writeln('请先在设置页面添加服务器配置，然后重新加载。')
-    terminal.value.writeln('')
-    terminal.value.writeln('可用命令:')
-    terminal.value.writeln('  reload  - 重新加载服务器配置')
-    terminal.value.writeln('  clear   - 清空屏幕')
-    terminal.value.writeln('  exit    - 退出系统')
-    terminal.value.writeln('')
-    terminal.value.write('请输入命令: ')
-    return
-  }
-
-  terminal.value.writeln('可用服务器列表:')
+  terminal.value.writeln('欢迎使用服务器连接管理系统！')
   terminal.value.writeln('')
-
-  servers.value.forEach((server, index) => {
-    // 获取服务器图标
-    let serverIcon = getServerIcon(server)
-
-    // 如果已连接，添加连接指示器
-    if (server.status === 'connected') {
-      serverIcon += '●'
-    }
-
-    // 构建服务器信息行
-    let serverLine = `[${index + 1}] ${serverIcon} ${server.name}`
-
-    // 添加提供商信息（如果有）
-    if (server.description) {
-      serverLine += ` | ${server.description}`
-    }
-
-    // 添加IP地址和端口
-    serverLine += ` | ${server.host}:${server.port}`
-
-    terminal.value?.writeln(serverLine)
-  })
-
+  terminal.value.writeln('请在左侧服务器列表中点击要连接的服务器。')
+  terminal.value.writeln('连接成功后，您将获得完整的终端访问权限。')
   terminal.value.writeln('')
-  terminal.value.writeln('可用命令:')
-  terminal.value.writeln(`  1-${servers.value.length}     - 连接到对应编号的服务器`)
-  terminal.value.writeln('  list    - 重新显示服务器列表')
-  terminal.value.writeln('  reload  - 重新加载服务器配置')
-  terminal.value.writeln('  status  - 显示连接状态')
-  terminal.value.writeln('  clear   - 清空屏幕')
-  terminal.value.writeln('  exit    - 退出系统')
-  terminal.value.writeln('')
-  terminal.value.write(`请选择服务器 (1-${servers.value.length}) 或输入命令: `)
 }
 
-// 处理服务器选择
-const handleServerSelection = async (input: string) => {
-  if (!terminal.value) return
-  
-  const command = input.toLowerCase().trim()
-  
-  // 处理数字选择
-  const serverIndex = parseInt(command) - 1
-  if (!isNaN(serverIndex) && serverIndex >= 0 && serverIndex < servers.value.length) {
-    const server = servers.value[serverIndex]
-    terminal.value.writeln(`正在连接到 ${server.name}...`)
-    
+// 服务器选择处理已移除，现在通过Vue界面进行选择
+
+// 处理连接后的命令（已移除，所有命令都直接发送给服务器）
+// 保留函数定义以避免破坏现有调用，但不再使用
+const handleConnectedCommand = (command: string) => {
+  // 此函数已废弃，所有输入都直接发送给服务器处理
+  console.warn('handleConnectedCommand 已废弃，不应该被调用')
+}
+
+// 通过索引连接服务器（Vue界面点击）
+const connectToServerByIndex = async (index: number) => {
+  if (index >= 0 && index < servers.value.length) {
+    const server = servers.value[index]
+    if (terminal.value) {
+      terminal.value.clear()
+      terminal.value.writeln(`正在连接到 ${server.name} (${server.host}:${server.port})...`)
+      terminal.value.writeln('')
+    }
+
     const success = await connectToServer(server.id)
-    
+
     if (success) {
       isInServerSelection.value = false
       isConnectedToServer.value = true
-      
-      // 显示连接成功信息
-      terminal.value.clear()
-      terminal.value.writeln(`✓ 成功连接到 ${server.name}`)
-      terminal.value.writeln(`地址: ${server.host}:${server.port}`)
-      terminal.value.writeln(`用户: ${server.username}`)
-      terminal.value.writeln(`协议: ${server.protocol.toUpperCase()}`)
-      terminal.value.writeln('')
-      terminal.value.writeln('欢迎使用服务器终端！输入 "help" 查看可用命令，输入 "disconnect" 断开连接。')
-      terminal.value.writeln('')
-      terminal.value.write(`${server.username}@${server.host}:~$ `)
-    } else {
+      // 连接成功后，终端内容完全由服务器控制
+    } else if (terminal.value) {
       terminal.value.writeln(`✗ 连接失败: ${connectionError.value}`)
-      terminal.value.write('请选择服务器 (1-4) 或输入命令: ')
+      terminal.value.writeln('')
+      terminal.value.writeln('请检查服务器配置或网络连接，然后重试。')
     }
-    return
-  }
-  
-  // 处理命令
-  switch (command) {
-    case 'list':
-      showServerSelectionMenu()
-      break
-    case 'reload':
-      terminal.value.writeln('正在重新加载服务器配置...')
-      await loadServersFromDatabase()
-      setTimeout(() => {
-        showServerSelectionMenu()
-      }, 500)
-      break
-    case 'status':
-      if (servers.value.length === 0) {
-        terminal.value.writeln('暂无服务器配置')
-      } else {
-        terminal.value.writeln('连接状态:')
-        servers.value.forEach((server, index) => {
-          const serverIcon = getServerIcon(server)
-          const statusIcon = server.status === 'connected' ? '●' : '○'
-          const statusText = server.status === 'connected' ? '已连接' : '未连接'
-          terminal.value?.writeln(`  [${index + 1}] ${serverIcon}${statusIcon} ${server.name}: ${statusText}`)
-        })
-      }
-      terminal.value.writeln('')
-      terminal.value.write(`请选择服务器 (1-${servers.value.length || 0}) 或输入命令: `)
-      break
-    case 'clear':
-      showServerSelectionMenu()
-      break
-    case 'exit':
-      terminal.value.writeln('感谢使用服务器连接管理系统！')
-      terminal.value.writeln('')
-      setTimeout(() => {
-        showServerSelectionMenu()
-      }, 1000)
-      break
-    default:
-      terminal.value.writeln(`未知命令: ${input}`)
-      if (servers.value.length > 0) {
-        terminal.value.writeln(`输入 1-${servers.value.length} 选择服务器，或输入 "list" 查看服务器列表`)
-        terminal.value.write(`请选择服务器 (1-${servers.value.length}) 或输入命令: `)
-      } else {
-        terminal.value.writeln('输入 "reload" 重新加载服务器配置')
-        terminal.value.write('请输入命令: ')
-      }
-  }
-}
-
-// 处理连接后的命令
-const handleConnectedCommand = (command: string) => {
-  if (!terminal.value || !terminalState.currentServer) return
-  
-  const cmd = command.toLowerCase().trim()
-  
-  if (cmd === 'disconnect') {
-    handleDisconnect()
-    return
-  }
-  
-  if (cmd === 'help') {
-    terminal.value.writeln('可用命令:')
-    terminal.value.writeln('  ls        - 列出文件和目录')
-    terminal.value.writeln('  pwd       - 显示当前目录')
-    terminal.value.writeln('  whoami    - 显示当前用户')
-    terminal.value.writeln('  date      - 显示当前日期时间')
-    terminal.value.writeln('  uname -a  - 显示系统信息')
-    terminal.value.writeln('  df -h     - 显示磁盘使用情况')
-    terminal.value.writeln('  free -h   - 显示内存使用情况')
-    terminal.value.writeln('  clear     - 清空屏幕')
-    terminal.value.writeln('  disconnect - 断开连接')
-    terminal.value.writeln('')
-    terminal.value.write(`${terminalState.currentServer.username}@${terminalState.currentServer.host}:~$ `)
-    return
-  }
-  
-  if (cmd === 'clear') {
-    terminal.value.clear()
-    terminal.value.write(`${terminalState.currentServer.username}@${terminalState.currentServer.host}:~$ `)
-    return
-  }
-  
-  // 发送命令到SSH服务器
-  const success = sendCommand(command)
-  if (!success) {
-    terminal.value.writeln('发送命令失败：连接已断开')
-    terminal.value.write(`${terminalState.currentServer.username}@${terminalState.currentServer.host}:~$ `)
   }
 }
 
@@ -434,13 +224,13 @@ const handleDisconnect = () => {
   isInServerSelection.value = true
   isConnectedToServer.value = false
   currentCommand.value = ''
-  
+
   if (terminal.value) {
     terminal.value.writeln('')
     terminal.value.writeln('已断开服务器连接')
     terminal.value.writeln('')
     setTimeout(() => {
-      showServerSelectionMenu()
+      showWelcomeMessage()
     }, 1000)
   }
 }
@@ -449,10 +239,10 @@ const handleDisconnect = () => {
 const handleClearTerminal = () => {
   if (terminal.value) {
     if (isInServerSelection.value) {
-      showServerSelectionMenu()
-    } else if (terminalState.currentServer) {
-      terminal.value.clear()
-      terminal.value.write(`${terminalState.currentServer.username}@${terminalState.currentServer.host}:~$ `)
+      showWelcomeMessage()
+    } else if (terminalState.isConnected) {
+      // 发送clear命令给服务器，让服务器处理
+      sendCommand('clear\r')
     }
   }
 }
@@ -470,10 +260,10 @@ const handleResize = () => {
 
 // 监听服务器加载状态变化
 watch([isLoading, servers], ([loading, serverList], [prevLoading, prevServerList]) => {
-  // 当加载完成且在服务器选择模式时，刷新菜单
+  // 当加载完成且在服务器选择模式时，刷新欢迎信息
   if (prevLoading && !loading && isInServerSelection.value && terminal.value) {
     setTimeout(() => {
-      showServerSelectionMenu()
+      showWelcomeMessage()
     }, 100)
   }
 }, { deep: true })
@@ -484,14 +274,8 @@ watch(() => terminalState.terminalOutput, (newOutput) => {
     const lastOutput = newOutput[newOutput.length - 1]
     if (typeof lastOutput === 'object' && lastOutput.type === 'output') {
       const content = lastOutput.content
-
-      // 检查是否是Tab补全结果
-      if (isTabCompleting.value && tabCompletionInput.value) {
-        handleTabCompletionOutput(content)
-      } else {
-        // 正常输出
-        terminal.value.write(content)
-      }
+      // 直接显示服务器返回的所有内容，不做任何处理
+      terminal.value.write(content)
     }
   }
 }, { deep: true })
@@ -500,9 +284,7 @@ watch(() => terminalState.terminalOutput, (newOutput) => {
 watch(() => terminalState.isConnected, (connected) => {
   if (connected && terminal.value) {
     isInServerSelection.value = false
-    terminal.value.clear()
-    terminal.value.writeln('SSH连接已建立')
-    terminal.value.writeln('')
+    // 不在前端清空或写入任何内容，完全依赖服务器的输出
   }
 })
 
@@ -569,155 +351,108 @@ onUnmounted(() => {
   }
 })
 
-// 处理Tab补全
-const handleTabCompletion = (currentInput: string) => {
-  if (!terminalState.isConnected) {
-    return
-  }
+// Tab补全处理已移除，所有输入都直接发送给服务器
+// 保留变量定义以避免编译错误
 
-  console.log('发送Tab补全，当前输入:', currentInput)
-
-  // 标记正在进行Tab补全
-  isTabCompleting.value = true
-  tabCompletionInput.value = currentInput
-
-  // 发送Tab补全请求
-  const commandWithTab = currentInput + '\t'
-  const success = sendCommand(commandWithTab)
-
-  if (!success) {
-    console.error('发送Tab补全请求失败')
-    isTabCompleting.value = false
-  }
-
-  // 设置超时
-  setTimeout(() => {
-    if (isTabCompleting.value) {
-      isTabCompleting.value = false
-      console.log('Tab补全超时')
-    }
-  }, 2000)
-}
-
-// 处理Tab补全输出
-const handleTabCompletionOutput = (output: string) => {
-  console.log('处理Tab补全输出:', output)
-
-  try {
-    // 清除Tab补全状态
-    isTabCompleting.value = false
-
-    const originalInput = tabCompletionInput.value
-    tabCompletionInput.value = ''
-
-    // 分析补全结果
-    if (output.includes(originalInput)) {
-      // 查找补全后的完整命令
-      const lines = output.split(/\r?\n/)
-      let completedCommand = ''
-
-      for (const line of lines) {
-        const trimmedLine = line.trim()
-        if (trimmedLine.startsWith(originalInput) && trimmedLine !== originalInput) {
-          completedCommand = trimmedLine
-          break
-        }
-      }
-
-      if (completedCommand) {
-        // 找到了补全结果，更新当前命令
-        console.log('找到补全结果:', completedCommand)
-
-        // 清除当前显示的输入
-        for (let i = 0; i < currentCommand.value.length; i++) {
-          terminal.value?.write('\b \b')
-        }
-
-        // 写入补全后的命令
-        currentCommand.value = completedCommand
-        terminal.value?.write(completedCommand)
-
-        return
-      }
-    }
-
-    // 如果没有找到单一补全结果，可能是选项列表，直接显示
-    if (output.trim()) {
-      terminal.value?.write('\r\n' + output)
-      // 重新显示提示符和当前输入
-      if (terminalState.currentServer) {
-        terminal.value?.write(`\r\n${terminalState.currentServer.username}@${terminalState.currentServer.host}:~$ `)
-        terminal.value?.write(currentCommand.value)
-      }
-    }
-
-  } catch (error) {
-    console.error('处理Tab补全输出失败:', error)
-    // 出错时直接显示原始输出
-    terminal.value?.write(output)
-  }
-}
 </script>
 
 <template>
   <NuxtLayout>
     <div class="terminal-dashboard">
-      <!-- 页面标题 -->
-
-        <div class="header-actions">
-          <button
-            v-if="isConnectedToServer"
-            @click="handleClearTerminal"
-            class="action-btn clear-btn"
-            title="清空终端"
-          >
-            <Icon icon="material-symbols:clear-all" class="btn-icon" />
-            清空
-          </button>
-          <button
-            v-if="isConnectedToServer"
-            @click="handleDisconnect"
-            class="action-btn disconnect-btn"
-            title="断开连接"
-          >
-            <Icon icon="material-symbols:power-off" class="btn-icon" />
-            断开
+      <!-- 左侧服务器列表面板 -->
+      <div class="server-list-sidebar">
+        <div class="panel-header">
+          <h3 class="panel-title">
+            <Icon icon="material-symbols:dns" class="title-icon" />
+            服务器列表
+          </h3>
+          <button @click="loadServersFromDatabase" class="action-btn reload-btn" title="重新加载">
+            <Icon icon="material-symbols:refresh" class="btn-icon" />
           </button>
         </div>
 
-      <!-- 连接错误提示 -->
-      <div v-if="connectionError" class="error-message">
-        <Icon icon="material-symbols:error" class="error-icon" />
-        {{ connectionError }}
+        <div class="server-list">
+          <div
+            v-for="(server, index) in servers"
+            :key="server.id"
+            class="server-item"
+            :class="{
+              'connected': server.status === 'connected',
+              'active': terminalState.currentServer?.id === server.id
+            }"
+            @click="connectToServerByIndex(index)"
+          >
+            <div class="server-item-header">
+              <Icon :icon="server.icon" class="server-icon" :class="getServerIconColor(server.icon)" />
+              <div class="server-status">
+                <Icon
+                  :icon="getStatusIcon(server.status)"
+                  :class="getStatusColor(server.status)"
+                  class="status-icon"
+                />
+              </div>
+            </div>
+
+            <div class="server-item-info">
+              <h4 class="server-name">{{ server.name }}</h4>
+              <p class="server-address">{{ server.host }}:{{ server.port }}</p>
+              <p class="server-user">{{ server.username }}</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- 空状态 -->
+        <div v-if="servers.length === 0 && !isLoading" class="empty-state">
+          <Icon icon="material-symbols:dns-outline" class="empty-icon" />
+          <p>暂无服务器配置</p>
+          <button @click="loadServersFromDatabase" class="action-btn primary">
+            <Icon icon="material-symbols:refresh" class="btn-icon" />
+            重新加载
+          </button>
+        </div>
+
+        <!-- 加载状态 -->
+        <div v-if="isLoading" class="loading-state">
+          <Icon icon="material-symbols:sync" class="loading-icon animate-spin" />
+          <p>加载中...</p>
+        </div>
       </div>
 
-      <!-- 终端面板 -->
-      <div class="terminal-panel-fullscreen">
-        <div class="terminal-header">
-          <div class="terminal-title">
-            <Icon icon="material-symbols:terminal" class="terminal-icon" />
-            <Icon
-              v-if="terminalState.currentServer"
-              :icon="terminalState.currentServer.icon"
-              class="server-icon"
-            />
-            <span v-if="terminalState.currentServer">
-              {{ terminalState.currentServer.name }} - {{ terminalState.currentServer.host }}
-            </span>
-            <span v-else>服务器连接管理系统</span>
-          </div>
-          <div class="terminal-controls" v-if="isConnectedToServer">
-            <button @click="handleClearTerminal" class="control-btn" title="清空">
-              <Icon icon="material-symbols:clear-all" />
-            </button>
-            <button @click="handleDisconnect" class="control-btn" title="断开">
-              <Icon icon="material-symbols:close" />
-            </button>
-          </div>
+      <!-- 右侧终端面板 -->
+      <div class="terminal-main">
+        <!-- 连接错误提示 -->
+        <div v-if="connectionError" class="error-message">
+          <Icon icon="material-symbols:error" class="error-icon" />
+          {{ connectionError }}
         </div>
 
-        <div class="terminal-container">
-          <div ref="terminalContainer" class="xterm-container"></div>
+        <div class="terminal-panel">
+          <div class="terminal-header">
+            <div class="terminal-title">
+              <Icon icon="material-symbols:terminal" class="terminal-icon" />
+              <Icon
+                v-if="terminalState.currentServer"
+                :icon="terminalState.currentServer.icon"
+                class="server-icon"
+              />
+              <span v-if="terminalState.currentServer">
+                {{ terminalState.currentServer.name }} - {{ terminalState.currentServer.host }}
+              </span>
+              <span v-else>请选择服务器进行连接</span>
+            </div>
+            <div class="terminal-controls">
+              <button v-if="isConnectedToServer" @click="handleClearTerminal" class="control-btn" title="清空">
+                <Icon icon="material-symbols:clear-all" />
+              </button>
+              <button v-if="isConnectedToServer" @click="handleDisconnect" class="control-btn" title="断开">
+                <Icon icon="material-symbols:close" />
+              </button>
+            </div>
+          </div>
+
+          <div class="terminal-container">
+            <div ref="terminalContainer" class="xterm-container"></div>
+          </div>
         </div>
       </div>
     </div>
