@@ -62,6 +62,31 @@ CREATE TABLE IF NOT EXISTS panel_system_config (
   INDEX idx_config_type (config_type)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='系统配置表';
 
+-- 创建服务器配置表
+CREATE TABLE IF NOT EXISTS panel_servers (
+  id INT AUTO_INCREMENT PRIMARY KEY COMMENT '服务器ID，自增主键',
+  server_name VARCHAR(100) NOT NULL COMMENT '服务器名称',
+  host VARCHAR(255) NOT NULL COMMENT '服务器主机地址',
+  port INT NOT NULL DEFAULT 22 COMMENT '服务器端口',
+  username VARCHAR(100) NOT NULL COMMENT '用户名',
+  auth_type VARCHAR(20) NOT NULL COMMENT '认证类型：password或publickey',
+  password TEXT COMMENT '密码（当认证类型为password时使用）',
+  private_key TEXT COMMENT '私钥内容（当认证类型为publickey时使用）',
+  private_key_password VARCHAR(255) COMMENT '私钥密码',
+  description TEXT COMMENT '服务器描述',
+  icon VARCHAR(100) DEFAULT 'material-symbols:dns' COMMENT '服务器图标（Iconify图标名称）',
+  is_default BOOLEAN DEFAULT FALSE COMMENT '是否为默认服务器',
+  status VARCHAR(20) DEFAULT 'active' COMMENT '服务器状态：active或inactive',
+  sort_order INT DEFAULT 1 COMMENT '排序顺序',
+  created_at VARCHAR(19) COMMENT '创建时间，格式：yyyy-MM-dd HH:mm:ss',
+  updated_at VARCHAR(19) COMMENT '更新时间，格式：yyyy-MM-dd HH:mm:ss',
+  INDEX idx_server_name (server_name),
+  INDEX idx_host (host),
+  INDEX idx_status (status),
+  INDEX idx_sort_order (sort_order),
+  INDEX idx_is_default (is_default)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='服务器配置表';
+
 -- 初始化音乐配置数据
 INSERT IGNORE INTO panel_system_config (config_key, config_value, description, config_type, created_at, updated_at) VALUES
 ('music_download_location', 'local', '音乐下载位置设置', 'music', '2023-01-01 00:00:00', '2023-01-01 00:00:00'),

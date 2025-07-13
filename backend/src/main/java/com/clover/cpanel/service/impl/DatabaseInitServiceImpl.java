@@ -7,6 +7,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
 /**
  * 数据库初始化服务实现类
  */
@@ -105,14 +109,266 @@ public class DatabaseInitServiceImpl implements DatabaseInitService {
             // 检查并初始化音乐配置
             initializeMusicConfig();
 
+            // 检查并创建服务器表
+            if (!checkServerTableExists()) {
+                log.info("服务器表不存在，开始创建...");
+                if (createServerTable()) {
+                    log.info("服务器表创建成功");
+                } else {
+                    log.error("服务器表创建失败");
+                }
+            } else {
+                log.info("服务器表已存在");
+            }
+
             // 检查并初始化服务器配置
             initializeServerConfig();
+
+            // 迁移旧的服务器配置数据
+            migrateServerConfigData();
 
             // 可以在这里添加其他表结构更新检查
 
         } catch (Exception e) {
             log.error("检查表结构更新时发生错误", e);
         }
+    }
+
+    /**
+     * 检查服务器表是否存在
+     * @return 是否存在
+     */
+    private boolean checkServerTableExists() {
+        try {
+            String sql = """
+                SELECT COUNT(*) FROM information_schema.tables
+                WHERE table_schema = DATABASE()
+                AND table_name = 'panel_servers'
+                """;
+
+            Integer count = jdbcTemplate.queryForObject(sql, Integer.class);
+            return count != null && count > 0;
+        } catch (Exception e) {
+            log.error("检查服务器表是否存在时发生错误", e);
+            return false;
+        }
+    }
+
+    /**
+     * 创建服务器表
+     * @return 是否创建成功
+     */
+    private boolean createServerTable() {
+        try {
+            String sql = """
+                CREATE TABLE panel_servers (
+                  id INT AUTO_INCREMENT PRIMARY KEY COMMENT '服务器ID，自增主键',
+                  server_name VARCHAR(100) NOT NULL COMMENT '服务器名称',
+                  host VARCHAR(255) NOT NULL COMMENT '服务器主机地址',
+                  port INT NOT NULL DEFAULT 22 COMMENT '服务器端口',
+                  username VARCHAR(100) NOT NULL COMMENT '用户名',
+                  auth_type VARCHAR(20) NOT NULL COMMENT '认证类型：password或publickey',
+                  password TEXT COMMENT '密码（当认证类型为password时使用）',
+                  private_key TEXT COMMENT '私钥内容（当认证类型为publickey时使用）',
+                  private_key_password VARCHAR(255) COMMENT '私钥密码',
+                  description TEXT COMMENT '服务器描述',
+                  icon VARCHAR(100) DEFAULT 'material-symbols:dns' COMMENT '服务器图标（Iconify图标名称）',
+                  is_default BOOLEAN DEFAULT FALSE COMMENT '是否为默认服务器',
+                  status VARCHAR(20) DEFAULT 'active' COMMENT '服务器状态：active或inactive',
+                  sort_order INT DEFAULT 1 COMMENT '排序顺序',
+                  created_at VARCHAR(19) COMMENT '创建时间，格式：yyyy-MM-dd HH:mm:ss',
+                  updated_at VARCHAR(19) COMMENT '更新时间，格式：yyyy-MM-dd HH:mm:ss',
+                  INDEX idx_server_name (server_name),
+                  INDEX idx_host (host),
+                  INDEX idx_status (status),
+                  INDEX idx_sort_order (sort_order),
+                  INDEX idx_is_default (is_default)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='服务器配置表'
+                """;
+
+            jdbcTemplate.execute(sql);
+            log.info("服务器表创建SQL执行成功");
+            return true;
+        } catch (Exception e) {
+            log.error("创建服务器表失败", e);
+            return false;
+        }
+    }
+
+    /**
+     * 迁移旧的服务器配置数据
+     */
+    private void migrateServerConfigData() {
+        try {
+            // 检查是否已经迁移过
+            String checkSql = "SELECT COUNT(*) FROM panel_servers";
+            Integer serverCount = jdbcTemplate.queryForObject(checkSql, Integer.class);
+            if (serverCount != null && serverCount > 0) {
+                log.info("服务器表已有数据，跳过迁移");
+                return;
+            }
+
+            // 查询旧的服务器配置
+            String querySql = """
+                SELECT id, config_key, config_value, description
+                FROM panel_system_config
+                WHERE config_type = 'server' AND config_key LIKE 'server_config_%'
+                """;
+
+            List<Map<String, Object>> oldConfigs = jdbcTemplate.queryForList(querySql);
+
+            if (oldConfigs.isEmpty()) {
+                log.info("没有找到需要迁移的服务器配置");
+                return;
+            }
+
+            log.info("开始迁移 {} 个服务器配置", oldConfigs.size());
+
+            int migratedCount = 0;
+            for (Map<String, Object> config : oldConfigs) {
+                try {
+                    String configValue = (String) config.get("config_value");
+                    if (configValue != null && !configValue.trim().isEmpty()) {
+                        Map<String, Object> serverConfig = parseServerConfigJson(configValue);
+                        if (insertServerFromConfig(serverConfig)) {
+                            migratedCount++;
+                        }
+                    }
+                } catch (Exception e) {
+                    log.warn("迁移服务器配置失败: {}", config.get("config_key"), e);
+                }
+            }
+
+            log.info("服务器配置迁移完成，成功迁移 {} 个配置", migratedCount);
+
+        } catch (Exception e) {
+            log.error("迁移服务器配置数据失败", e);
+        }
+    }
+
+    /**
+     * 解析服务器配置JSON
+     */
+    private Map<String, Object> parseServerConfigJson(String configJson) {
+        Map<String, Object> result = new HashMap<>();
+        try {
+            // 移除大括号
+            String content = configJson.trim();
+            if (content.startsWith("{") && content.endsWith("}")) {
+                content = content.substring(1, content.length() - 1);
+            }
+
+            // 分割键值对
+            String[] pairs = content.split(",");
+            for (String pair : pairs) {
+                String[] keyValue = pair.split(":", 2);
+                if (keyValue.length == 2) {
+                    String key = keyValue[0].trim().replaceAll("\"", "");
+                    String value = keyValue[1].trim().replaceAll("\"", "");
+
+                    // 尝试转换数字
+                    if ("port".equals(key)) {
+                        try {
+                            result.put(key, Integer.parseInt(value));
+                        } catch (NumberFormatException e) {
+                            result.put(key, value);
+                        }
+                    } else {
+                        result.put(key, value);
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.error("解析服务器配置JSON失败", e);
+        }
+        return result;
+    }
+
+    /**
+     * 从配置Map插入服务器记录
+     */
+    private boolean insertServerFromConfig(Map<String, Object> config) {
+        try {
+            String serverName = (String) config.get("serverName");
+            String host = (String) config.get("host");
+            Object portObj = config.get("port");
+            Integer port = portObj instanceof Integer ? (Integer) portObj : 22;
+            String username = (String) config.get("username");
+            String authType = (String) config.get("authType");
+            String password = (String) config.get("password");
+            String privateKey = (String) config.get("privateKey");
+            String privateKeyPassword = (String) config.get("privateKeyPassword");
+            String description = (String) config.get("description");
+
+            // 根据服务器名称和描述推断图标
+            String icon = getServerIconByLocation(serverName, description);
+
+            String insertSql = """
+                INSERT INTO panel_servers (
+                    server_name, host, port, username, auth_type,
+                    password, private_key, private_key_password,
+                    description, icon, is_default, status, sort_order,
+                    created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+                """;
+
+            int result = jdbcTemplate.update(insertSql,
+                    serverName, host, port, username, authType,
+                    password, privateKey, privateKeyPassword,
+                    description, icon, false, "active", 1);
+
+            return result > 0;
+        } catch (Exception e) {
+            log.error("插入服务器配置失败", e);
+            return false;
+        }
+    }
+
+    /**
+     * 根据服务器名称和描述推断图标
+     */
+    private String getServerIconByLocation(String serverName, String description) {
+        if (serverName == null) serverName = "";
+        if (description == null) description = "";
+
+        String name = serverName.toLowerCase();
+        String desc = description.toLowerCase();
+
+        // 根据服务器名称推断
+        if (name.contains("工控") || name.contains("本地") || name.contains("factory")) {
+            return "material-symbols:factory";
+        }
+        if (name.contains("西雅图") || name.contains("seattle") || desc.contains("us") || desc.contains("美国")) {
+            return "flagpack:us";
+        }
+        if (name.contains("首尔") || name.contains("seoul") || name.contains("韩国") || desc.contains("kr")) {
+            return "flagpack:kr";
+        }
+        if (name.contains("上海") || name.contains("广州") || name.contains("北京") || name.contains("深圳") ||
+            name.contains("中国") || desc.contains("cn") || desc.contains("腾讯") || desc.contains("阿里")) {
+            return "flagpack:cn";
+        }
+        if (name.contains("东京") || name.contains("大阪") || name.contains("日本") || desc.contains("jp")) {
+            return "flagpack:jp";
+        }
+        if (name.contains("德国") || name.contains("柏林") || desc.contains("de") || desc.contains("德")) {
+            return "flagpack:de";
+        }
+        if (name.contains("英国") || name.contains("伦敦") || desc.contains("gb") || desc.contains("uk")) {
+            return "flagpack:gb";
+        }
+        if (name.contains("法国") || name.contains("巴黎") || desc.contains("fr")) {
+            return "flagpack:fr";
+        }
+        if (name.contains("新加坡") || desc.contains("sg") || desc.contains("singapore")) {
+            return "flagpack:sg";
+        }
+        if (name.contains("香港") || desc.contains("hk") || desc.contains("hong kong")) {
+            return "flagpack:hk";
+        }
+
+        // 默认图标
+        return "material-symbols:dns";
     }
 
     /**

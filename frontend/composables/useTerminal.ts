@@ -84,7 +84,7 @@ const convertToServerConnection = (config: any): ServerConnection => {
     description: config.description || '',
     status: 'disconnected',
     lastConnected: undefined,
-    icon: getServerIconByLocation(config.serverName || '', config.description || '')
+    icon: config.icon || getServerIconByLocation(config.serverName || '', config.description || '')
   }
 }
 
@@ -164,7 +164,7 @@ export const useTerminal = () => {
     connectionError.value = '' // 清除之前的错误
     try {
       const API_BASE_URL = getApiBaseUrl()
-      const response = await apiRequest(`${API_BASE_URL}/system-config/servers`)
+      const response = await apiRequest(`${API_BASE_URL}/servers`)
       const result = await response.json()
 
       if (result.success && result.data) {
@@ -232,7 +232,7 @@ export const useTerminal = () => {
 
       // 获取服务器配置详情（包含认证信息）
       const API_BASE_URL = getApiBaseUrl()
-      const response = await apiRequest(`${API_BASE_URL}/system-config/servers/${server.id}/auth-info`)
+      const response = await apiRequest(`${API_BASE_URL}/servers/${server.id}/auth-info`)
       const result = await response.json()
 
       if (!result.success) {
