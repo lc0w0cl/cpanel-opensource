@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, onActivated, nextTick, watch } from 'vue'
+import { ref, onMounted, onUnmounted, onActivated, onDeactivated, nextTick, watch } from 'vue'
 import { Icon } from '@iconify/vue'
 import { Terminal } from 'xterm'
 import { FitAddon } from 'xterm-addon-fit'
@@ -33,7 +33,9 @@ const {
   getStatusIcon,
   getGroupedServers,
   getAllGroups,
-  loadServersFromDatabase
+  loadServersFromDatabase,
+  addPageReference,
+  removePageReference
 } = useTerminal()
 
 // 终端相关状态
@@ -47,7 +49,7 @@ const showGrouped = ref(true) // 是否显示分组
 const expandedGroups = ref<Set<string>>(new Set()) // 展开的分组
 
 // 初始化指定会话的xterm.js终端
-const initTerminal = async (sessionId: string, containerElement: HTMLElement) => {
+const initTerminal = async (sessionId: string, containerElement: HTMLElement, restoreContent = false) => {
   if (!containerElement) return
 
   // 清理之前的实例（如果存在）
@@ -131,8 +133,14 @@ const initTerminal = async (sessionId: string, containerElement: HTMLElement) =>
     }
   })
 
-  // 显示欢迎信息
-  showWelcomeMessage(sessionId)
+  // 根据情况显示内容
+  if (restoreContent) {
+    // 恢复会话时，重新显示所有历史输出
+    restoreTerminalContent(sessionId, terminal)
+  } else {
+    // 新会话时，显示欢迎信息
+    showWelcomeMessage(sessionId)
+  }
 }
 
 // Iconify图标到终端字符的映射
@@ -193,6 +201,33 @@ const showWelcomeMessage = (sessionId?: string) => {
   terminal.writeln('')
 }
 
+// 恢复终端内容
+const restoreTerminalContent = (sessionId: string, terminal: Terminal) => {
+  const session = terminalState.sessions.get(sessionId)
+  if (!session) return
+
+  terminal.clear()
+
+  if (session.isConnected) {
+    // 如果会话已连接，恢复所有历史输出
+    console.log('恢复会话内容，输出数量:', session.terminalOutput.length)
+
+    session.terminalOutput.forEach(output => {
+      if (typeof output === 'object' && output.type === 'output') {
+        terminal.write(output.content)
+      }
+    })
+
+    // 更新已处理的输出数量
+    processedOutputCounts.value.set(sessionId, session.terminalOutput.length)
+  } else {
+    // 如果会话未连接，显示连接状态信息
+    terminal.writeln(`会话 ${session.server.name} (${session.server.host}:${session.server.port})`)
+    terminal.writeln('连接已断开，请重新连接。')
+    terminal.writeln('')
+  }
+}
+
 // 服务器选择处理已移除，现在通过Vue界面进行选择
 
 // 处理连接后的命令（已移除，所有命令都直接发送给服务器）
@@ -215,7 +250,7 @@ const connectToServerByIndex = async (index: number) => {
       await nextTick()
       const containerElement = terminalContainers.value.get(sessionId)
       if (containerElement) {
-        await initTerminal(sessionId, containerElement)
+        await initTerminal(sessionId, containerElement, false) // 新连接不恢复内容
 
         const terminal = terminals.value.get(sessionId)
         if (terminal) {
@@ -411,6 +446,8 @@ const handleKeyDown = (event: KeyboardEvent) => {
 
 // 组件挂载
 onMounted(async () => {
+  console.log('终端页面挂载，初始化UI')
+
   // 确保DOM完全渲染
   await nextTick()
 
@@ -424,18 +461,56 @@ onMounted(async () => {
     // 强制更新组件以刷新活动时间显示
     // 这里我们不需要做任何事，Vue的响应式系统会自动更新
   }, 30000) // 每30秒更新一次
+
+  // 恢复现有的终端会话（如果有的话）
+  const sessions = getAllSessions()
+  if (sessions.length > 0) {
+    console.log('发现现有会话，恢复终端实例:', sessions.length)
+    isInServerSelection.value = false
+
+    // 为每个会话恢复终端实例
+    sessions.forEach(session => {
+      nextTick(() => {
+        const containerElement = terminalContainers.value.get(session.id)
+        if (containerElement) {
+          initTerminal(session.id, containerElement, true) // 传入 true 表示恢复内容
+        }
+      })
+    })
+  }
 })
 
-// 页面激活时重新适配大小（从其他页面返回时）
+// 页面激活时重新适配大小并恢复连接状态（从其他页面返回时）
 onActivated(async () => {
+  console.log('终端页面激活，恢复连接状态')
+  addPageReference()
+
   await nextTick()
   setTimeout(() => {
     handleResize()
+
+    // 恢复所有终端实例
+    const sessions = getAllSessions()
+    sessions.forEach(session => {
+      const containerElement = terminalContainers.value.get(session.id)
+      if (containerElement && !terminals.value.has(session.id)) {
+        console.log('恢复终端实例:', session.id)
+        initTerminal(session.id, containerElement, true) // 传入 true 表示恢复内容
+      }
+    })
   }, 100)
 })
 
-// 组件卸载
+// 页面失活时保持连接状态（切换到其他页面时）
+onDeactivated(() => {
+  console.log('终端页面失活，保持连接状态')
+  removePageReference()
+})
+
+// 组件卸载（只清理UI相关资源，保持连接状态）
 onUnmounted(() => {
+  console.log('终端页面卸载，清理UI资源但保持连接状态')
+
   window.removeEventListener('resize', handleResize)
   window.removeEventListener('keydown', handleKeyDown)
 
@@ -444,10 +519,10 @@ onUnmounted(() => {
     clearInterval(activityUpdateTimer.value)
   }
 
-  // 断开所有连接
-  disconnectAllSessions()
+  // 注意：不再自动断开所有连接，让全局状态管理器处理
+  // disconnectAllSessions()
 
-  // 清理所有终端实例
+  // 清理所有终端实例（UI层面）
   terminals.value.forEach((terminal, sessionId) => {
     try {
       terminal.dispose()
@@ -456,12 +531,15 @@ onUnmounted(() => {
     }
   })
 
-  // 清理所有状态
+  // 清理UI状态（但保持连接状态）
   terminals.value.clear()
   fitAddons.value.clear()
   terminalContainers.value.clear()
   processedOutputCounts.value.clear()
   hasUnreadOutput.value.clear()
+
+  // 移除页面引用
+  removePageReference()
 })
 
 // 分组展开/收起处理
@@ -569,10 +647,14 @@ const closeAllTabs = () => {
 const setTerminalContainer = (sessionId: string, element: HTMLElement | null) => {
   if (element) {
     terminalContainers.value.set(sessionId, element)
-    // 如果是新创建的会话，初始化终端
+    // 如果是新创建的会话或恢复的会话，初始化终端
     if (!terminals.value.has(sessionId)) {
       nextTick(() => {
-        initTerminal(sessionId, element)
+        console.log('为会话创建终端实例:', sessionId)
+        // 检查是否是恢复的会话
+        const session = terminalState.sessions.get(sessionId)
+        const isRestoring = session && session.terminalOutput.length > 0
+        initTerminal(sessionId, element, isRestoring)
       })
     }
   } else {

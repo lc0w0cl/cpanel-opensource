@@ -1,4 +1,4 @@
-import { ref, reactive, onMounted, watch } from 'vue'
+import { ref, reactive, onMounted, watch, onUnmounted } from 'vue'
 import { apiRequest } from '~/composables/useJwt'
 import { useWebSocket, type WebSocketMessage } from '~/composables/useWebSocket'
 
@@ -106,15 +106,13 @@ export const useTerminal = () => {
   const connectionError = ref('')
   const isLoading = ref(false)
 
-  const terminalState = reactive<TerminalState>({
-    sessions: new Map<string, TerminalSession>(),
-    activeSessionId: undefined,
-    connectionHistory: []
-  })
+  // 使用全局状态管理
+  const { $terminalState } = useNuxtApp()
+  const terminalState = $terminalState.getGlobalTerminalState()
+  const wsConnections = $terminalState.getGlobalWsConnections()
 
   // WebSocket连接管理
   const config = useRuntimeConfig()
-  const wsConnections = ref<Map<string, any>>(new Map())
 
   // 创建WebSocket连接
   const createWebSocketConnection = (sessionId: string) => {
@@ -126,7 +124,7 @@ export const useTerminal = () => {
       maxReconnectAttempts: 5
     })
 
-    wsConnections.value.set(sessionId, wsConnection)
+    $terminalState.setGlobalWsConnection(sessionId, wsConnection)
     return wsConnection
   }
 
@@ -163,7 +161,7 @@ export const useTerminal = () => {
         console.log('SSH连接已断开:', sessionId, message.data)
         // 从会话列表中移除
         terminalState.sessions.delete(sessionId)
-        wsConnections.value.delete(sessionId)
+        $terminalState.removeGlobalWsConnection(sessionId)
         // 如果是当前活动会话，切换到其他会话
         if (terminalState.activeSessionId === sessionId) {
           const remainingSessions = Array.from(terminalState.sessions.keys())
@@ -370,7 +368,7 @@ export const useTerminal = () => {
             clearTimeout(timeout)
             // 清理失败的会话
             terminalState.sessions.delete(sessionId)
-            wsConnections.value.delete(sessionId)
+            $terminalState.removeGlobalWsConnection(sessionId)
             reject(new Error(connectionError.value))
           } else {
             setTimeout(checkResult, 100)
@@ -384,7 +382,7 @@ export const useTerminal = () => {
       server.status = 'disconnected'
       // 清理失败的会话
       terminalState.sessions.delete(sessionId)
-      wsConnections.value.delete(sessionId)
+      $terminalState.removeGlobalWsConnection(sessionId)
       console.error(`连接服务器失败: ${server.name}`, error)
       return null
     } finally {
@@ -416,7 +414,7 @@ export const useTerminal = () => {
 
     // 从会话列表中移除
     terminalState.sessions.delete(targetSessionId)
-    wsConnections.value.delete(targetSessionId)
+    $terminalState.removeGlobalWsConnection(targetSessionId)
 
     // 如果是当前活动会话，切换到其他会话
     if (terminalState.activeSessionId === targetSessionId) {
@@ -521,9 +519,34 @@ export const useTerminal = () => {
     }
   }
 
-  // 初始化时加载服务器配置
+  // 页面引用计数管理
+  const pageReferenceAdded = ref(false)
+
+  // 添加页面引用
+  const addPageReference = () => {
+    if (!pageReferenceAdded.value) {
+      $terminalState.addPageReference()
+      pageReferenceAdded.value = true
+    }
+  }
+
+  // 移除页面引用
+  const removePageReference = () => {
+    if (pageReferenceAdded.value) {
+      $terminalState.removePageReference()
+      pageReferenceAdded.value = false
+    }
+  }
+
+  // 初始化时加载服务器配置并添加页面引用
   onMounted(() => {
     loadServersFromDatabase()
+    addPageReference()
+  })
+
+  // 组件卸载时移除页面引用（但不断开连接）
+  onUnmounted(() => {
+    removePageReference()
   })
 
   return {
@@ -550,6 +573,10 @@ export const useTerminal = () => {
     getAllSessions,
     getStatusColor,
     getStatusIcon,
-    loadServersFromDatabase
+    loadServersFromDatabase,
+
+    // 页面引用管理
+    addPageReference,
+    removePageReference
   }
 }
