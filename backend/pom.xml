@@ -104,11 +104,11 @@
             <artifactId>spring-boot-starter-websocket</artifactId>
         </dependency>
 
-        <!-- SSH 连接依赖 -->
+        <!-- SSH 连接依赖 - 使用官方推荐的新维护版本 -->
         <dependency>
-            <groupId>com.jcraft</groupId>
+            <groupId>com.github.mwiede</groupId>
             <artifactId>jsch</artifactId>
-            <version>0.1.55</version>
+            <version>0.2.17</version>
         </dependency>
 
         <!-- Apache Commons IO 用于流处理 -->
