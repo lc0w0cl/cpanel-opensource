@@ -245,16 +245,11 @@ public class TerminalWebSocketHandler implements WebSocketHandler {
             if (ansiProcessor.containsAnsi(output)) {
                 log.debug("检测到ANSI转义序列，进行处理");
 
-                // 选择处理方式：保留颜色信息转换为HTML格式
+                // 选择处理方式：保留颜色信息和必要的控制序列
                 String processedOutput = ansiProcessor.ansiToHtml(output);
 
-                // 如果转换后的输出为空或只包含空白字符，可能是纯控制序列
-                String textOnly = ansiProcessor.stripAnsi(output);
-                if (textOnly.trim().isEmpty() && !output.trim().isEmpty()) {
-                    log.debug("输出主要包含控制序列，跳过发送");
-                    return ""; // 返回空字符串，调用方会跳过发送
-                }
-
+                // 不再过滤纯控制序列，因为它们可能包含重要的终端操作（如backspace）
+                // 让xterm.js自己处理这些控制序列
                 log.debug("原始输出长度: {}, 处理后长度: {}", output.length(), processedOutput.length());
                 return processedOutput;
             }

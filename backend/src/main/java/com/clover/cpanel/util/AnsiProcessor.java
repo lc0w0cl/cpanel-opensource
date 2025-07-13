@@ -58,14 +58,17 @@ public class AnsiProcessor {
         }
 
         try {
-            // 对于xterm.js，我们保留颜色序列但移除可能导致问题的控制序列
+            // 对于xterm.js，我们保留大部分控制序列，让xterm.js自己处理
+            // 只移除可能导致严重问题的控制序列
             String result = text;
 
-            // 移除可能导致显示问题的控制序列
+            // 移除可能导致显示问题的控制序列，但保留基本的光标控制
             result = result.replaceAll("\u001B\\[\\?25[lh]", ""); // 光标显示/隐藏
-            result = result.replaceAll("\u001B\\[\\d*[ABCD]", ""); // 光标移动（上下左右）
-            result = result.replaceAll("\u001B\\[\\d*;\\d*[Hf]", ""); // 光标定位
-            result = result.replaceAll("\u001B\\[\\d*[JK]", ""); // 清屏/清行
+            // 注释掉光标移动的过滤，让xterm.js处理backspace等操作
+            // result = result.replaceAll("\u001B\\[\\d*[ABCD]", ""); // 光标移动（上下左右）
+            result = result.replaceAll("\u001B\\[\\d*;\\d*[Hf]", ""); // 光标定位（绝对位置）
+            // 保留清屏/清行控制序列，这些对终端操作很重要
+            // result = result.replaceAll("\u001B\\[\\d*[JK]", ""); // 清屏/清行
             result = result.replaceAll("\u001B\\[\\d*[STP]", ""); // 滚动控制
             result = result.replaceAll("\u001B\\[[?]\\d*[hl]", ""); // 私有模式设置
             result = result.replaceAll("\u001B\\]\\d*;[^\\u0007]*\\u0007", ""); // OSC序列
@@ -73,13 +76,14 @@ public class AnsiProcessor {
             result = result.replaceAll("\u001B[=>]", ""); // 应用程序键盘模式
             result = result.replaceAll("\u001B[78]", ""); // 保存/恢复光标
 
-            // 保留颜色序列，xterm.js会正确渲染：
-            // - 标准颜色：\u001B[30-37m, \u001B[40-47m
-            // - 亮色：\u001B[90-97m, \u001B[100-107m
+            // 保留的序列：
+            // - 颜色序列：\u001B[30-37m, \u001B[40-47m, \u001B[90-97m, \u001B[100-107m
             // - 256色：\u001B[38;5;XXXm, \u001B[48;5;XXXm
             // - RGB色：\u001B[38;2;R;G;Bm, \u001B[48;2;R;G;Bm
             // - 重置：\u001B[0m, \u001B[39m, \u001B[49m
             // - 格式：\u001B[1m (粗体), \u001B[4m (下划线)
+            // - 光标移动：\u001B[A (上), \u001B[B (下), \u001B[C (右), \u001B[D (左)
+            // - 清屏/清行：\u001B[J, \u001B[K
 
             log.debug("ANSI处理: 原始长度={}, 处理后长度={}", text.length(), result.length());
             return result;
