@@ -44,6 +44,7 @@ const isConnectedToServer = ref(false) // 是否已连接到服务器
 const isTabCompleting = ref(false) // 是否正在进行Tab补全
 const tabCompletionInput = ref('') // Tab补全时的原始输入
 const showGrouped = ref(true) // 是否显示分组
+const expandedGroups = ref<Set<string>>(new Set()) // 展开的分组
 
 // 初始化xterm.js终端
 const initTerminal = async () => {
@@ -354,6 +355,29 @@ onUnmounted(() => {
   }
 })
 
+// 分组展开/收起处理
+const toggleGroup = (groupName: string) => {
+  if (expandedGroups.value.has(groupName)) {
+    expandedGroups.value.delete(groupName)
+  } else {
+    expandedGroups.value.add(groupName)
+  }
+}
+
+// 检查分组是否展开
+const isGroupExpanded = (groupName: string) => {
+  return expandedGroups.value.has(groupName)
+}
+
+// 初始化时展开所有分组
+onMounted(() => {
+  // 延迟展开所有分组，等待服务器数据加载
+  setTimeout(() => {
+    const groups = getAllGroups()
+    groups.forEach(group => expandedGroups.value.add(group))
+  }, 1000)
+})
+
 // Tab补全处理已移除，所有输入都直接发送给服务器
 // 保留变量定义以避免编译错误
 
@@ -381,40 +405,46 @@ onUnmounted(() => {
           <!-- 分组显示模式 -->
           <template v-if="showGrouped">
             <div v-for="(groupServers, groupName) in getGroupedServers()" :key="groupName" class="server-group">
-              <div class="group-header">
+              <div class="group-header" @click="toggleGroup(groupName)">
+                <Icon
+                  :icon="isGroupExpanded(groupName) ? 'material-symbols:expand-less' : 'material-symbols:expand-more'"
+                  class="group-expand-icon"
+                />
                 <Icon icon="material-symbols:folder" class="group-icon" />
                 <span class="group-name">{{ groupName }}</span>
                 <span class="group-count">({{ groupServers.length }})</span>
               </div>
-              <div class="group-servers">
-                <div
-                  v-for="(server, index) in groupServers"
-                  :key="server.id"
-                  class="server-item"
-                  :class="{
-                    'connected': server.status === 'connected',
-                    'active': terminalState.currentServer?.id === server.id
-                  }"
-                  @click="connectToServerByIndex(servers.findIndex(s => s.id === server.id))"
-                >
-                  <div class="server-item-header">
-                    <Icon :icon="server.icon" class="server-icon" :class="getServerIconColor(server.icon)" />
-                    <div class="server-status">
-                      <Icon
-                        :icon="getStatusIcon(server.status)"
-                        :class="getStatusColor(server.status)"
-                        class="status-icon"
-                      />
+              <Transition name="group-expand">
+                <div v-show="isGroupExpanded(groupName)" class="group-servers">
+                  <div
+                    v-for="(server, index) in groupServers"
+                    :key="server.id"
+                    class="server-item"
+                    :class="{
+                      'connected': server.status === 'connected',
+                      'active': terminalState.currentServer?.id === server.id
+                    }"
+                    @click="connectToServerByIndex(servers.findIndex(s => s.id === server.id))"
+                  >
+                    <div class="server-item-header">
+                      <Icon :icon="server.icon" class="server-icon" :class="getServerIconColor(server.icon)" />
+                      <div class="server-status">
+                        <Icon
+                          :icon="getStatusIcon(server.status)"
+                          :class="getStatusColor(server.status)"
+                          class="status-icon"
+                        />
+                      </div>
+                    </div>
+
+                    <div class="server-item-info">
+                      <h4 class="server-name">{{ server.name }}</h4>
+                      <p class="server-address">{{ server.host }}:{{ server.port }}</p>
+                      <p class="server-user">{{ server.username }}</p>
                     </div>
                   </div>
-
-                  <div class="server-item-info">
-                    <h4 class="server-name">{{ server.name }}</h4>
-                    <p class="server-address">{{ server.host }}:{{ server.port }}</p>
-                    <p class="server-user">{{ server.username }}</p>
-                  </div>
                 </div>
-              </div>
+              </Transition>
             </div>
           </template>
 
