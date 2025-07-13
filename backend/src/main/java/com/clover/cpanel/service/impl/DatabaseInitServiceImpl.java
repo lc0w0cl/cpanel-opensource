@@ -173,6 +173,7 @@ public class DatabaseInitServiceImpl implements DatabaseInitService {
                   private_key_password VARCHAR(255) COMMENT '私钥密码',
                   description TEXT COMMENT '服务器描述',
                   icon VARCHAR(100) DEFAULT 'material-symbols:dns' COMMENT '服务器图标（Iconify图标名称）',
+                  group_name VARCHAR(100) DEFAULT '默认分组' COMMENT '服务器分组',
                   is_default BOOLEAN DEFAULT FALSE COMMENT '是否为默认服务器',
                   status VARCHAR(20) DEFAULT 'active' COMMENT '服务器状态：active或inactive',
                   sort_order INT DEFAULT 1 COMMENT '排序顺序',
@@ -182,7 +183,8 @@ public class DatabaseInitServiceImpl implements DatabaseInitService {
                   INDEX idx_host (host),
                   INDEX idx_status (status),
                   INDEX idx_sort_order (sort_order),
-                  INDEX idx_is_default (is_default)
+                  INDEX idx_is_default (is_default),
+                  INDEX idx_group_name (group_name)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='服务器配置表'
                 """;
 
@@ -307,15 +309,18 @@ public class DatabaseInitServiceImpl implements DatabaseInitService {
                 INSERT INTO panel_servers (
                     server_name, host, port, username, auth_type,
                     password, private_key, private_key_password,
-                    description, icon, is_default, status, sort_order,
+                    description, icon, group_name, is_default, status, sort_order,
                     created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
                 """;
+
+            // 根据服务器名称推断分组
+            String groupName = inferGroupFromServerName(serverName, description);
 
             int result = jdbcTemplate.update(insertSql,
                     serverName, host, port, username, authType,
                     password, privateKey, privateKeyPassword,
-                    description, icon, false, "active", 1);
+                    description, icon, groupName, false, "active", 1);
 
             return result > 0;
         } catch (Exception e) {
@@ -369,6 +374,61 @@ public class DatabaseInitServiceImpl implements DatabaseInitService {
 
         // 默认图标
         return "material-symbols:dns";
+    }
+
+    /**
+     * 根据服务器名称和描述推断分组
+     */
+    private String inferGroupFromServerName(String serverName, String description) {
+        if (serverName == null) serverName = "";
+        if (description == null) description = "";
+
+        String name = serverName.toLowerCase();
+        String desc = description.toLowerCase();
+
+        // 根据服务器名称和描述推断分组
+        if (name.contains("工控") || name.contains("本地") || name.contains("factory") || name.contains("内网")) {
+            return "内网服务器";
+        }
+        if (name.contains("生产") || name.contains("prod") || name.contains("production")) {
+            return "生产环境";
+        }
+        if (name.contains("测试") || name.contains("test") || name.contains("staging")) {
+            return "测试环境";
+        }
+        if (name.contains("开发") || name.contains("dev") || name.contains("development")) {
+            return "开发环境";
+        }
+        if (name.contains("数据库") || name.contains("database") || name.contains("db") || name.contains("mysql") || name.contains("redis")) {
+            return "数据库服务器";
+        }
+        if (name.contains("web") || name.contains("nginx") || name.contains("apache") || name.contains("前端")) {
+            return "Web服务器";
+        }
+        if (name.contains("api") || name.contains("后端") || name.contains("backend")) {
+            return "API服务器";
+        }
+        if (desc.contains("us") || desc.contains("美国") || name.contains("西雅图") || name.contains("seattle")) {
+            return "美国服务器";
+        }
+        if (desc.contains("cn") || desc.contains("中国") || name.contains("上海") || name.contains("广州") || name.contains("北京")) {
+            return "中国服务器";
+        }
+        if (desc.contains("kr") || desc.contains("韩国") || name.contains("首尔") || name.contains("seoul")) {
+            return "韩国服务器";
+        }
+        if (desc.contains("jp") || desc.contains("日本") || name.contains("东京") || name.contains("大阪")) {
+            return "日本服务器";
+        }
+        if (desc.contains("hk") || desc.contains("香港") || name.contains("香港")) {
+            return "香港服务器";
+        }
+        if (desc.contains("sg") || desc.contains("新加坡") || name.contains("新加坡")) {
+            return "新加坡服务器";
+        }
+
+        // 默认分组
+        return "默认分组";
     }
 
     /**

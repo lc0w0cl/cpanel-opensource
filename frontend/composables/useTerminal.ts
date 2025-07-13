@@ -14,6 +14,7 @@ export interface ServerConnection {
   status: 'connected' | 'disconnected' | 'connecting'
   lastConnected?: string
   icon: string // 服务器图标（国旗或其他标识）
+  groupName?: string // 服务器分组
 }
 
 // 终端状态接口
@@ -84,7 +85,8 @@ const convertToServerConnection = (config: any): ServerConnection => {
     description: config.description || '',
     status: 'disconnected',
     lastConnected: undefined,
-    icon: config.icon || getServerIconByLocation(config.serverName || '', config.description || '')
+    icon: config.icon || getServerIconByLocation(config.serverName || '', config.description || ''),
+    groupName: config.groupName || '默认分组'
   }
 }
 
@@ -192,6 +194,30 @@ export const useTerminal = () => {
   // 根据ID获取服务器
   const getServerById = (id: number) => {
     return servers.value.find(server => server.id === id)
+  }
+
+  // 获取分组化的服务器列表
+  const getGroupedServers = () => {
+    const grouped: Record<string, ServerConnection[]> = {}
+
+    servers.value.forEach(server => {
+      const groupName = server.groupName || '默认分组'
+      if (!grouped[groupName]) {
+        grouped[groupName] = []
+      }
+      grouped[groupName].push(server)
+    })
+
+    return grouped
+  }
+
+  // 获取所有分组名称
+  const getAllGroups = () => {
+    const groups = new Set<string>()
+    servers.value.forEach(server => {
+      groups.add(server.groupName || '默认分组')
+    })
+    return Array.from(groups).sort()
   }
 
   // 连接到服务器（真实SSH连接）
@@ -410,6 +436,8 @@ export const useTerminal = () => {
     // 方法
     getServers,
     getServerById,
+    getGroupedServers,
+    getAllGroups,
     connectToServer,
     disconnectFromServer,
     sendCommand,

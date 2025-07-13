@@ -28,6 +28,8 @@ const {
   clearTerminal,
   getStatusColor,
   getStatusIcon,
+  getGroupedServers,
+  getAllGroups,
   loadServersFromDatabase
 } = useTerminal()
 
@@ -41,6 +43,7 @@ const isInServerSelection = ref(true) // 是否在服务器选择模式
 const isConnectedToServer = ref(false) // 是否已连接到服务器
 const isTabCompleting = ref(false) // 是否正在进行Tab补全
 const tabCompletionInput = ref('') // Tab补全时的原始输入
+const showGrouped = ref(true) // 是否显示分组
 
 // 初始化xterm.js终端
 const initTerminal = async () => {
@@ -366,39 +369,85 @@ onUnmounted(() => {
             <Icon icon="material-symbols:dns" class="title-icon" />
             服务器列表
           </h3>
+          <button @click="showGrouped = !showGrouped" class="action-btn group-btn" :title="showGrouped ? '平铺显示' : '分组显示'">
+            <Icon :icon="showGrouped ? 'material-symbols:view-list' : 'material-symbols:folder'" class="btn-icon" />
+          </button>
           <button @click="loadServersFromDatabase" class="action-btn reload-btn" title="重新加载">
             <Icon icon="material-symbols:refresh" class="btn-icon" />
           </button>
         </div>
 
         <div class="server-list">
-          <div
-            v-for="(server, index) in servers"
-            :key="server.id"
-            class="server-item"
-            :class="{
-              'connected': server.status === 'connected',
-              'active': terminalState.currentServer?.id === server.id
-            }"
-            @click="connectToServerByIndex(index)"
-          >
-            <div class="server-item-header">
-              <Icon :icon="server.icon" class="server-icon" :class="getServerIconColor(server.icon)" />
-              <div class="server-status">
-                <Icon
-                  :icon="getStatusIcon(server.status)"
-                  :class="getStatusColor(server.status)"
-                  class="status-icon"
-                />
+          <!-- 分组显示模式 -->
+          <template v-if="showGrouped">
+            <div v-for="(groupServers, groupName) in getGroupedServers()" :key="groupName" class="server-group">
+              <div class="group-header">
+                <Icon icon="material-symbols:folder" class="group-icon" />
+                <span class="group-name">{{ groupName }}</span>
+                <span class="group-count">({{ groupServers.length }})</span>
+              </div>
+              <div class="group-servers">
+                <div
+                  v-for="(server, index) in groupServers"
+                  :key="server.id"
+                  class="server-item"
+                  :class="{
+                    'connected': server.status === 'connected',
+                    'active': terminalState.currentServer?.id === server.id
+                  }"
+                  @click="connectToServerByIndex(servers.findIndex(s => s.id === server.id))"
+                >
+                  <div class="server-item-header">
+                    <Icon :icon="server.icon" class="server-icon" :class="getServerIconColor(server.icon)" />
+                    <div class="server-status">
+                      <Icon
+                        :icon="getStatusIcon(server.status)"
+                        :class="getStatusColor(server.status)"
+                        class="status-icon"
+                      />
+                    </div>
+                  </div>
+
+                  <div class="server-item-info">
+                    <h4 class="server-name">{{ server.name }}</h4>
+                    <p class="server-address">{{ server.host }}:{{ server.port }}</p>
+                    <p class="server-user">{{ server.username }}</p>
+                  </div>
+                </div>
               </div>
             </div>
+          </template>
 
-            <div class="server-item-info">
-              <h4 class="server-name">{{ server.name }}</h4>
-              <p class="server-address">{{ server.host }}:{{ server.port }}</p>
-              <p class="server-user">{{ server.username }}</p>
+          <!-- 平铺显示模式 -->
+          <template v-else>
+            <div
+              v-for="(server, index) in servers"
+              :key="server.id"
+              class="server-item"
+              :class="{
+                'connected': server.status === 'connected',
+                'active': terminalState.currentServer?.id === server.id
+              }"
+              @click="connectToServerByIndex(index)"
+            >
+              <div class="server-item-header">
+                <Icon :icon="server.icon" class="server-icon" :class="getServerIconColor(server.icon)" />
+                <div class="server-status">
+                  <Icon
+                    :icon="getStatusIcon(server.status)"
+                    :class="getStatusColor(server.status)"
+                    class="status-icon"
+                  />
+                </div>
+              </div>
+
+              <div class="server-item-info">
+                <h4 class="server-name">{{ server.name }}</h4>
+                <p class="server-address">{{ server.host }}:{{ server.port }}</p>
+                <p class="server-user">{{ server.username }}</p>
+              </div>
             </div>
-          </div>
+          </template>
         </div>
 
         <!-- 空状态 -->

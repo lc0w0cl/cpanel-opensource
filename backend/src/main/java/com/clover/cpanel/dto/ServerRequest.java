@@ -59,6 +59,11 @@ public class ServerRequest {
     private String icon;
 
     /**
+     * 服务器分组
+     */
+    private String groupName;
+
+    /**
      * 是否为默认服务器
      */
     private Boolean isDefault;

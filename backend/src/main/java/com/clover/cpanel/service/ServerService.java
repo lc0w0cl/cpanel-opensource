@@ -6,6 +6,7 @@ import com.clover.cpanel.dto.ServerResponse;
 import com.clover.cpanel.entity.Server;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * 服务器配置服务接口
@@ -87,4 +88,23 @@ public interface ServerService extends IService<Server> {
      * @return 是否更新成功
      */
     boolean updateServerOrder(List<Integer> serverIds);
+
+    /**
+     * 根据分组获取服务器列表
+     * @param groupName 分组名称
+     * @return 服务器列表
+     */
+    List<ServerResponse> getServersByGroup(String groupName);
+
+    /**
+     * 获取所有分组名称
+     * @return 分组名称列表
+     */
+    List<String> getAllGroups();
+
+    /**
+     * 获取分组化的服务器列表
+     * @return 按分组组织的服务器列表
+     */
+    Map<String, List<ServerResponse>> getGroupedServers();
 }

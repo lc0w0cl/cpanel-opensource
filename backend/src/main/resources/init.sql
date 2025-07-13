@@ -75,6 +75,7 @@ CREATE TABLE IF NOT EXISTS panel_servers (
   private_key_password VARCHAR(255) COMMENT '私钥密码',
   description TEXT COMMENT '服务器描述',
   icon VARCHAR(100) DEFAULT 'material-symbols:dns' COMMENT '服务器图标（Iconify图标名称）',
+  group_name VARCHAR(100) DEFAULT '默认分组' COMMENT '服务器分组',
   is_default BOOLEAN DEFAULT FALSE COMMENT '是否为默认服务器',
   status VARCHAR(20) DEFAULT 'active' COMMENT '服务器状态：active或inactive',
   sort_order INT DEFAULT 1 COMMENT '排序顺序',
@@ -84,7 +85,8 @@ CREATE TABLE IF NOT EXISTS panel_servers (
   INDEX idx_host (host),
   INDEX idx_status (status),
   INDEX idx_sort_order (sort_order),
-  INDEX idx_is_default (is_default)
+  INDEX idx_is_default (is_default),
+  INDEX idx_group_name (group_name)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='服务器配置表';
 
 -- 初始化音乐配置数据

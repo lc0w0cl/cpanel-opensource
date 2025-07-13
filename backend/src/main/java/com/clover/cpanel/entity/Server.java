@@ -80,6 +80,12 @@ public class Server {
     private String icon;
 
     /**
+     * 服务器分组
+     */
+    @TableField("group_name")
+    private String groupName;
+
+    /**
      * 是否为默认服务器
      */
     @TableField("is_default")

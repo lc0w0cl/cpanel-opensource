@@ -12,7 +12,10 @@ import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
@@ -69,6 +72,9 @@ public class ServerServiceImpl extends ServiceImpl<ServerMapper, Server> impleme
                 queryWrapper.orderByDesc("sort_order").last("LIMIT 1");
                 Server lastServer = getOne(queryWrapper);
                 server.setSortOrder(lastServer != null ? lastServer.getSortOrder() + 1 : 1);
+            }
+            if (server.getGroupName() == null || server.getGroupName().trim().isEmpty()) {
+                server.setGroupName("默认分组");
             }
 
             // 如果设置为默认服务器，先清除其他服务器的默认状态
@@ -214,6 +220,38 @@ public class ServerServiceImpl extends ServiceImpl<ServerMapper, Server> impleme
             log.error("更新服务器排序失败", e);
             return false;
         }
+    }
+
+    @Override
+    public List<ServerResponse> getServersByGroup(String groupName) {
+        List<Server> servers = baseMapper.getServersByGroup(groupName);
+        return servers.stream()
+                .map(this::convertToResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<String> getAllGroups() {
+        return baseMapper.getAllGroups();
+    }
+
+    @Override
+    public Map<String, List<ServerResponse>> getGroupedServers() {
+        List<Server> allServers = baseMapper.getAllServersOrdered();
+        Map<String, List<ServerResponse>> groupedServers = new LinkedHashMap<>();
+
+        // 按分组组织服务器
+        for (Server server : allServers) {
+            String groupName = server.getGroupName();
+            if (groupName == null || groupName.trim().isEmpty()) {
+                groupName = "默认分组";
+            }
+
+            groupedServers.computeIfAbsent(groupName, k -> new ArrayList<>())
+                    .add(convertToResponse(server));
+        }
+
+        return groupedServers;
     }
 
     /**

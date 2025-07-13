@@ -67,6 +67,11 @@
   height: 1rem;
 }
 
+.group-btn:hover {
+  background: rgba(168, 85, 247, 0.2);
+  border-color: rgba(168, 85, 247, 0.4);
+}
+
 /* 错误消息样式 */
 .error-message {
   display: flex;
@@ -400,6 +405,69 @@
   height: 100%;
   padding: 1rem;
   background: #1a1a1a;
+}
+
+/* 服务器分组样式 */
+.server-group {
+  margin-bottom: 1rem;
+}
+
+.group-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px 8px 0 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.group-icon {
+  width: 1rem;
+  height: 1rem;
+  color: rgba(168, 85, 247, 0.8);
+}
+
+.group-name {
+  flex: 1;
+}
+
+.group-count {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.6);
+  background: rgba(255, 255, 255, 0.1);
+  padding: 0.125rem 0.375rem;
+  border-radius: 0.25rem;
+}
+
+.group-servers {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-top: none;
+  border-radius: 0 0 8px 8px;
+  background: rgba(255, 255, 255, 0.02);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.group-servers .server-item {
+  border-radius: 0;
+  border: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  background: transparent;
+}
+
+.group-servers .server-item:last-child {
+  border-bottom: none;
+  border-radius: 0 0 8px 8px;
+}
+
+.group-servers .server-item:hover {
+  background: rgba(255, 255, 255, 0.05);
 }
 
 /* 动画效果 */
