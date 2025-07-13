@@ -1,4 +1,4 @@
-import { ref, onUnmounted } from 'vue'
+import { ref, onUnmounted, readonly } from 'vue'
 
 /**
  * WebSocket连接状态

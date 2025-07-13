@@ -30,15 +30,16 @@ public class TerminalWebSocketHandler implements WebSocketHandler {
     private AnsiProcessor ansiProcessor;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
-    private final Map<String, WebSocketSession> sessions = new ConcurrentHashMap<>();
+    private final Map<String, WebSocketSession> webSocketSessions = new ConcurrentHashMap<>();
+    private final Map<String, String> sessionToSshMapping = new ConcurrentHashMap<>(); // WebSocket会话ID -> SSH会话ID
     private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(10);
 
     @Override
     public void afterConnectionEstablished(WebSocketSession session) throws Exception {
-        String sessionId = session.getId();
-        sessions.put(sessionId, session);
-        log.info("WebSocket连接建立: {}", sessionId);
-        
+        String webSocketSessionId = session.getId();
+        webSocketSessions.put(webSocketSessionId, session);
+        log.info("WebSocket连接建立: {}", webSocketSessionId);
+
         // 发送连接成功消息
         sendMessage(session, "connected", "WebSocket连接已建立");
     }
@@ -86,15 +87,16 @@ public class TerminalWebSocketHandler implements WebSocketHandler {
 
     @Override
     public void handleTransportError(WebSocketSession session, Throwable exception) throws Exception {
-        log.error("WebSocket传输错误: {}", session.getId(), exception);
-        cleanupSession(session.getId());
+        String webSocketSessionId = session.getId();
+        log.error("WebSocket传输错误: {}", webSocketSessionId, exception);
+        cleanupSession(webSocketSessionId);
     }
 
     @Override
     public void afterConnectionClosed(WebSocketSession session, CloseStatus closeStatus) throws Exception {
-        String sessionId = session.getId();
-        log.info("WebSocket连接关闭: {}, 状态: {}", sessionId, closeStatus);
-        cleanupSession(sessionId);
+        String webSocketSessionId = session.getId();
+        log.info("WebSocket连接关闭: {}, 状态: {}", webSocketSessionId, closeStatus);
+        cleanupSession(webSocketSessionId);
     }
 
     @Override
@@ -106,7 +108,10 @@ public class TerminalWebSocketHandler implements WebSocketHandler {
      * 处理SSH连接请求
      */
     private void handleConnect(WebSocketSession session, JsonNode data) {
-        String sessionId = session.getId();
+        String webSocketSessionId = session.getId();
+
+        // 从消息中获取SSH会话ID
+        String sshSessionId = data.has("sessionId") ? data.get("sessionId").asText() : webSocketSessionId;
 
         try {
             // 验证必需字段
@@ -141,18 +146,21 @@ public class TerminalWebSocketHandler implements WebSocketHandler {
                 return;
             }
 
-            log.info("尝试SSH连接: {}@{}:{}", username, host, port);
-            
+            log.info("尝试SSH连接: {}@{}:{}, SSH会话ID: {}", username, host, port, sshSessionId);
+
+            // 建立WebSocket会话ID与SSH会话ID的映射
+            sessionToSshMapping.put(webSocketSessionId, sshSessionId);
+
             // 创建SSH连接
             SshService.SshConnection sshConnection = sshService.createConnection(
-                sessionId, host, port, username, authType, password, privateKey, privateKeyPassword
+                sshSessionId, host, port, username, authType, password, privateKey, privateKeyPassword
             );
 
             if (sshConnection.isConnected()) {
                 sendMessage(session, "connected", "SSH连接成功");
-                
+
                 // 启动输出读取任务
-                startOutputReader(session, sessionId);
+                startOutputReader(session, sshSessionId);
             } else {
                 sendMessage(session, "error", "SSH连接失败");
             }
@@ -167,12 +175,22 @@ public class TerminalWebSocketHandler implements WebSocketHandler {
      * 处理命令发送
      */
     private void handleCommand(WebSocketSession session, JsonNode data) {
-        String sessionId = session.getId();
+        String webSocketSessionId = session.getId();
+
+        // 获取SSH会话ID
+        String sshSessionId = data.has("sessionId") ? data.get("sessionId").asText() :
+                             sessionToSshMapping.get(webSocketSessionId);
+
+        if (sshSessionId == null) {
+            sendMessage(session, "error", "未找到对应的SSH会话");
+            return;
+        }
+
         String command = data.get("command").asText();
-        
+
         try {
-            sshService.sendCommand(sessionId, command);
-            log.debug("发送命令到SSH会话 {}: {}", sessionId, command);
+            sshService.sendCommand(sshSessionId, command);
+            log.debug("发送命令到SSH会话 {}: {}", sshSessionId, command);
         } catch (Exception e) {
             log.error("发送命令失败", e);
             sendMessage(session, "error", "发送命令失败: " + e.getMessage());
@@ -183,14 +201,22 @@ public class TerminalWebSocketHandler implements WebSocketHandler {
      * 处理断开连接
      */
     private void handleDisconnect(WebSocketSession session) {
-        String sessionId = session.getId();
-        
-        try {
-            sshService.disconnect(sessionId);
-            sendMessage(session, "disconnected", "SSH连接已断开");
-            log.info("SSH连接已断开: {}", sessionId);
-        } catch (Exception e) {
-            log.error("断开SSH连接失败", e);
+        String webSocketSessionId = session.getId();
+
+        // 获取SSH会话ID
+        String sshSessionId = sessionToSshMapping.get(webSocketSessionId);
+
+        if (sshSessionId != null) {
+            try {
+                sshService.disconnect(sshSessionId);
+                sendMessage(session, "disconnected", "SSH连接已断开");
+                log.info("SSH连接已断开: {}", sshSessionId);
+            } catch (Exception e) {
+                log.error("断开SSH连接失败", e);
+            }
+
+            // 清理映射
+            sessionToSshMapping.remove(webSocketSessionId);
         }
     }
 
@@ -209,14 +235,14 @@ public class TerminalWebSocketHandler implements WebSocketHandler {
     /**
      * 启动输出读取任务
      */
-    private void startOutputReader(WebSocketSession session, String sessionId) {
+    private void startOutputReader(WebSocketSession session, String sshSessionId) {
         scheduler.scheduleWithFixedDelay(() -> {
             try {
-                if (!sshService.isConnected(sessionId) || !session.isOpen()) {
+                if (!sshService.isConnected(sshSessionId) || !session.isOpen()) {
                     return;
                 }
 
-                String output = sshService.readOutput(sessionId);
+                String output = sshService.readOutput(sshSessionId);
                 if (!output.isEmpty()) {
                     // 处理ANSI转义序列
                     String processedOutput = processTerminalOutput(output);
@@ -286,8 +312,13 @@ public class TerminalWebSocketHandler implements WebSocketHandler {
     /**
      * 清理会话
      */
-    private void cleanupSession(String sessionId) {
-        sessions.remove(sessionId);
-        sshService.disconnect(sessionId);
+    private void cleanupSession(String webSocketSessionId) {
+        webSocketSessions.remove(webSocketSessionId);
+
+        // 获取对应的SSH会话ID并断开连接
+        String sshSessionId = sessionToSshMapping.remove(webSocketSessionId);
+        if (sshSessionId != null) {
+            sshService.disconnect(sshSessionId);
+        }
     }
 }

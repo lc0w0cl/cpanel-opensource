@@ -19,8 +19,8 @@ public class WebSocketConfig implements WebSocketConfigurer {
 
     @Override
     public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {
-        // 注册终端WebSocket处理器
-        registry.addHandler(terminalWebSocketHandler, "/ws/terminal")
+        // 注册终端WebSocket处理器，支持会话ID路径参数
+        registry.addHandler(terminalWebSocketHandler, "/ws/terminal", "/ws/terminal/{sessionId}")
                 .setAllowedOrigins("*"); // 生产环境中应该限制允许的源
     }
 }

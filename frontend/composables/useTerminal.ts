@@ -17,12 +17,20 @@ export interface ServerConnection {
   groupName?: string // 服务器分组
 }
 
+// 终端连接会话接口
+export interface TerminalSession {
+  id: string
+  server: ServerConnection
+  isConnected: boolean
+  terminalOutput: any[]
+  lastActivity: Date
+}
+
 // 终端状态接口
 export interface TerminalState {
-  isConnected: boolean
-  currentServer?: ServerConnection
+  sessions: Map<string, TerminalSession>
+  activeSessionId?: string
   connectionHistory: string[]
-  terminalOutput: string[]
 }
 
 // 获取API基础URL
@@ -99,63 +107,68 @@ export const useTerminal = () => {
   const isLoading = ref(false)
 
   const terminalState = reactive<TerminalState>({
-    isConnected: false,
-    currentServer: undefined,
-    connectionHistory: [],
-    terminalOutput: []
+    sessions: new Map<string, TerminalSession>(),
+    activeSessionId: undefined,
+    connectionHistory: []
   })
 
-  // WebSocket连接
+  // WebSocket连接管理
   const config = useRuntimeConfig()
-  const wsUrl = `ws://localhost:8080/ws/terminal`
+  const wsConnections = ref<Map<string, any>>(new Map())
 
-  const {
-    status: wsStatus,
-    lastMessage,
-    connect: wsConnect,
-    disconnect: wsDisconnect,
-    send: wsSend
-  } = useWebSocket({
-    url: wsUrl,
-    reconnectInterval: 3000,
-    maxReconnectAttempts: 5
-  })
+  // 创建WebSocket连接
+  const createWebSocketConnection = (sessionId: string) => {
+    const wsUrl = `ws://localhost:8080/ws/terminal`
 
-  // 监听WebSocket消息
-  watch(lastMessage, (message) => {
-    if (message) {
-      handleWebSocketMessage(message)
-    }
-  })
+    const wsConnection = useWebSocket({
+      url: wsUrl,
+      reconnectInterval: 3000,
+      maxReconnectAttempts: 5
+    })
+
+    wsConnections.value.set(sessionId, wsConnection)
+    return wsConnection
+  }
 
   // 处理WebSocket消息
-  const handleWebSocketMessage = (message: WebSocketMessage) => {
+  const handleWebSocketMessage = (sessionId: string, message: WebSocketMessage) => {
+    const session = terminalState.sessions.get(sessionId)
+    if (!session) return
+
     switch (message.type) {
       case 'connected':
-        terminalState.isConnected = true
+        session.isConnected = true
+        session.lastActivity = new Date()
         isConnecting.value = false
         connectionError.value = ''
-        console.log('SSH连接成功:', message.data)
+        console.log('SSH连接成功:', sessionId, message.data)
         break
       case 'output':
-        // 将输出添加到终端（保留ANSI序列供xterm.js处理）
-        console.log('收到输出消息，长度:', message.data?.length, '内容:', message.data)
-        terminalState.terminalOutput.push({
+        // 将输出添加到对应会话的终端
+        console.log('收到输出消息，会话:', sessionId, '长度:', message.data?.length)
+        session.terminalOutput.push({
           type: 'output',
           content: message.data,
           timestamp: new Date()
         })
+        session.lastActivity = new Date()
         break
       case 'error':
         connectionError.value = message.data
         isConnecting.value = false
-        console.error('SSH连接错误:', message.data)
+        console.error('SSH连接错误:', sessionId, message.data)
         break
       case 'disconnected':
-        terminalState.isConnected = false
-        terminalState.currentServer = undefined
-        selectedServer.value = null
-        console.log('SSH连接已断开:', message.data)
+        session.isConnected = false
+        console.log('SSH连接已断开:', sessionId, message.data)
+        // 从会话列表中移除
+        terminalState.sessions.delete(sessionId)
+        wsConnections.value.delete(sessionId)
+        // 如果是当前活动会话，切换到其他会话
+        if (terminalState.activeSessionId === sessionId) {
+          const remainingSessions = Array.from(terminalState.sessions.keys())
+          terminalState.activeSessionId = remainingSessions.length > 0 ? remainingSessions[0] : undefined
+        }
         break
     }
   }
@@ -220,41 +233,73 @@ export const useTerminal = () => {
     return Array.from(groups).sort()
   }
 
+  // 生成唯一的会话ID
+  const generateSessionId = (serverId: number) => {
+    return `session_${serverId}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+  }
+
   // 连接到服务器（真实SSH连接）
   const connectToServer = async (serverId: number) => {
     const server = getServerById(serverId)
     if (!server) {
       connectionError.value = '服务器不存在'
-      return false
+      return null
     }
 
-    if (isConnecting.value) return false
+    if (isConnecting.value) return null
 
     isConnecting.value = true
     connectionError.value = ''
     selectedServer.value = server
 
+    // 生成唯一的会话ID
+    const sessionId = generateSessionId(serverId)
+
     try {
-      // 首先建立WebSocket连接
-      if (wsStatus.value !== 'connected') {
-        wsConnect()
-        // 等待WebSocket连接建立
-        await new Promise((resolve, reject) => {
-          const timeout = setTimeout(() => reject(new Error('WebSocket连接超时')), 10000)
-          const checkConnection = () => {
-            if (wsStatus.value === 'connected') {
-              clearTimeout(timeout)
-              resolve(true)
-            } else if (wsStatus.value === 'error') {
-              clearTimeout(timeout)
-              reject(new Error('WebSocket连接失败'))
-            } else {
-              setTimeout(checkConnection, 100)
-            }
+      // 创建新的WebSocket连接
+      const wsConnection = createWebSocketConnection(sessionId)
+
+      // 监听该连接的消息
+      watch(wsConnection.lastMessage, (message) => {
+        if (message) {
+          handleWebSocketMessage(sessionId, message)
+        }
+      })
+
+      // 建立WebSocket连接
+      wsConnection.connect()
+
+      // 等待WebSocket连接建立
+      await new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => reject(new Error('WebSocket连接超时')), 10000)
+        const checkConnection = () => {
+          if (wsConnection.status.value === 'connected') {
+            clearTimeout(timeout)
+            resolve(true)
+          } else if (wsConnection.status.value === 'error') {
+            clearTimeout(timeout)
+            reject(new Error('WebSocket连接失败'))
+          } else {
+            setTimeout(checkConnection, 100)
           }
-          checkConnection()
-        })
+        }
+        checkConnection()
+      })
+
+      // 创建终端会话
+      const session: TerminalSession = {
+        id: sessionId,
+        server: { ...server },
+        isConnected: false,
+        terminalOutput: [],
+        lastActivity: new Date()
       }
+
+      // 添加到会话列表
+      terminalState.sessions.set(sessionId, session)
+
+      // 设置为当前活动会话
+      terminalState.activeSessionId = sessionId
 
       // 获取服务器配置详情（包含认证信息）
       const API_BASE_URL = getApiBaseUrl()
@@ -287,6 +332,7 @@ export const useTerminal = () => {
       const connectMessage: WebSocketMessage = {
         type: 'connect',
         data: {
+          sessionId: sessionId,
           host: serverConfig.host,
           port: serverConfig.port || 22,
           username: serverConfig.username,
@@ -299,7 +345,7 @@ export const useTerminal = () => {
 
       console.log('发送连接消息:', connectMessage)
 
-      const sent = wsSend(connectMessage)
+      const sent = wsConnection.send(connectMessage)
       if (!sent) {
         throw new Error('发送连接请求失败')
       }
@@ -311,16 +357,20 @@ export const useTerminal = () => {
         }, 30000) // 30秒超时
 
         const checkResult = () => {
-          if (terminalState.isConnected) {
+          const currentSession = terminalState.sessions.get(sessionId)
+          if (currentSession?.isConnected) {
             clearTimeout(timeout)
             // 更新服务器状态
             server.status = 'connected'
             server.lastConnected = new Date().toLocaleString('zh-CN')
-            terminalState.currentServer = server
+            currentSession.server = { ...server }
             terminalState.connectionHistory.push(`Connected to ${server.name} at ${server.lastConnected}`)
-            resolve(true)
+            resolve(sessionId)
           } else if (connectionError.value) {
             clearTimeout(timeout)
+            // 清理失败的会话
+            terminalState.sessions.delete(sessionId)
+            wsConnections.value.delete(sessionId)
             reject(new Error(connectionError.value))
           } else {
             setTimeout(checkResult, 100)
@@ -332,39 +382,68 @@ export const useTerminal = () => {
     } catch (error) {
       connectionError.value = error instanceof Error ? error.message : '连接失败'
       server.status = 'disconnected'
+      // 清理失败的会话
+      terminalState.sessions.delete(sessionId)
+      wsConnections.value.delete(sessionId)
       console.error(`连接服务器失败: ${server.name}`, error)
-      return false
+      return null
     } finally {
       isConnecting.value = false
     }
   }
 
-  // 断开连接
-  const disconnectFromServer = () => {
-    if (terminalState.currentServer) {
+  // 断开指定会话的连接
+  const disconnectFromServer = (sessionId?: string) => {
+    const targetSessionId = sessionId || terminalState.activeSessionId
+    if (!targetSessionId) return
+
+    const session = terminalState.sessions.get(targetSessionId)
+    const wsConnection = wsConnections.value.get(targetSessionId)
+
+    if (session && wsConnection) {
       // 发送断开连接消息
-      wsSend({
+      wsConnection.send({
         type: 'disconnect',
-        data: {}
+        data: { sessionId: targetSessionId }
       })
 
-      terminalState.currentServer.status = 'disconnected'
-      terminalState.connectionHistory.push(`Disconnected from ${terminalState.currentServer.name} at ${new Date().toLocaleString('zh-CN')}`)
+      session.server.status = 'disconnected'
+      terminalState.connectionHistory.push(`Disconnected from ${session.server.name} at ${new Date().toLocaleString('zh-CN')}`)
+
+      // 断开WebSocket连接
+      wsConnection.disconnect()
     }
 
-    terminalState.isConnected = false
-    terminalState.currentServer = undefined
-    terminalState.terminalOutput = []
-    selectedServer.value = null
+    // 从会话列表中移除
+    terminalState.sessions.delete(targetSessionId)
+    wsConnections.value.delete(targetSessionId)
 
-    // 断开WebSocket连接
-    wsDisconnect()
+    // 如果是当前活动会话，切换到其他会话
+    if (terminalState.activeSessionId === targetSessionId) {
+      const remainingSessions = Array.from(terminalState.sessions.keys())
+      terminalState.activeSessionId = remainingSessions.length > 0 ? remainingSessions[0] : undefined
+    }
   }
 
-  // 发送命令到终端（真实SSH实现）
-  const sendCommand = (command: string) => {
-    if (!terminalState.isConnected || !terminalState.currentServer) {
-      console.warn('未连接到服务器')
+  // 断开所有连接
+  const disconnectAllSessions = () => {
+    const sessionIds = Array.from(terminalState.sessions.keys())
+    sessionIds.forEach(sessionId => disconnectFromServer(sessionId))
+  }
+
+  // 发送命令到指定会话的终端
+  const sendCommand = (command: string, sessionId?: string) => {
+    const targetSessionId = sessionId || terminalState.activeSessionId
+    if (!targetSessionId) {
+      console.warn('没有活动的终端会话')
+      return false
+    }
+
+    const session = terminalState.sessions.get(targetSessionId)
+    const wsConnection = wsConnections.value.get(targetSessionId)
+
+    if (!session?.isConnected || !wsConnection) {
+      console.warn('会话未连接到服务器')
       return false
     }
 
@@ -372,11 +451,12 @@ export const useTerminal = () => {
     const message = {
       type: 'command',
       data: {
+        sessionId: targetSessionId,
         command: command
       }
     }
 
-    const sent = wsSend(message)
+    const sent = wsConnection.send(message)
 
     if (!sent) {
       console.error('发送命令失败：WebSocket未连接')
@@ -386,10 +466,33 @@ export const useTerminal = () => {
     return true
   }
 
-  // 清空终端输出
-  const clearTerminal = () => {
-    terminalState.terminalOutput = []
-    // 不再在前端生成提示符，完全依赖服务器输出
+  // 清空指定会话的终端输出
+  const clearTerminal = (sessionId?: string) => {
+    const targetSessionId = sessionId || terminalState.activeSessionId
+    if (!targetSessionId) return
+
+    const session = terminalState.sessions.get(targetSessionId)
+    if (session) {
+      session.terminalOutput = []
+    }
+  }
+
+  // 切换活动会话
+  const switchToSession = (sessionId: string) => {
+    if (terminalState.sessions.has(sessionId)) {
+      terminalState.activeSessionId = sessionId
+    }
+  }
+
+  // 获取当前活动会话
+  const getActiveSession = () => {
+    if (!terminalState.activeSessionId) return null
+    return terminalState.sessions.get(terminalState.activeSessionId) || null
+  }
+
+  // 获取所有会话列表
+  const getAllSessions = () => {
+    return Array.from(terminalState.sessions.values())
   }
 
   // 获取连接状态颜色
@@ -431,7 +534,6 @@ export const useTerminal = () => {
     connectionError,
     isLoading,
     terminalState,
-    wsStatus,
 
     // 方法
     getServers,
@@ -440,8 +542,12 @@ export const useTerminal = () => {
     getAllGroups,
     connectToServer,
     disconnectFromServer,
+    disconnectAllSessions,
     sendCommand,
     clearTerminal,
+    switchToSession,
+    getActiveSession,
+    getAllSessions,
     getStatusColor,
     getStatusIcon,
     loadServersFromDatabase

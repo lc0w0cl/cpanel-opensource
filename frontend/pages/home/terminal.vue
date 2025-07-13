@@ -21,11 +21,14 @@ const {
   connectionError,
   isLoading,
   terminalState,
-  wsStatus,
   connectToServer,
   disconnectFromServer,
+  disconnectAllSessions,
   sendCommand,
   clearTerminal,
+  switchToSession,
+  getActiveSession,
+  getAllSessions,
   getStatusColor,
   getStatusIcon,
   getGroupedServers,
@@ -34,40 +37,35 @@ const {
 } = useTerminal()
 
 // 终端相关状态
-const terminalContainer = ref<HTMLElement>()
-const terminal = ref<Terminal>()
-const fitAddon = ref<FitAddon>()
+const terminalContainers = ref<Map<string, HTMLElement>>(new Map())
+const terminals = ref<Map<string, Terminal>>(new Map())
+const fitAddons = ref<Map<string, FitAddon>>(new Map())
 const showTerminal = ref(true) // 默认显示终端
 const currentCommand = ref('')
 const isInServerSelection = ref(true) // 是否在服务器选择模式
-const isConnectedToServer = ref(false) // 是否已连接到服务器
-const isTabCompleting = ref(false) // 是否正在进行Tab补全
-const tabCompletionInput = ref('') // Tab补全时的原始输入
 const showGrouped = ref(true) // 是否显示分组
 const expandedGroups = ref<Set<string>>(new Set()) // 展开的分组
 
-// 初始化xterm.js终端
-const initTerminal = async () => {
-  if (!terminalContainer.value) return
+// 初始化指定会话的xterm.js终端
+const initTerminal = async (sessionId: string, containerElement: HTMLElement) => {
+  if (!containerElement) return
 
   // 清理之前的实例（如果存在）
-  if (terminal.value) {
+  const existingTerminal = terminals.value.get(sessionId)
+  if (existingTerminal) {
     try {
-      terminal.value.dispose()
+      existingTerminal.dispose()
     } catch (error) {
       console.warn('Previous terminal cleanup error:', error)
     }
   }
 
-  // 重置状态
-  terminal.value = undefined
-  fitAddon.value = undefined
-  currentCommand.value = ''
-  isInServerSelection.value = true
-  isConnectedToServer.value = false
+  // 清理旧的实例
+  terminals.value.delete(sessionId)
+  fitAddons.value.delete(sessionId)
 
   // 创建终端实例
-  terminal.value = new Terminal({
+  const terminal = new Terminal({
     cursorBlink: true,
     fontSize: 16,
     fontFamily: 'Consolas, "Courier New", monospace',
@@ -104,32 +102,37 @@ const initTerminal = async () => {
   })
 
   // 创建适配插件
-  fitAddon.value = new FitAddon()
-  terminal.value.loadAddon(fitAddon.value)
+  const fitAddon = new FitAddon()
+  terminal.loadAddon(fitAddon)
 
   // 打开终端
-  terminal.value.open(terminalContainer.value)
+  terminal.open(containerElement)
 
   // 适配大小
-  fitAddon.value.fit()
+  fitAddon.fit()
+
+  // 存储实例
+  terminals.value.set(sessionId, terminal)
+  fitAddons.value.set(sessionId, fitAddon)
 
   // 监听输入
-  terminal.value.onData((data) => {
-    if (terminalState.isConnected) {
+  terminal.onData((data) => {
+    const activeSession = getActiveSession()
+    if (activeSession?.isConnected && activeSession.id === sessionId) {
       // 已连接到服务器，所有输入都直接发送给服务器
-      console.log('发送输入到服务器，ASCII码:', data.charCodeAt(0), '内容:', data.replace('\r', '\\r').replace('\n', '\\n').replace('\t', '\\t'))
-      sendCommand(data)
+      console.log('发送输入到服务器，会话:', sessionId, 'ASCII码:', data.charCodeAt(0), '内容:', data.replace('\r', '\\r').replace('\n', '\\n').replace('\t', '\\t'))
+      sendCommand(data, sessionId)
       // 不在本地显示任何内容，完全依赖服务器的响应
     } else {
       // 未连接时，显示提示信息
       if (data === '\r') {
-        terminal.value?.write('\r\n请在左侧服务器列表中选择要连接的服务器。\r\n')
+        terminal.write('\r\n请在左侧服务器列表中选择要连接的服务器。\r\n')
       }
     }
   })
 
   // 显示欢迎信息
-  showWelcomeMessage()
+  showWelcomeMessage(sessionId)
 }
 
 // Iconify图标到终端字符的映射
@@ -174,19 +177,20 @@ const getServerIconColor = (iconName: string) => {
 }
 
 // 显示欢迎信息
-const showWelcomeMessage = () => {
-  if (!terminal.value) return
+const showWelcomeMessage = (sessionId?: string) => {
+  const terminal = sessionId ? terminals.value.get(sessionId) : null
+  if (!terminal) return
 
-  terminal.value.clear()
-  terminal.value.writeln('╔══════════════════════════════════════════════════════════════╗')
-  terminal.value.writeln('║                    服务器连接管理系统                        ║')
-  terminal.value.writeln('╚══════════════════════════════════════════════════════════════╝')
-  terminal.value.writeln('')
-  terminal.value.writeln('欢迎使用服务器连接管理系统！')
-  terminal.value.writeln('')
-  terminal.value.writeln('请在左侧服务器列表中点击要连接的服务器。')
-  terminal.value.writeln('连接成功后，您将获得完整的终端访问权限。')
-  terminal.value.writeln('')
+  terminal.clear()
+  terminal.writeln('╔══════════════════════════════════════════════════════════════╗')
+  terminal.writeln('║                    服务器连接管理系统                        ║')
+  terminal.writeln('╚══════════════════════════════════════════════════════════════╝')
+  terminal.writeln('')
+  terminal.writeln('欢迎使用服务器连接管理系统！')
+  terminal.writeln('')
+  terminal.writeln('请在左侧服务器列表中点击要连接的服务器。')
+  terminal.writeln('连接成功后，您将获得完整的终端访问权限。')
+  terminal.writeln('')
 }
 
 // 服务器选择处理已移除，现在通过Vue界面进行选择
@@ -202,157 +206,262 @@ const handleConnectedCommand = (command: string) => {
 const connectToServerByIndex = async (index: number) => {
   if (index >= 0 && index < servers.value.length) {
     const server = servers.value[index]
-    if (terminal.value) {
-      terminal.value.clear()
-      terminal.value.writeln(`正在连接到 ${server.name} (${server.host}:${server.port})...`)
-      terminal.value.writeln('')
-    }
 
-    const success = await connectToServer(server.id)
+    // 创建新的终端会话
+    const sessionId = await connectToServer(server.id)
 
-    if (success) {
+    if (sessionId) {
+      // 连接成功，创建新的终端实例
+      await nextTick()
+      const containerElement = terminalContainers.value.get(sessionId)
+      if (containerElement) {
+        await initTerminal(sessionId, containerElement)
+
+        const terminal = terminals.value.get(sessionId)
+        if (terminal) {
+          terminal.clear()
+          terminal.writeln(`正在连接到 ${server.name} (${server.host}:${server.port})...`)
+          terminal.writeln('')
+        }
+      }
+
       isInServerSelection.value = false
-      isConnectedToServer.value = true
       // 连接成功后，终端内容完全由服务器控制
-    } else if (terminal.value) {
-      terminal.value.writeln(`✗ 连接失败: ${connectionError.value}`)
-      terminal.value.writeln('')
-      terminal.value.writeln('请检查服务器配置或网络连接，然后重试。')
+    } else {
+      // 连接失败，在当前活动终端显示错误
+      const activeSession = getActiveSession()
+      if (activeSession) {
+        const terminal = terminals.value.get(activeSession.id)
+        if (terminal) {
+          terminal.writeln(`✗ 连接失败: ${connectionError.value}`)
+          terminal.writeln('')
+          terminal.writeln('请检查服务器配置或网络连接，然后重试。')
+        }
+      }
     }
   }
 }
 
-// 断开连接处理
-const handleDisconnect = () => {
-  disconnectFromServer()
-  isInServerSelection.value = true
-  isConnectedToServer.value = false
-  currentCommand.value = ''
+// 断开指定会话的连接处理
+const handleDisconnect = (sessionId?: string) => {
+  const targetSessionId = sessionId || terminalState.activeSessionId
+  if (!targetSessionId) return
 
-  if (terminal.value) {
-    terminal.value.writeln('')
-    terminal.value.writeln('已断开服务器连接')
-    terminal.value.writeln('')
-    setTimeout(() => {
-      showWelcomeMessage()
-    }, 1000)
+  disconnectFromServer(targetSessionId)
+
+  const terminalInstance = terminals.value.get(targetSessionId)
+  if (terminalInstance) {
+    terminalInstance.writeln('')
+    terminalInstance.writeln('已断开服务器连接')
+    terminalInstance.writeln('')
+
+    // 清理终端实例
+    try {
+      terminalInstance.dispose()
+    } catch (error) {
+      console.warn('Terminal dispose error:', error)
+    }
+  }
+
+  terminals.value.delete(targetSessionId)
+  fitAddons.value.delete(targetSessionId)
+  terminalContainers.value.delete(targetSessionId)
+  processedOutputCounts.value.delete(targetSessionId)
+  hasUnreadOutput.value.delete(targetSessionId)
+
+  // 如果没有其他会话，回到服务器选择模式
+  if (getAllSessions().length === 0) {
+    isInServerSelection.value = true
   }
 }
 
 // 清空终端处理
-const handleClearTerminal = () => {
-  if (terminal.value) {
-    if (isInServerSelection.value) {
-      showWelcomeMessage()
-    } else if (terminalState.isConnected) {
+const handleClearTerminal = (sessionId?: string) => {
+  const targetSessionId = sessionId || terminalState.activeSessionId
+  if (!targetSessionId) return
+
+  const session = terminalState.sessions.get(targetSessionId)
+  const terminal = terminals.value.get(targetSessionId)
+
+  if (terminal) {
+    if (session?.isConnected) {
       // 发送clear命令给服务器，让服务器处理
-      sendCommand('clear\r')
+      sendCommand('clear\r', targetSessionId)
+    } else {
+      showWelcomeMessage(targetSessionId)
     }
   }
 }
 
 // 窗口大小调整处理
 const handleResize = () => {
-  if (fitAddon.value && terminal.value) {
-    try {
-      fitAddon.value.fit()
-    } catch (error) {
-      console.warn('Terminal resize error:', error)
+  // 调整所有终端的大小
+  fitAddons.value.forEach((fitAddon, sessionId) => {
+    const terminal = terminals.value.get(sessionId)
+    if (fitAddon && terminal) {
+      try {
+        fitAddon.fit()
+      } catch (error) {
+        console.warn('Terminal resize error:', sessionId, error)
+      }
     }
-  }
+  })
 }
 
 // 监听服务器加载状态变化
 watch([isLoading, servers], ([loading, serverList], [prevLoading, prevServerList]) => {
   // 当加载完成且在服务器选择模式时，刷新欢迎信息
-  if (prevLoading && !loading && isInServerSelection.value && terminal.value) {
-    setTimeout(() => {
-      showWelcomeMessage()
-    }, 100)
-  }
-}, { deep: true })
-
-// 监听终端输出变化，将SSH输出显示到xterm
-watch(() => terminalState.terminalOutput, (newOutput) => {
-  if (terminal.value && newOutput.length > 0) {
-    const lastOutput = newOutput[newOutput.length - 1]
-    if (typeof lastOutput === 'object' && lastOutput.type === 'output') {
-      const content = lastOutput.content
-      // 直接显示服务器返回的所有内容，不做任何处理
-      terminal.value.write(content)
+  if (prevLoading && !loading && isInServerSelection.value) {
+    // 如果没有活动会话，显示欢迎信息
+    if (!getActiveSession()) {
+      console.log('服务器加载完成，显示欢迎界面')
     }
   }
 }, { deep: true })
 
-// 监听连接状态变化
-watch(() => terminalState.isConnected, (connected) => {
-  if (connected && terminal.value) {
+// 跟踪每个会话已处理的输出数量
+const processedOutputCounts = ref<Map<string, number>>(new Map())
+// 跟踪每个会话是否有未读输出
+const hasUnreadOutput = ref<Map<string, boolean>>(new Map())
+// 定时器用于更新活动时间显示
+const activityUpdateTimer = ref<NodeJS.Timeout | null>(null)
+
+// 监听终端会话变化，将SSH输出显示到对应的xterm
+watch(() => terminalState.sessions, (sessions) => {
+  sessions.forEach((session, sessionId) => {
+    const terminal = terminals.value.get(sessionId)
+    if (terminal && session.terminalOutput.length > 0) {
+      const processedCount = processedOutputCounts.value.get(sessionId) || 0
+      const newOutputs = session.terminalOutput.slice(processedCount)
+
+      newOutputs.forEach(output => {
+        if (typeof output === 'object' && output.type === 'output') {
+          const content = output.content
+          // 直接显示服务器返回的所有内容，不做任何处理
+          terminal.write(content)
+
+          // 如果不是当前活动会话，标记为有未读输出
+          if (sessionId !== terminalState.activeSessionId) {
+            hasUnreadOutput.value.set(sessionId, true)
+          }
+        }
+      })
+
+      // 更新已处理的输出数量
+      processedOutputCounts.value.set(sessionId, session.terminalOutput.length)
+    }
+  })
+}, { deep: true })
+
+// 监听活动会话变化
+watch(() => terminalState.activeSessionId, (activeSessionId) => {
+  if (activeSessionId) {
     isInServerSelection.value = false
-    // 不在前端清空或写入任何内容，完全依赖服务器的输出
+    // 确保活动会话的终端容器可见
+    nextTick(() => {
+      const activeSession = getActiveSession()
+      if (activeSession) {
+        const terminal = terminals.value.get(activeSessionId)
+        const fitAddon = fitAddons.value.get(activeSessionId)
+        if (terminal && fitAddon) {
+          try {
+            fitAddon.fit()
+          } catch (error) {
+            console.warn('Terminal fit error:', error)
+          }
+        }
+      }
+    })
+  } else if (getAllSessions().length === 0) {
+    isInServerSelection.value = true
   }
 })
+
+// 键盘快捷键处理
+const handleKeyDown = (event: KeyboardEvent) => {
+  // Ctrl+Tab 切换到下一个tab
+  if (event.ctrlKey && event.key === 'Tab') {
+    event.preventDefault()
+    const sessions = getAllSessions()
+    if (sessions.length > 1) {
+      const currentIndex = sessions.findIndex(s => s.id === terminalState.activeSessionId)
+      const nextIndex = (currentIndex + 1) % sessions.length
+      switchTab(sessions[nextIndex].id)
+    }
+  }
+  // Ctrl+Shift+Tab 切换到上一个tab
+  else if (event.ctrlKey && event.shiftKey && event.key === 'Tab') {
+    event.preventDefault()
+    const sessions = getAllSessions()
+    if (sessions.length > 1) {
+      const currentIndex = sessions.findIndex(s => s.id === terminalState.activeSessionId)
+      const prevIndex = currentIndex === 0 ? sessions.length - 1 : currentIndex - 1
+      switchTab(sessions[prevIndex].id)
+    }
+  }
+  // Ctrl+W 关闭当前tab
+  else if (event.ctrlKey && event.key === 'w') {
+    event.preventDefault()
+    const activeSession = getActiveSession()
+    if (activeSession) {
+      closeTab(activeSession.id)
+    }
+  }
+}
 
 // 组件挂载
 onMounted(async () => {
   // 确保DOM完全渲染
   await nextTick()
 
-  // 延迟一点时间确保容器元素完全可用
-  setTimeout(async () => {
-    try {
-      await initTerminal()
-      // 监听窗口大小变化
-      window.addEventListener('resize', handleResize)
-    } catch (error) {
-      console.error('Terminal initialization error:', error)
-    }
-  }, 100)
+  // 监听窗口大小变化
+  window.addEventListener('resize', handleResize)
+  // 监听键盘快捷键
+  window.addEventListener('keydown', handleKeyDown)
+
+  // 启动活动时间更新定时器
+  activityUpdateTimer.value = setInterval(() => {
+    // 强制更新组件以刷新活动时间显示
+    // 这里我们不需要做任何事，Vue的响应式系统会自动更新
+  }, 30000) // 每30秒更新一次
 })
 
-// 页面激活时重新初始化（从其他页面返回时）
+// 页面激活时重新适配大小（从其他页面返回时）
 onActivated(async () => {
-  // 如果终端容器存在但终端实例不存在，重新初始化
-  if (terminalContainer.value && !terminal.value) {
-    await nextTick()
-    setTimeout(async () => {
-      try {
-        await initTerminal()
-      } catch (error) {
-        console.error('Terminal reinitialization error:', error)
-      }
-    }, 100)
-  } else if (terminal.value && fitAddon.value) {
-    // 如果终端存在，重新适配大小
-    setTimeout(() => {
-      try {
-        fitAddon.value?.fit()
-      } catch (error) {
-        console.warn('Terminal resize error:', error)
-      }
-    }, 100)
-  }
+  await nextTick()
+  setTimeout(() => {
+    handleResize()
+  }, 100)
 })
 
 // 组件卸载
 onUnmounted(() => {
   window.removeEventListener('resize', handleResize)
+  window.removeEventListener('keydown', handleKeyDown)
 
-  // 清理终端
-  if (terminal.value) {
-    try {
-      // 先清理插件
-      if (fitAddon.value) {
-        terminal.value.dispose()
-        fitAddon.value = undefined
-      } else {
-        terminal.value.dispose()
-      }
-    } catch (error) {
-      console.warn('Terminal cleanup error:', error)
-    } finally {
-      terminal.value = undefined
-    }
+  // 清理定时器
+  if (activityUpdateTimer.value) {
+    clearInterval(activityUpdateTimer.value)
   }
+
+  // 断开所有连接
+  disconnectAllSessions()
+
+  // 清理所有终端实例
+  terminals.value.forEach((terminal, sessionId) => {
+    try {
+      terminal.dispose()
+    } catch (error) {
+      console.warn('Terminal cleanup error:', sessionId, error)
+    }
+  })
+
+  // 清理所有状态
+  terminals.value.clear()
+  fitAddons.value.clear()
+  terminalContainers.value.clear()
+  processedOutputCounts.value.clear()
+  hasUnreadOutput.value.clear()
 })
 
 // 分组展开/收起处理
@@ -378,8 +487,98 @@ onMounted(() => {
   }, 1000)
 })
 
-// Tab补全处理已移除，所有输入都直接发送给服务器
-// 保留变量定义以避免编译错误
+// Tab页管理功能
+const switchTab = (sessionId: string) => {
+  switchToSession(sessionId)
+  // 清除未读标记
+  hasUnreadOutput.value.set(sessionId, false)
+}
+
+const closeTab = (sessionId: string) => {
+  handleDisconnect(sessionId)
+  // 清理未读标记
+  hasUnreadOutput.value.delete(sessionId)
+}
+
+const getTabTitle = (session: any) => {
+  return `${session.server.name} (${session.server.host})`
+}
+
+const getTabSubtitle = (session: any) => {
+  if (session.isConnected) {
+    const duration = Math.floor((Date.now() - session.lastActivity.getTime()) / 1000)
+    if (duration < 60) {
+      return `活动 ${duration}s 前`
+    } else if (duration < 3600) {
+      return `活动 ${Math.floor(duration / 60)}m 前`
+    } else {
+      return `活动 ${Math.floor(duration / 3600)}h 前`
+    }
+  }
+  return '未连接'
+}
+
+const getTabIcon = (session: any) => {
+  return session.server.icon
+}
+
+// 右键菜单功能
+const showContextMenu = ref(false)
+const contextMenuPosition = ref({ x: 0, y: 0 })
+const contextMenuSessionId = ref<string>('')
+
+const handleTabRightClick = (event: MouseEvent, sessionId: string) => {
+  event.preventDefault()
+  contextMenuSessionId.value = sessionId
+  contextMenuPosition.value = { x: event.clientX, y: event.clientY }
+  showContextMenu.value = true
+}
+
+const closeContextMenu = () => {
+  showContextMenu.value = false
+}
+
+const duplicateTab = (sessionId: string) => {
+  const session = terminalState.sessions.get(sessionId)
+  if (session) {
+    // 连接到同一个服务器
+    connectToServerByIndex(servers.value.findIndex(s => s.id === session.server.id))
+  }
+  closeContextMenu()
+}
+
+const closeOtherTabs = (sessionId: string) => {
+  const sessions = getAllSessions()
+  sessions.forEach(session => {
+    if (session.id !== sessionId) {
+      closeTab(session.id)
+    }
+  })
+  closeContextMenu()
+}
+
+const closeAllTabs = () => {
+  const sessions = getAllSessions()
+  sessions.forEach(session => {
+    closeTab(session.id)
+  })
+  closeContextMenu()
+}
+
+// 设置终端容器引用
+const setTerminalContainer = (sessionId: string, element: HTMLElement | null) => {
+  if (element) {
+    terminalContainers.value.set(sessionId, element)
+    // 如果是新创建的会话，初始化终端
+    if (!terminals.value.has(sessionId)) {
+      nextTick(() => {
+        initTerminal(sessionId, element)
+      })
+    }
+  } else {
+    terminalContainers.value.delete(sessionId)
+  }
+}
 
 </script>
 
@@ -422,7 +621,7 @@ onMounted(() => {
                     class="server-item"
                     :class="{
                       'connected': server.status === 'connected',
-                      'active': terminalState.currentServer?.id === server.id
+                      'active': getActiveSession()?.server.id === server.id
                     }"
                     @click="connectToServerByIndex(servers.findIndex(s => s.id === server.id))"
                   >
@@ -456,7 +655,7 @@ onMounted(() => {
               class="server-item"
               :class="{
                 'connected': server.status === 'connected',
-                'active': terminalState.currentServer?.id === server.id
+                'active': getActiveSession()?.server.id === server.id
               }"
               @click="connectToServerByIndex(index)"
             >
@@ -505,35 +704,128 @@ onMounted(() => {
           {{ connectionError }}
         </div>
 
+        <!-- Tab页导航 -->
+        <div v-if="getAllSessions().length > 0" class="terminal-tabs">
+          <div class="tabs-header">
+            <span class="tabs-count">{{ getAllSessions().length }} 个连接</span>
+            <div class="tabs-actions">
+              <button @click="disconnectAllSessions()" class="action-btn small" title="关闭所有连接">
+                <Icon icon="material-symbols:close-fullscreen" />
+              </button>
+            </div>
+          </div>
+          <div class="tabs-container">
+            <div
+              v-for="session in getAllSessions()"
+              :key="session.id"
+              class="tab-item"
+              :class="{
+                'active': session.id === terminalState.activeSessionId,
+                'has-unread': hasUnreadOutput.get(session.id)
+              }"
+              @click="switchTab(session.id)"
+              @contextmenu="handleTabRightClick($event, session.id)"
+            >
+              <div class="tab-content">
+                <Icon :icon="getTabIcon(session)" class="tab-icon" />
+                <div class="tab-info">
+                  <span class="tab-title">{{ getTabTitle(session) }}</span>
+                  <span class="tab-subtitle">{{ getTabSubtitle(session) }}</span>
+                </div>
+                <div class="tab-status">
+                  <Icon
+                    :icon="session.isConnected ? 'material-symbols:check-circle' : 'material-symbols:sync'"
+                    :class="session.isConnected ? 'text-green-500' : 'text-yellow-500'"
+                    class="status-icon"
+                  />
+                </div>
+                <button
+                  @click.stop="closeTab(session.id)"
+                  class="tab-close"
+                  title="关闭连接"
+                >
+                  <Icon icon="material-symbols:close" />
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 终端面板 -->
         <div class="terminal-panel">
-          <div class="terminal-header">
-            <div class="terminal-title">
+          <!-- 欢迎界面 -->
+          <div v-if="isInServerSelection" class="welcome-panel">
+            <div class="welcome-content">
+              <Icon icon="material-symbols:terminal" class="welcome-icon" />
+              <h3>服务器连接管理系统</h3>
+              <p>请在左侧服务器列表中选择要连接的服务器</p>
+              <p>支持同时连接多个服务器，使用Tab页进行切换</p>
+            </div>
+          </div>
+
+          <!-- 终端容器 -->
+          <div v-else class="terminal-containers">
+            <div
+              v-for="session in getAllSessions()"
+              :key="session.id"
+              :ref="(el) => setTerminalContainer(session.id, el as HTMLElement)"
+              class="xterm-container"
+              :class="{ 'active': session.id === terminalState.activeSessionId }"
+            ></div>
+          </div>
+
+          <!-- 终端控制栏 -->
+          <div v-if="!isInServerSelection && getActiveSession()" class="terminal-controls-bar">
+            <div class="terminal-info">
               <Icon icon="material-symbols:terminal" class="terminal-icon" />
               <Icon
-                v-if="terminalState.currentServer"
-                :icon="terminalState.currentServer.icon"
+                v-if="getActiveSession()"
+                :icon="getActiveSession()?.server.icon"
                 class="server-icon"
               />
-              <span v-if="terminalState.currentServer">
-                {{ terminalState.currentServer.name }} - {{ terminalState.currentServer.host }}
+              <span v-if="getActiveSession()">
+                {{ getActiveSession()?.server.name }} - {{ getActiveSession()?.server.host }}
               </span>
-              <span v-else>请选择服务器进行连接</span>
             </div>
             <div class="terminal-controls">
-              <button v-if="isConnectedToServer" @click="handleClearTerminal" class="control-btn" title="清空">
+              <button @click="handleClearTerminal()" class="control-btn" title="清空">
                 <Icon icon="material-symbols:clear-all" />
               </button>
-              <button v-if="isConnectedToServer" @click="handleDisconnect" class="control-btn" title="断开">
+              <button @click="handleDisconnect()" class="control-btn" title="断开">
                 <Icon icon="material-symbols:close" />
               </button>
             </div>
           </div>
-
-          <div class="terminal-container">
-            <div ref="terminalContainer" class="xterm-container"></div>
-          </div>
         </div>
       </div>
     </div>
+
+    <!-- 右键菜单 -->
+    <div
+      v-if="showContextMenu"
+      class="context-menu"
+      :style="{ left: contextMenuPosition.x + 'px', top: contextMenuPosition.y + 'px' }"
+      @click="closeContextMenu"
+    >
+      <div class="context-menu-item" @click="duplicateTab(contextMenuSessionId)">
+        <Icon icon="material-symbols:content-copy" />
+        <span>复制连接</span>
+      </div>
+      <div class="context-menu-item" @click="closeOtherTabs(contextMenuSessionId)">
+        <Icon icon="material-symbols:close" />
+        <span>关闭其他</span>
+      </div>
+      <div class="context-menu-item" @click="closeAllTabs()">
+        <Icon icon="material-symbols:close-fullscreen" />
+        <span>关闭所有</span>
+      </div>
+    </div>
+
+    <!-- 点击遮罩关闭菜单 -->
+    <div
+      v-if="showContextMenu"
+      class="context-menu-overlay"
+      @click="closeContextMenu"
+    ></div>
   </NuxtLayout>
 </template>
