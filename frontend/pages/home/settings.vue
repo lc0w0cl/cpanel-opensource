@@ -131,6 +131,7 @@ const serverForm = ref({
   selectedPrivateKeyId: '', // 选择的已保存私钥ID
   useExistingKey: false, // 是否使用已保存的私钥
   description: '',
+  groupName: '', // 服务器分组
   isDefault: false
 })
 
@@ -148,6 +149,7 @@ const resetServerForm = () => {
     selectedPrivateKeyId: '',
     useExistingKey: false,
     description: '',
+    groupName: '',
     isDefault: false
   }
 }
@@ -783,7 +785,7 @@ const saveCookieConfig = async () => {
 const loadServerConfigs = async () => {
   serverSettingsLoading.value = true
   try {
-    const response = await apiRequest(`${API_BASE_URL}/system-config/servers`)
+    const response = await apiRequest(`${API_BASE_URL}/servers`)
     const result = await response.json()
 
     if (result.success) {
@@ -824,8 +826,8 @@ const saveServerConfig = async () => {
   serverSettingsSaving.value = true
   try {
     const url = editingServerId.value
-      ? `${API_BASE_URL}/system-config/servers/${editingServerId.value}`
-      : `${API_BASE_URL}/system-config/servers`
+      ? `${API_BASE_URL}/servers/${editingServerId.value}`
+      : `${API_BASE_URL}/servers`
 
     const method = editingServerId.value ? 'PUT' : 'POST'
 
@@ -867,7 +869,10 @@ const startEditServer = (server) => {
     password: '', // 不显示已保存的密码
     privateKey: '', // 不显示已保存的私钥
     privateKeyPassword: '',
+    selectedPrivateKeyId: '',
+    useExistingKey: false,
     description: server.description || '',
+    groupName: server.groupName || '',
     isDefault: server.isDefault || false
   }
   showEditServerForm.value = true
@@ -890,7 +895,7 @@ const confirmDeleteServer = async () => {
 
   deleteServerLoading.value = true
   try {
-    const response = await apiRequest(`${API_BASE_URL}/system-config/servers/${deletingServer.value.id}`, {
+    const response = await apiRequest(`${API_BASE_URL}/servers/${deletingServer.value.id}`, {
       method: 'DELETE'
     })
 
@@ -918,7 +923,7 @@ const cancelDeleteServer = () => {
 
 const setDefaultServer = async (serverId) => {
   try {
-    const response = await apiRequest(`${API_BASE_URL}/system-config/servers/${serverId}/set-default`, {
+    const response = await apiRequest(`${API_BASE_URL}/servers/${serverId}/set-default`, {
       method: 'POST'
     })
 
@@ -942,7 +947,7 @@ const testServerConnection = async () => {
   }
 
   try {
-    const response = await apiRequest(`${API_BASE_URL}/system-config/servers/test`, {
+    const response = await apiRequest(`${API_BASE_URL}/servers/test`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -1993,6 +1998,20 @@ onUnmounted(() => {
                         </div>
 
                         <div class="form-group">
+                          <label class="form-label">服务器分组</label>
+                          <input
+                            v-model="serverForm.groupName"
+                            type="text"
+                            class="form-input"
+                            placeholder="例如：生产环境、测试环境、美国服务器等"
+                            :disabled="serverSettingsSaving"
+                          />
+                          <p class="form-hint">
+                            用于在终端页面中对服务器进行分组显示，如果不填写将归入"默认分组"
+                          </p>
+                        </div>
+
+                        <div class="form-group">
                           <label class="form-label">描述</label>
                           <textarea
                             v-model="serverForm.description"
@@ -2245,6 +2264,10 @@ onUnmounted(() => {
                           </div>
                           <div class="server-badges">
                             <span v-if="server.isDefault" class="default-badge">默认</span>
+                            <span v-if="server.groupName" class="group-badge">
+                              <Icon icon="mdi:folder" />
+                              {{ server.groupName }}
+                            </span>
                             <span class="auth-badge" :class="server.authType">
                               <Icon :icon="server.authType === 'password' ? 'mdi:key' : 'mdi:key-variant'" />
                               {{ server.authType === 'password' ? '密码' : '公钥' }}
@@ -5051,6 +5074,18 @@ onUnmounted(() => {
 .auth-badge.publickey {
   background: rgba(168, 85, 247, 0.2);
   color: rgba(168, 85, 247, 0.9);
+}
+
+.group-badge {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.5rem;
+  background: rgba(168, 85, 247, 0.2);
+  color: rgba(168, 85, 247, 0.9);
+  border-radius: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 500;
 }
 
 .server-description {
