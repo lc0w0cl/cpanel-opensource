@@ -744,6 +744,7 @@ const setTerminalContainer = (sessionId: string, element: HTMLElement | null) =>
                       <h4 class="server-name">{{ server.name }}</h4>
                       <p class="server-address">{{ server.host }}:{{ server.port }}</p>
                       <p class="server-user">{{ server.username }}</p>
+                      <p v-if="server.description" class="server-description">{{ server.description }}</p>
                     </div>
                   </div>
                 </div>
@@ -778,6 +779,7 @@ const setTerminalContainer = (sessionId: string, element: HTMLElement | null) =>
                 <h4 class="server-name">{{ server.name }}</h4>
                 <p class="server-address">{{ server.host }}:{{ server.port }}</p>
                 <p class="server-user">{{ server.username }}</p>
+                <p v-if="server.description" class="server-description">{{ server.description }}</p>
               </div>
             </div>
           </template>
