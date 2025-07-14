@@ -328,6 +328,7 @@
   overflow: hidden;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
   transition: all 0.3s ease;
+  position: relative; /* 为绝对定位的控制栏提供定位上下文 */
 }
 
 /* 状态图标样式 */
@@ -410,6 +411,8 @@
   height: 100%;
   padding: 1rem;
   background: #1a1a1a;
+  /* 确保终端内容不会被底部控制栏遮挡 */
+  box-sizing: border-box;
 }
 
 /* 服务器分组样式 */
@@ -808,7 +811,8 @@
   top: 0;
   left: 0;
   width: 100%;
-  height: 100%;
+  /* 使用calc()精确计算高度，减去控制栏高度 */
+  height: calc(100% - 76px);
   opacity: 0;
   visibility: hidden;
   transition: opacity 0.2s ease;
@@ -821,6 +825,10 @@
 
 /* 终端控制栏样式 */
 .terminal-controls-bar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -828,7 +836,8 @@
   background: rgba(255, 255, 255, 0.05);
   border-top: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 0 0 12px 12px;
-  flex-shrink: 0;
+  backdrop-filter: blur(10px);
+  z-index: 10;
 }
 
 .terminal-info {
