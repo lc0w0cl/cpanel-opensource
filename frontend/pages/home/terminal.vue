@@ -141,6 +141,13 @@ const initTerminal = async (sessionId: string, containerElement: HTMLElement, re
     // 新会话时，显示欢迎信息
     showWelcomeMessage(sessionId)
   }
+
+  // 如果这是当前活动会话，自动聚焦终端
+  if (sessionId === terminalState.activeSessionId) {
+    nextTick(() => {
+      terminal.focus()
+    })
+  }
 }
 
 // Iconify图标到终端字符的映射
@@ -257,6 +264,11 @@ const connectToServerByIndex = async (index: number) => {
           terminal.clear()
           terminal.writeln(`正在连接到 ${server.name} (${server.host}:${server.port})...`)
           terminal.writeln('')
+
+          // 连接成功后自动聚焦终端
+          nextTick(() => {
+            terminal.focus()
+          })
         }
       }
 
@@ -401,6 +413,8 @@ watch(() => terminalState.activeSessionId, (activeSessionId) => {
         if (terminal && fitAddon) {
           try {
             fitAddon.fit()
+            // 自动聚焦到活动终端
+            terminal.focus()
           } catch (error) {
             console.warn('Terminal fit error:', error)
           }
@@ -570,6 +584,14 @@ const switchTab = (sessionId: string) => {
   switchToSession(sessionId)
   // 清除未读标记
   hasUnreadOutput.value.set(sessionId, false)
+
+  // 切换标签页后自动聚焦终端
+  nextTick(() => {
+    const terminal = terminals.value.get(sessionId)
+    if (terminal) {
+      terminal.focus()
+    }
+  })
 }
 
 const closeTab = (sessionId: string) => {
