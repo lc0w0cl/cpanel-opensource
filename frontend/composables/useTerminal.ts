@@ -39,6 +39,19 @@ const getApiBaseUrl = () => {
   return `${config.public.apiBaseUrl}/api`
 }
 
+// 获取WebSocket基础URL
+const getWebSocketBaseUrl = () => {
+  const config = useRuntimeConfig()
+  if (config.public.isDevelopment) {
+    // 开发环境使用localhost
+    return 'ws://localhost:8080'
+  } else {
+    // 生产环境使用当前域名
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+    return `${protocol}//${window.location.host}`
+  }
+}
+
 // 根据地区/描述推断服务器图标
 const getServerIconByLocation = (serverName: string, description: string): string => {
   const name = serverName.toLowerCase()
@@ -116,7 +129,8 @@ export const useTerminal = () => {
 
   // 创建WebSocket连接
   const createWebSocketConnection = (sessionId: string) => {
-    const wsUrl = `ws://localhost:8080/ws/terminal`
+    const wsBaseUrl = getWebSocketBaseUrl()
+    const wsUrl = `${wsBaseUrl}/ws/terminal`
 
     const wsConnection = useWebSocket({
       url: wsUrl,
