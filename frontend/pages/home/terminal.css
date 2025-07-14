@@ -93,8 +93,8 @@
 
 /* 左侧服务器列表面板样式 */
 .server-list-sidebar {
-  width: 350px;
-  min-width: 350px;
+  width: 300px;
+  min-width: 300px;
   background: transparent;
   border: 1px solid rgba(255, 255, 255, 0.15);
   border-radius: 12px;

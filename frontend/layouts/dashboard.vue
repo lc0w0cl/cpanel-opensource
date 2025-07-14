@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { Motion } from "motion-v";
-import { onMounted, onUnmounted } from 'vue';
+import { onMounted, onUnmounted, computed } from 'vue';
 
 // 使用全局壁纸管理
 const {
@@ -17,6 +17,14 @@ const {
   initializeWallpaper,
   cleanupWallpaper
 } = useWallpaper()
+
+// 获取当前路由
+const route = useRoute()
+
+// 检查是否为终端页面
+const isTerminalPage = computed(() => {
+  return route.path === '/home/terminal'
+})
 
 
 
@@ -64,8 +72,8 @@ onUnmounted(() => {
         <div class="content-wrapper" :style="{
           paddingTop: '1rem',
           paddingBottom: '1rem',
-          paddingLeft: `calc(1rem + ${contentPadding}px)`,
-          paddingRight: `calc(1rem + ${contentPadding}px)`
+          paddingLeft: isTerminalPage ? '4px' : `calc(1rem + ${contentPadding}px)`,
+          paddingRight: isTerminalPage ? '4px' : `calc(1rem + ${contentPadding}px)`
         }">
           <slot /> <!-- 渲染页面内容 -->
         </div>
