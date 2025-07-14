@@ -405,7 +405,15 @@ export const useTerminal = () => {
         data: { sessionId: targetSessionId }
       })
 
+      // 更新会话中的服务器状态
       session.server.status = 'disconnected'
+
+      // 同时更新servers数组中对应服务器的状态
+      const serverInList = servers.value.find(s => s.id === session.server.id)
+      if (serverInList) {
+        serverInList.status = 'disconnected'
+      }
+
       terminalState.connectionHistory.push(`Disconnected from ${session.server.name} at ${new Date().toLocaleString('zh-CN')}`)
 
       // 断开WebSocket连接
