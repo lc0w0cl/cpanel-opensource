@@ -486,6 +486,43 @@ export const useTerminal = () => {
     return true
   }
 
+  // 发送终端大小调整消息
+  const sendResizeMessage = (cols: number, rows: number, sessionId?: string) => {
+    const targetSessionId = sessionId || terminalState.activeSessionId
+    if (!targetSessionId) {
+      console.warn('没有活动的终端会话')
+      return false
+    }
+
+    const session = terminalState.sessions.get(targetSessionId)
+    const wsConnection = wsConnections.value.get(targetSessionId)
+
+    if (!session?.isConnected || !wsConnection) {
+      console.warn('会话未连接到服务器')
+      return false
+    }
+
+    // 通过WebSocket发送resize消息到SSH会话
+    const message = {
+      type: 'resize',
+      data: {
+        sessionId: targetSessionId,
+        cols: cols,
+        rows: rows
+      }
+    }
+
+    const sent = wsConnection.send(message)
+
+    if (!sent) {
+      console.error('发送resize消息失败：WebSocket未连接')
+      return false
+    }
+
+    console.log(`发送终端大小调整消息: ${cols}x${rows}, 会话: ${targetSessionId}`)
+    return true
+  }
+
   // 清空指定会话的终端输出
   const clearTerminal = (sessionId?: string) => {
     const targetSessionId = sessionId || terminalState.activeSessionId
@@ -589,6 +626,7 @@ export const useTerminal = () => {
     disconnectFromServer,
     disconnectAllSessions,
     sendCommand,
+    sendResizeMessage,
     clearTerminal,
     switchToSession,
     getActiveSession,

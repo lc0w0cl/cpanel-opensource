@@ -220,12 +220,28 @@ public class TerminalWebSocketHandler implements WebSocketHandler {
      * 处理终端大小调整
      */
     private void handleResize(WebSocketSession session, JsonNode data) {
-        String sessionId = session.getId();
+        String webSocketSessionId = session.getId();
+
+        // 获取SSH会话ID
+        String sshSessionId = data.has("sessionId") ? data.get("sessionId").asText() :
+                             sessionToSshMapping.get(webSocketSessionId);
+
+        if (sshSessionId == null) {
+            sendMessage(session, "error", "未找到对应的SSH会话");
+            return;
+        }
+
         int cols = data.get("cols").asInt();
         int rows = data.get("rows").asInt();
-        
-        // TODO: 实现终端大小调整
-        log.debug("终端大小调整: {}x{}", cols, rows);
+
+        try {
+            // 调整SSH会话的PTY大小
+            sshService.resizePty(sshSessionId, cols, rows);
+            log.debug("终端大小调整成功: {}x{}, SSH会话: {}", cols, rows, sshSessionId);
+        } catch (Exception e) {
+            log.error("终端大小调整失败", e);
+            sendMessage(session, "error", "调整终端大小失败: " + e.getMessage());
+        }
     }
 
     /**

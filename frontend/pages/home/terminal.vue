@@ -25,6 +25,7 @@ const {
   disconnectFromServer,
   disconnectAllSessions,
   sendCommand,
+  sendResizeMessage,
   clearTerminal,
   switchToSession,
   getActiveSession,
@@ -116,6 +117,26 @@ const initTerminal = async (sessionId: string, containerElement: HTMLElement, re
   // 存储实例
   terminals.value.set(sessionId, terminal)
   fitAddons.value.set(sessionId, fitAddon)
+
+  // 监听终端大小变化，同步到后端PTY
+  terminal.onResize((size) => {
+    const activeSession = getActiveSession()
+    if (activeSession?.isConnected && activeSession.id === sessionId) {
+      console.log(`终端大小变化: ${size.cols}x${size.rows}, 会话: ${sessionId}`)
+      sendResizeMessage(size.cols, size.rows, sessionId)
+    }
+  })
+
+  // 初始化时发送当前终端大小到后端
+  nextTick(() => {
+    const activeSession = getActiveSession()
+    if (activeSession?.isConnected && activeSession.id === sessionId) {
+      const cols = terminal.cols
+      const rows = terminal.rows
+      console.log(`初始化终端大小: ${cols}x${rows}, 会话: ${sessionId}`)
+      sendResizeMessage(cols, rows, sessionId)
+    }
+  })
 
   // 监听输入
   terminal.onData((data) => {
@@ -348,6 +369,18 @@ const handleResize = () => {
     if (fitAddon && terminal) {
       try {
         fitAddon.fit()
+
+        // 如果是已连接的会话，发送新的大小到后端
+        const session = terminalState.sessions.get(sessionId)
+        if (session?.isConnected) {
+          // 使用nextTick确保fit()完成后再获取新的大小
+          nextTick(() => {
+            const cols = terminal.cols
+            const rows = terminal.rows
+            console.log(`窗口调整后终端大小: ${cols}x${rows}, 会话: ${sessionId}`)
+            sendResizeMessage(cols, rows, sessionId)
+          })
+        }
       } catch (error) {
         console.warn('Terminal resize error:', sessionId, error)
       }

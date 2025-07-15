@@ -302,6 +302,26 @@ public class SshService {
     }
 
     /**
+     * 调整PTY大小
+     */
+    public void resizePty(String sessionId, int cols, int rows) {
+        SshConnection connection = activeSessions.get(sessionId);
+        if (connection != null && connection.isConnected() && connection.getShell() != null) {
+            try {
+                // 使用SSHJ的Shell接口的PTY大小调整功能
+                // changeWindowDimensions(cols, rows, width_pixels, height_pixels)
+                connection.getShell().changeWindowDimensions(cols, rows, 0, 0);
+                log.debug("PTY大小已调整为 {}x{}, 会话: {}", cols, rows, sessionId);
+            } catch (Exception e) {
+                log.error("调整PTY大小失败, 会话: {}, 大小: {}x{}", sessionId, cols, rows, e);
+                throw new RuntimeException("调整PTY大小失败: " + e.getMessage());
+            }
+        } else {
+            log.warn("无法调整PTY大小，会话不存在或未连接: {}", sessionId);
+        }
+    }
+
+    /**
      * 检查连接状态
      */
     public boolean isConnected(String sessionId) {
