@@ -6,9 +6,11 @@ import com.clover.cpanel.dto.ServerRequest;
 import com.clover.cpanel.dto.ServerResponse;
 import com.clover.cpanel.entity.Server;
 import com.clover.cpanel.mapper.ServerMapper;
+import com.clover.cpanel.service.PanelCategoryService;
 import com.clover.cpanel.service.ServerService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,6 +26,9 @@ import java.util.stream.Collectors;
 @Slf4j
 @Service
 public class ServerServiceImpl extends ServiceImpl<ServerMapper, Server> implements ServerService {
+
+    @Autowired
+    private PanelCategoryService panelCategoryService;
 
     @Override
     public List<ServerResponse> getAllServers() {
@@ -72,6 +77,18 @@ public class ServerServiceImpl extends ServiceImpl<ServerMapper, Server> impleme
                 queryWrapper.orderByDesc("sort_order").last("LIMIT 1");
                 Server lastServer = getOne(queryWrapper);
                 server.setSortOrder(lastServer != null ? lastServer.getSortOrder() + 1 : 1);
+            }
+
+            // 处理分类ID
+            if (server.getCategoryId() == null && server.getGroupName() != null && !server.getGroupName().trim().isEmpty()) {
+                // 如果没有指定分类ID但有分组名称，则获取或创建对应的分类
+                Integer categoryId = panelCategoryService.getOrCreateServerCategory(server.getGroupName());
+                server.setCategoryId(categoryId);
+            } else if (server.getCategoryId() == null) {
+                // 如果既没有分类ID也没有分组名称，则使用默认分组
+                Integer categoryId = panelCategoryService.getOrCreateServerCategory("默认分组");
+                server.setCategoryId(categoryId);
+                server.setGroupName("默认分组");
             }
             if (server.getGroupName() == null || server.getGroupName().trim().isEmpty()) {
                 server.setGroupName("默认分组");
@@ -320,6 +337,46 @@ public class ServerServiceImpl extends ServiceImpl<ServerMapper, Server> impleme
             log.error("更新服务器排序失败", e);
             return false;
         }
+    }
+
+    @Override
+    public List<ServerResponse> getServersByCategoryId(Integer categoryId) {
+        QueryWrapper<Server> queryWrapper = new QueryWrapper<>();
+        queryWrapper.eq("category_id", categoryId)
+                   .orderByAsc("sort_order")
+                   .orderByAsc("id");
+        List<Server> servers = list(queryWrapper);
+        return servers.stream()
+                .map(this::convertToResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public Map<Integer, List<ServerResponse>> getServersByCategory() {
+        List<Server> allServers = baseMapper.getAllServersOrdered();
+        Map<Integer, List<ServerResponse>> groupedServers = new LinkedHashMap<>();
+
+        for (Server server : allServers) {
+            Integer categoryId = server.getCategoryId();
+            if (categoryId == null) {
+                // 如果没有分类ID，尝试根据groupName获取或创建分类
+                if (server.getGroupName() != null && !server.getGroupName().trim().isEmpty()) {
+                    categoryId = panelCategoryService.getOrCreateServerCategory(server.getGroupName());
+                    server.setCategoryId(categoryId);
+                    updateById(server); // 更新数据库中的categoryId
+                } else {
+                    categoryId = panelCategoryService.getOrCreateServerCategory("默认分组");
+                    server.setCategoryId(categoryId);
+                    server.setGroupName("默认分组");
+                    updateById(server);
+                }
+            }
+
+            groupedServers.computeIfAbsent(categoryId, k -> new ArrayList<>())
+                         .add(convertToResponse(server));
+        }
+
+        return groupedServers;
     }
 
     /**

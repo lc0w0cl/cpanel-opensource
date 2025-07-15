@@ -132,4 +132,41 @@ public class PanelCategoryController {
             return ApiResponse.error("分类排序更新失败：" + e.getMessage());
         }
     }
+
+    /**
+     * 根据类型获取分类列表
+     * @param type 分类类型：navigation(导航分类)、server(服务器分组)
+     * @return 分类列表
+     */
+    @GetMapping("/type/{type}")
+    public ApiResponse<List<PanelCategory>> getCategoriesByType(@PathVariable String type) {
+        try {
+            List<PanelCategory> categories = panelCategoryService.getCategoriesByType(type);
+            return ApiResponse.success(categories);
+        } catch (Exception e) {
+            return ApiResponse.error("获取分类列表失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * 根据名称和类型获取分类
+     * @param name 分类名称
+     * @param type 分类类型
+     * @return 分类信息
+     */
+    @GetMapping("/search")
+    public ApiResponse<PanelCategory> getCategoryByNameAndType(
+            @RequestParam String name,
+            @RequestParam String type) {
+        try {
+            PanelCategory category = panelCategoryService.getCategoryByNameAndType(name, type);
+            if (category != null) {
+                return ApiResponse.success(category);
+            } else {
+                return ApiResponse.error("分类不存在");
+            }
+        } catch (Exception e) {
+            return ApiResponse.error("查询分类失败：" + e.getMessage());
+        }
+    }
 }

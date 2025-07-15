@@ -114,4 +114,17 @@ public interface ServerService extends IService<Server> {
      * @return 是否更新成功
      */
     boolean updateServerOrderWithSort(List<Map<String, Object>> servers);
+
+    /**
+     * 根据分类ID获取服务器列表
+     * @param categoryId 分类ID
+     * @return 服务器列表
+     */
+    List<ServerResponse> getServersByCategoryId(Integer categoryId);
+
+    /**
+     * 获取按分类ID分组的服务器列表
+     * @return 按分类ID组织的服务器列表
+     */
+    Map<Integer, List<ServerResponse>> getServersByCategory();
 }

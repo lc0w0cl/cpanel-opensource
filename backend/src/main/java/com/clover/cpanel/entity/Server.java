@@ -80,7 +80,13 @@ public class Server {
     private String icon;
 
     /**
-     * 服务器分组
+     * 所属分类ID，外键关联panel_categories表（type=server）
+     */
+    @TableField("category_id")
+    private Integer categoryId;
+
+    /**
+     * 服务器分组（兼容字段，优先使用categoryId）
      */
     @TableField("group_name")
     private String groupName;

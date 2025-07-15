@@ -50,4 +50,26 @@ public interface PanelCategoryService extends IService<PanelCategory> {
      * @return 是否更新成功
      */
     boolean updateCategoriesSort(List<PanelCategory> categories);
+
+    /**
+     * 根据类型获取分类列表
+     * @param type 分类类型：navigation(导航分类)、server(服务器分组)
+     * @return 分类列表
+     */
+    List<PanelCategory> getCategoriesByType(String type);
+
+    /**
+     * 根据名称和类型获取分类
+     * @param name 分类名称
+     * @param type 分类类型
+     * @return 分类对象
+     */
+    PanelCategory getCategoryByNameAndType(String name, String type);
+
+    /**
+     * 为服务器分组创建或获取分类
+     * @param groupName 分组名称
+     * @return 分类ID
+     */
+    Integer getOrCreateServerCategory(String groupName);
 }

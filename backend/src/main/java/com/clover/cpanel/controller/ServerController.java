@@ -314,4 +314,35 @@ public class ServerController {
             return ApiResponse.error("更新服务器排序失败：" + e.getMessage());
         }
     }
+
+    /**
+     * 根据分类ID获取服务器列表
+     * @param categoryId 分类ID
+     * @return 服务器列表
+     */
+    @GetMapping("/category/{categoryId}")
+    public ApiResponse<List<ServerResponse>> getServersByCategoryId(@PathVariable Integer categoryId) {
+        try {
+            List<ServerResponse> servers = serverService.getServersByCategoryId(categoryId);
+            return ApiResponse.success(servers);
+        } catch (Exception e) {
+            log.error("根据分类ID获取服务器列表失败: categoryId={}", categoryId, e);
+            return ApiResponse.error("获取服务器列表失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * 获取按分类ID分组的服务器列表
+     * @return 按分类ID组织的服务器列表
+     */
+    @GetMapping("/by-category")
+    public ApiResponse<Map<Integer, List<ServerResponse>>> getServersByCategory() {
+        try {
+            Map<Integer, List<ServerResponse>> groupedServers = serverService.getServersByCategory();
+            return ApiResponse.success(groupedServers);
+        } catch (Exception e) {
+            log.error("获取按分类分组的服务器列表失败", e);
+            return ApiResponse.error("获取分组服务器列表失败：" + e.getMessage());
+        }
+    }
 }

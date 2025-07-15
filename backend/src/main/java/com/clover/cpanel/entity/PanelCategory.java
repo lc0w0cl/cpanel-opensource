@@ -5,7 +5,7 @@ import lombok.Data;
 import lombok.EqualsAndHashCode;
 
 /**
- * 导航分类实体类
+ * 分类实体类（支持导航分类和服务器分组）
  * 对应数据库表：panel_categories
  */
 @Data
@@ -24,6 +24,12 @@ public class PanelCategory {
      */
     @TableField("name")
     private String name;
+
+    /**
+     * 分类类型：navigation(导航分类)、server(服务器分组)
+     */
+    @TableField("type")
+    private String type;
 
     /**
      * 分类排序序号

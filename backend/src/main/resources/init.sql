@@ -8,11 +8,13 @@ SET CHARACTER_SET_CONNECTION = utf8mb4;
 CREATE TABLE IF NOT EXISTS panel_categories (
   id INT AUTO_INCREMENT PRIMARY KEY COMMENT '分类ID，自增主键',
   name VARCHAR(100) NOT NULL COMMENT '分类名称',
+  type VARCHAR(20) NOT NULL DEFAULT 'navigation' COMMENT '分类类型：navigation(导航分类)、server(服务器分组)',
   `order` INT NOT NULL DEFAULT 0 COMMENT '分类排序序号',
   created_at VARCHAR(19) COMMENT '创建时间，格式：yyyy-MM-dd HH:mm:ss',
   updated_at VARCHAR(19) COMMENT '更新时间，格式：yyyy-MM-dd HH:mm:ss',
-  INDEX idx_order (`order`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='导航分类表';
+  INDEX idx_order (`order`),
+  INDEX idx_type (type)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='分类表（支持导航分类和服务器分组）';
 
 -- 创建导航项表
 CREATE TABLE IF NOT EXISTS panel_navigation_items (
@@ -32,10 +34,13 @@ CREATE TABLE IF NOT EXISTS panel_navigation_items (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='导航项表';
 
 -- 初始化示例分类数据
-INSERT INTO panel_categories (name, `order`, created_at, updated_at) VALUES
-('常用工具', 1, '2023-01-01 00:00:00', '2023-01-01 00:00:00'),
-('开发工具', 2, '2023-01-01 00:00:00', '2023-01-01 00:00:00'),
-('娱乐休闲', 3, '2023-01-01 00:00:00', '2023-01-01 00:00:00');
+INSERT INTO panel_categories (name, type, `order`, created_at, updated_at) VALUES
+('常用工具', 'navigation', 1, '2023-01-01 00:00:00', '2023-01-01 00:00:00'),
+('开发工具', 'navigation', 2, '2023-01-01 00:00:00', '2023-01-01 00:00:00'),
+('娱乐休闲', 'navigation', 3, '2023-01-01 00:00:00', '2023-01-01 00:00:00'),
+('生产环境', 'server', 1, '2023-01-01 00:00:00', '2023-01-01 00:00:00'),
+('测试环境', 'server', 2, '2023-01-01 00:00:00', '2023-01-01 00:00:00'),
+('开发环境', 'server', 3, '2023-01-01 00:00:00', '2023-01-01 00:00:00');
 
 -- 初始化示例导航项数据
 INSERT INTO panel_navigation_items (name, url, logo, category_id, description, internal_url, sort_order, created_at, updated_at) VALUES
@@ -75,7 +80,8 @@ CREATE TABLE IF NOT EXISTS panel_servers (
   private_key_password VARCHAR(255) COMMENT '私钥密码',
   description TEXT COMMENT '服务器描述',
   icon VARCHAR(100) DEFAULT 'material-symbols:dns' COMMENT '服务器图标（Iconify图标名称）',
-  group_name VARCHAR(100) DEFAULT '默认分组' COMMENT '服务器分组',
+  category_id INT COMMENT '所属分类ID，外键关联panel_categories表（type=server）',
+  group_name VARCHAR(100) DEFAULT '默认分组' COMMENT '服务器分组（兼容字段，优先使用category_id）',
   is_default BOOLEAN DEFAULT FALSE COMMENT '是否为默认服务器',
   status VARCHAR(20) DEFAULT 'active' COMMENT '服务器状态：active或inactive',
   sort_order INT DEFAULT 1 COMMENT '排序顺序',
@@ -86,7 +92,9 @@ CREATE TABLE IF NOT EXISTS panel_servers (
   INDEX idx_status (status),
   INDEX idx_sort_order (sort_order),
   INDEX idx_is_default (is_default),
-  INDEX idx_group_name (group_name)
+  INDEX idx_group_name (group_name),
+  INDEX idx_category_id (category_id),
+  FOREIGN KEY (category_id) REFERENCES panel_categories(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='服务器配置表';
 
 -- 初始化音乐配置数据
