@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, onActivated, onDeactivated, nextTick, watch } from 'vue'
 import { Icon } from '@iconify/vue'
-import { Terminal } from 'xterm'
-import { FitAddon } from 'xterm-addon-fit'
+import { Terminal } from '@xterm/xterm'
+import { FitAddon } from '@xterm/addon-fit'
 import { useTerminal, type ServerConnection } from '~/composables/useTerminal'
-import 'xterm/css/xterm.css'
+import '@xterm/xterm/css/xterm.css'
 import './terminal.css'
 
 // 页面元数据
@@ -68,6 +68,7 @@ const initTerminal = async (sessionId: string, containerElement: HTMLElement, re
 
   // 创建终端实例
   const terminal = new Terminal({
+    rendererType: "canvas", //渲染类型
     cursorBlink: true,
     fontSize: 16,
     fontFamily: 'Consolas, "Courier New", monospace',
@@ -94,7 +95,6 @@ const initTerminal = async (sessionId: string, containerElement: HTMLElement, re
       brightCyan: '#80ffff',
       brightWhite: '#ffffff'
     },
-    cols: 80,
     rows: 24,
     // 启用ANSI颜色支持
     allowTransparency: false,
