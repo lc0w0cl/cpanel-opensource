@@ -729,12 +729,14 @@ const setTerminalContainer = (sessionId: string, element: HTMLElement | null) =>
             <Icon icon="material-symbols:dns" class="title-icon" />
             服务器列表
           </h3>
-          <button @click="showGrouped = !showGrouped" class="action-btn group-btn" :title="showGrouped ? '平铺显示' : '分组显示'">
-            <Icon :icon="showGrouped ? 'material-symbols:view-list' : 'material-symbols:folder'" class="btn-icon" />
-          </button>
-          <button @click="loadServersFromDatabase" class="action-btn reload-btn" title="重新加载">
-            <Icon icon="material-symbols:refresh" class="btn-icon" />
-          </button>
+          <div class="panel-actions">
+            <button @click="showGrouped = !showGrouped" class="action-btn group-btn" :title="showGrouped ? '平铺显示' : '分组显示'">
+              <Icon :icon="showGrouped ? 'material-symbols:view-list' : 'material-symbols:folder'" class="btn-icon" />
+            </button>
+            <button @click="loadServersFromDatabase" class="action-btn reload-btn" title="重新加载">
+              <Icon icon="material-symbols:refresh" class="btn-icon" />
+            </button>
+          </div>
         </div>
 
         <div class="server-list">
