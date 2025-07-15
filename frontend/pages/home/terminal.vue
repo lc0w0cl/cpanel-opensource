@@ -33,7 +33,8 @@ const {
   getStatusColor,
   getStatusIcon,
   getGroupedServers,
-  getAllGroups,
+  getAllCategories,
+  getCategoryName,
   loadServersFromDatabase,
   addPageReference,
   removePageReference
@@ -47,7 +48,7 @@ const showTerminal = ref(true) // 默认显示终端
 const currentCommand = ref('')
 const isInServerSelection = ref(true) // 是否在服务器选择模式
 const showGrouped = ref(true) // 是否显示分组
-const expandedGroups = ref<Set<string>>(new Set()) // 展开的分组
+const expandedGroups = ref<Set<number>>(new Set()) // 展开的分组（使用分类ID）
 
 // 初始化指定会话的xterm.js终端
 const initTerminal = async (sessionId: string, containerElement: HTMLElement, restoreContent = false) => {
@@ -590,25 +591,27 @@ onUnmounted(() => {
 })
 
 // 分组展开/收起处理
-const toggleGroup = (groupName: string) => {
-  if (expandedGroups.value.has(groupName)) {
-    expandedGroups.value.delete(groupName)
+const toggleGroup = (categoryId: number | string) => {
+  const id = typeof categoryId === 'string' ? parseInt(categoryId) : categoryId
+  if (expandedGroups.value.has(id)) {
+    expandedGroups.value.delete(id)
   } else {
-    expandedGroups.value.add(groupName)
+    expandedGroups.value.add(id)
   }
 }
 
 // 检查分组是否展开
-const isGroupExpanded = (groupName: string) => {
-  return expandedGroups.value.has(groupName)
+const isGroupExpanded = (categoryId: number | string) => {
+  const id = typeof categoryId === 'string' ? parseInt(categoryId) : categoryId
+  return expandedGroups.value.has(id)
 }
 
 // 初始化时展开所有分组
 onMounted(() => {
   // 延迟展开所有分组，等待服务器数据加载
   setTimeout(() => {
-    const groups = getAllGroups()
-    groups.forEach(group => expandedGroups.value.add(group))
+    const categories = getAllCategories()
+    categories.forEach(category => expandedGroups.value.add(category.id))
   }, 1000)
 })
 
@@ -742,18 +745,18 @@ const setTerminalContainer = (sessionId: string, element: HTMLElement | null) =>
         <div class="server-list">
           <!-- 分组显示模式 -->
           <template v-if="showGrouped">
-            <div v-for="(groupServers, groupName) in getGroupedServers()" :key="groupName" class="server-group">
-              <div class="group-header" @click="toggleGroup(groupName)">
+            <div v-for="(groupServers, categoryId) in getGroupedServers()" :key="categoryId" class="server-group">
+              <div class="group-header" @click="toggleGroup(categoryId)">
                 <Icon
-                  :icon="isGroupExpanded(groupName) ? 'material-symbols:expand-less' : 'material-symbols:expand-more'"
+                  :icon="isGroupExpanded(categoryId) ? 'material-symbols:expand-less' : 'material-symbols:expand-more'"
                   class="group-expand-icon"
                 />
                 <Icon icon="material-symbols:folder" class="group-icon" />
-                <span class="group-name">{{ groupName }}</span>
+                <span class="group-name">{{ getCategoryName(parseInt(categoryId)) }}</span>
                 <span class="group-count">({{ groupServers.length }})</span>
               </div>
               <Transition name="group-expand">
-                <div v-show="isGroupExpanded(groupName)" class="group-servers">
+                <div v-show="isGroupExpanded(categoryId)" class="group-servers">
                   <div
                     v-for="(server, index) in groupServers"
                     :key="server.id"

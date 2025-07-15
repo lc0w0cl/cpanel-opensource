@@ -86,12 +86,6 @@ public class Server {
     private Integer categoryId;
 
     /**
-     * 服务器分组（兼容字段，优先使用categoryId）
-     */
-    @TableField("group_name")
-    private String groupName;
-
-    /**
      * 是否为默认服务器
      */
     @TableField("is_default")

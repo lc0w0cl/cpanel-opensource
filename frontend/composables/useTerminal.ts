@@ -14,7 +14,8 @@ export interface ServerConnection {
   status: 'connected' | 'disconnected' | 'connecting'
   lastConnected?: string
   icon: string // 服务器图标（国旗或其他标识）
-  groupName?: string // 服务器分组
+  categoryId?: number // 所属分类ID
+  sortOrder?: number // 排序顺序
 }
 
 // 终端连接会话接口
@@ -107,13 +108,16 @@ const convertToServerConnection = (config: any): ServerConnection => {
     status: 'disconnected',
     lastConnected: undefined,
     icon: config.icon || getServerIconByLocation(config.serverName || '', config.description || ''),
-    groupName: config.groupName || '默认分组'
+    categoryId: config.categoryId,
+    sortOrder: config.sortOrder || 0
   }
 }
 
 export const useTerminal = () => {
   // 响应式状态
   const servers = ref<ServerConnection[]>([])
+  const groupedServersData = ref<Record<number, ServerConnection[]>>({})
+  const categories = ref<any[]>([])
   const selectedServer = ref<ServerConnection | null>(null)
   const isConnecting = ref(false)
   const connectionError = ref('')
@@ -185,6 +189,47 @@ export const useTerminal = () => {
     }
   }
 
+  // 从数据库加载分类信息
+  const loadCategoriesFromDatabase = async () => {
+    try {
+      const API_BASE_URL = getApiBaseUrl()
+      const response = await apiRequest(`${API_BASE_URL}/categories/type/server`)
+      const result = await response.json()
+
+      if (result.success && result.data) {
+        categories.value = result.data
+        console.log('成功加载服务器分类:', result.data.length, '个分类')
+      } else {
+        console.error('加载服务器分类失败:', result.message)
+      }
+    } catch (error) {
+      console.error('加载服务器分类出错:', error)
+    }
+  }
+
+  // 从数据库加载分组化的服务器配置
+  const loadGroupedServersFromDatabase = async () => {
+    try {
+      const API_BASE_URL = getApiBaseUrl()
+      const response = await apiRequest(`${API_BASE_URL}/servers/by-category`)
+      const result = await response.json()
+
+      if (result.success && result.data) {
+        // 转换分组数据为终端服务器格式
+        const grouped: Record<number, ServerConnection[]> = {}
+        Object.entries(result.data).forEach(([categoryId, serverList]: [string, any[]]) => {
+          grouped[parseInt(categoryId)] = serverList.map((config: any) => convertToServerConnection(config))
+        })
+        groupedServersData.value = grouped
+        console.log('成功加载分组化服务器配置:', Object.keys(grouped).length, '个分组')
+      } else {
+        console.error('加载分组化服务器配置失败:', result.message)
+      }
+    } catch (error) {
+      console.error('加载分组化服务器配置出错:', error)
+    }
+  }
+
   // 从数据库加载服务器配置
   const loadServersFromDatabase = async () => {
     isLoading.value = true
@@ -199,6 +244,10 @@ export const useTerminal = () => {
         const serverConfigs = result.data.map((config: any) => convertToServerConnection(config))
         servers.value = serverConfigs
         console.log('成功加载服务器配置:', serverConfigs.length, '个服务器')
+
+        // 同时加载分类和分组化的服务器数据
+        await loadCategoriesFromDatabase()
+        await loadGroupedServersFromDatabase()
       } else {
         console.error('加载服务器配置失败:', result.message)
         connectionError.value = '加载服务器配置失败: ' + (result.message || '未知错误')
@@ -221,28 +270,34 @@ export const useTerminal = () => {
     return servers.value.find(server => server.id === id)
   }
 
-  // 获取分组化的服务器列表
+  // 获取分组化的服务器列表（使用分类ID）
   const getGroupedServers = () => {
-    const grouped: Record<string, ServerConnection[]> = {}
+    // 如果有从后端加载的分组数据，优先使用
+    if (Object.keys(groupedServersData.value).length > 0) {
+      return groupedServersData.value
+    }
 
+    // 否则回退到前端分组（按categoryId分组）
+    const grouped: Record<number, ServerConnection[]> = {}
     servers.value.forEach(server => {
-      const groupName = server.groupName || '默认分组'
-      if (!grouped[groupName]) {
-        grouped[groupName] = []
+      const categoryId = server.categoryId || 0 // 0表示默认分类
+      if (!grouped[categoryId]) {
+        grouped[categoryId] = []
       }
-      grouped[groupName].push(server)
+      grouped[categoryId].push(server)
     })
-
     return grouped
   }
 
-  // 获取所有分组名称
-  const getAllGroups = () => {
-    const groups = new Set<string>()
-    servers.value.forEach(server => {
-      groups.add(server.groupName || '默认分组')
-    })
-    return Array.from(groups).sort()
+  // 获取所有分类（按后端顺序）
+  const getAllCategories = () => {
+    return categories.value
+  }
+
+  // 根据分类ID获取分类名称
+  const getCategoryName = (categoryId: number) => {
+    const category = categories.value.find(cat => cat.id === categoryId)
+    return category ? category.name : '默认分组'
   }
 
   // 生成唯一的会话ID
@@ -621,7 +676,8 @@ export const useTerminal = () => {
     getServers,
     getServerById,
     getGroupedServers,
-    getAllGroups,
+    getAllCategories,
+    getCategoryName,
     connectToServer,
     disconnectFromServer,
     disconnectAllSessions,

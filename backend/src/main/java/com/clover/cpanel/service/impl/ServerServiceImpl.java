@@ -80,18 +80,10 @@ public class ServerServiceImpl extends ServiceImpl<ServerMapper, Server> impleme
             }
 
             // 处理分类ID
-            if (server.getCategoryId() == null && server.getGroupName() != null && !server.getGroupName().trim().isEmpty()) {
-                // 如果没有指定分类ID但有分组名称，则获取或创建对应的分类
-                Integer categoryId = panelCategoryService.getOrCreateServerCategory(server.getGroupName());
-                server.setCategoryId(categoryId);
-            } else if (server.getCategoryId() == null) {
-                // 如果既没有分类ID也没有分组名称，则使用默认分组
+            if (server.getCategoryId() == null) {
+                // 如果没有分类ID，则使用默认分组
                 Integer categoryId = panelCategoryService.getOrCreateServerCategory("默认分组");
                 server.setCategoryId(categoryId);
-                server.setGroupName("默认分组");
-            }
-            if (server.getGroupName() == null || server.getGroupName().trim().isEmpty()) {
-                server.setGroupName("默认分组");
             }
 
             // 如果设置为默认服务器，先清除其他服务器的默认状态
@@ -239,37 +231,7 @@ public class ServerServiceImpl extends ServiceImpl<ServerMapper, Server> impleme
         }
     }
 
-    @Override
-    public List<ServerResponse> getServersByGroup(String groupName) {
-        List<Server> servers = baseMapper.getServersByGroup(groupName);
-        return servers.stream()
-                .map(this::convertToResponse)
-                .collect(Collectors.toList());
-    }
 
-    @Override
-    public List<String> getAllGroups() {
-        return baseMapper.getAllGroups();
-    }
-
-    @Override
-    public Map<String, List<ServerResponse>> getGroupedServers() {
-        List<Server> allServers = baseMapper.getAllServersOrdered();
-        Map<String, List<ServerResponse>> groupedServers = new LinkedHashMap<>();
-
-        // 按分组组织服务器
-        for (Server server : allServers) {
-            String groupName = server.getGroupName();
-            if (groupName == null || groupName.trim().isEmpty()) {
-                groupName = "默认分组";
-            }
-
-            groupedServers.computeIfAbsent(groupName, k -> new ArrayList<>())
-                    .add(convertToResponse(server));
-        }
-
-        return groupedServers;
-    }
 
     /**
      * 验证服务器请求参数
@@ -359,17 +321,10 @@ public class ServerServiceImpl extends ServiceImpl<ServerMapper, Server> impleme
         for (Server server : allServers) {
             Integer categoryId = server.getCategoryId();
             if (categoryId == null) {
-                // 如果没有分类ID，尝试根据groupName获取或创建分类
-                if (server.getGroupName() != null && !server.getGroupName().trim().isEmpty()) {
-                    categoryId = panelCategoryService.getOrCreateServerCategory(server.getGroupName());
-                    server.setCategoryId(categoryId);
-                    updateById(server); // 更新数据库中的categoryId
-                } else {
-                    categoryId = panelCategoryService.getOrCreateServerCategory("默认分组");
-                    server.setCategoryId(categoryId);
-                    server.setGroupName("默认分组");
-                    updateById(server);
-                }
+                // 如果没有分类ID，创建默认分类
+                categoryId = panelCategoryService.getOrCreateServerCategory("默认分组");
+                server.setCategoryId(categoryId);
+                updateById(server); // 更新数据库中的categoryId
             }
 
             groupedServers.computeIfAbsent(categoryId, k -> new ArrayList<>())

@@ -242,51 +242,7 @@ public class ServerController {
         }
     }
 
-    /**
-     * 根据分组获取服务器列表
-     * @param groupName 分组名称
-     * @return 服务器列表
-     */
-    @GetMapping("/group/{groupName}")
-    public ApiResponse<List<ServerResponse>> getServersByGroup(@PathVariable String groupName) {
-        try {
-            List<ServerResponse> servers = serverService.getServersByGroup(groupName);
-            return ApiResponse.success(servers);
-        } catch (Exception e) {
-            log.error("根据分组获取服务器列表失败", e);
-            return ApiResponse.error("获取服务器列表失败：" + e.getMessage());
-        }
-    }
 
-    /**
-     * 获取所有分组名称
-     * @return 分组名称列表
-     */
-    @GetMapping("/groups")
-    public ApiResponse<List<String>> getAllGroups() {
-        try {
-            List<String> groups = serverService.getAllGroups();
-            return ApiResponse.success(groups);
-        } catch (Exception e) {
-            log.error("获取分组列表失败", e);
-            return ApiResponse.error("获取分组列表失败：" + e.getMessage());
-        }
-    }
-
-    /**
-     * 获取分组化的服务器列表
-     * @return 按分组组织的服务器列表
-     */
-    @GetMapping("/grouped")
-    public ApiResponse<Map<String, List<ServerResponse>>> getGroupedServers() {
-        try {
-            Map<String, List<ServerResponse>> groupedServers = serverService.getGroupedServers();
-            return ApiResponse.success(groupedServers);
-        } catch (Exception e) {
-            log.error("获取分组化服务器列表失败", e);
-            return ApiResponse.error("获取分组化服务器列表失败：" + e.getMessage());
-        }
-    }
 
     /**
      * 更新服务器排序（支持组内排序）
