@@ -1,7 +1,6 @@
 package com.clover.cpanel.websocket;
 
 import com.clover.cpanel.service.SshService;
-import com.clover.cpanel.util.AnsiProcessor;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
@@ -25,9 +24,6 @@ public class TerminalWebSocketHandler implements WebSocketHandler {
 
     @Autowired
     private SshService sshService;
-
-    @Autowired
-    private AnsiProcessor ansiProcessor;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final Map<String, WebSocketSession> webSocketSessions = new ConcurrentHashMap<>();
@@ -244,12 +240,8 @@ public class TerminalWebSocketHandler implements WebSocketHandler {
 
                 String output = sshService.readOutput(sshSessionId);
                 if (!output.isEmpty()) {
-                    // 处理ANSI转义序列
-                    String processedOutput = processTerminalOutput(output);
-                    // 只发送非空的处理后输出
-                    if (!processedOutput.isEmpty()) {
-                        sendMessage(session, "output", processedOutput);
-                    }
+                    // 直接发送原始输出给前端xterm.js处理
+                    sendMessage(session, "output", output);
                 }
             } catch (Exception e) {
                 log.error("读取SSH输出失败", e);
@@ -262,31 +254,7 @@ public class TerminalWebSocketHandler implements WebSocketHandler {
         }, 100, 100, TimeUnit.MILLISECONDS);
     }
 
-    /**
-     * 处理终端输出，转换ANSI转义序列为前端可识别的格式
-     */
-    private String processTerminalOutput(String output) {
-        try {
-            // 检查是否包含ANSI转义序列
-            if (ansiProcessor.containsAnsi(output)) {
-                log.debug("检测到ANSI转义序列，进行处理");
 
-                // 选择处理方式：保留颜色信息和必要的控制序列
-                String processedOutput = ansiProcessor.ansiToHtml(output);
-
-                // 不再过滤纯控制序列，因为它们可能包含重要的终端操作（如backspace）
-                // 让xterm.js自己处理这些控制序列
-                log.debug("原始输出长度: {}, 处理后长度: {}", output.length(), processedOutput.length());
-                return processedOutput;
-            }
-
-            return output;
-        } catch (Exception e) {
-            log.warn("处理终端输出失败: {}", e.getMessage());
-            // 失败时返回纯文本
-            return ansiProcessor.stripAnsi(output);
-        }
-    }
 
     /**
      * 发送消息到WebSocket客户端

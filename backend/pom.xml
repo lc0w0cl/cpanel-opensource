@@ -104,11 +104,11 @@
             <artifactId>spring-boot-starter-websocket</artifactId>
         </dependency>
 
-        <!-- SSH 连接依赖 - 使用官方推荐的新维护版本 -->
+        <!-- SSH 连接依赖 - 使用SSHJ库 -->
         <dependency>
-            <groupId>com.github.mwiede</groupId>
-            <artifactId>jsch</artifactId>
-            <version>0.2.17</version>
+            <groupId>com.hierynomus</groupId>
+            <artifactId>sshj</artifactId>
+            <version>0.40.0</version>
         </dependency>
 
         <!-- Apache Commons IO 用于流处理 -->

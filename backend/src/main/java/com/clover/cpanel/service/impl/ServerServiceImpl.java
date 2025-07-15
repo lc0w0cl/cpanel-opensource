@@ -197,7 +197,7 @@ public class ServerServiceImpl extends ServiceImpl<ServerMapper, Server> impleme
     @Override
     public boolean testServerConnection(ServerRequest request) {
         // TODO: 实现实际的SSH连接测试逻辑
-        // 这里可以使用JSch或其他SSH客户端库进行连接测试
+        // 这里可以使用SSHJ或其他SSH客户端库进行连接测试
         log.info("测试服务器连接: {}:{}", request.getHost(), request.getPort());
         return true;
     }
