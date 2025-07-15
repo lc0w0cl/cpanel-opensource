@@ -9,6 +9,7 @@ import { Icon } from '@iconify/vue'
 interface Category {
   id: number
   name: string
+  type: string
   order: number
   createdAt: string
   updatedAt: string
@@ -20,32 +21,57 @@ interface ApiResponse<T> {
   data: T
 }
 
-// 响应式数据
-const categories = ref<Category[]>([])
-const loading = ref(false)
-const saving = ref(false)
+// 导航分组相关数据
+const navigationCategories = ref<Category[]>([])
+const navigationLoading = ref(false)
+const navigationSaving = ref(false)
 
-// 新增分组相关
-const showAddCategoryForm = ref(false)
-const addCategoryForm = ref({
+// 服务器分组相关数据
+const serverCategories = ref<Category[]>([])
+const serverLoading = ref(false)
+const serverSaving = ref(false)
+
+// 新增导航分组相关
+const showAddNavigationCategoryForm = ref(false)
+const addNavigationCategoryForm = ref({
   name: ''
 })
-const addCategoryLoading = ref(false)
+const addNavigationCategoryLoading = ref(false)
 
-// 编辑分组相关
-const editingCategoryId = ref<number | null>(null)
-const editCategoryForm = ref({
+// 编辑导航分组相关
+const editingNavigationCategoryId = ref<number | null>(null)
+const editNavigationCategoryForm = ref({
   name: ''
 })
-const editCategoryLoading = ref(false)
+const editNavigationCategoryLoading = ref(false)
 
-// 删除分组相关
-const showDeleteConfirm = ref(false)
-const deletingCategory = ref<Category | null>(null)
-const deleteCategoryLoading = ref(false)
+// 删除导航分组相关
+const showDeleteNavigationConfirm = ref(false)
+const deletingNavigationCategory = ref<Category | null>(null)
+const deleteNavigationCategoryLoading = ref(false)
+
+// 新增服务器分组相关
+const showAddServerCategoryForm = ref(false)
+const addServerCategoryForm = ref({
+  name: ''
+})
+const addServerCategoryLoading = ref(false)
+
+// 编辑服务器分组相关
+const editingServerCategoryId = ref<number | null>(null)
+const editServerCategoryForm = ref({
+  name: ''
+})
+const editServerCategoryLoading = ref(false)
+
+// 删除服务器分组相关
+const showDeleteServerCategoryConfirm = ref(false)
+const deletingServerCategory = ref<Category | null>(null)
+const deleteServerCategoryLoading = ref(false)
 
 // 所有设置项的折叠状态
-const isGroupManagementCollapsed = ref(true)
+const isNavigationGroupManagementCollapsed = ref(true)
+const isServerGroupManagementCollapsed = ref(true)
 const isPasswordSettingsCollapsed = ref(true)
 const isSystemConfigCollapsed = ref(true)
 const isThemeSettingsCollapsed = ref(true)
@@ -192,31 +218,50 @@ const resetPrivateKeyForm = () => {
 const config = useRuntimeConfig()
 const API_BASE_URL = `${config.public.apiBaseUrl}/api`
 
-// 获取分组列表
-const fetchCategories = async () => {
-  loading.value = true
+// 获取导航分组列表
+const fetchNavigationCategories = async () => {
+  navigationLoading.value = true
   try {
-    const response = await apiRequest(`${API_BASE_URL}/categories`)
+    const response = await apiRequest(`${API_BASE_URL}/categories/type/navigation`)
     const result: ApiResponse<Category[]> = await response.json()
 
     if (result.success) {
-      categories.value = result.data
+      navigationCategories.value = result.data
     } else {
-      console.error('获取分组失败:', result.message)
+      console.error('获取导航分组失败:', result.message)
     }
   } catch (error) {
-    console.error('获取分组失败:', error)
+    console.error('获取导航分组失败:', error)
   } finally {
-    loading.value = false
+    navigationLoading.value = false
   }
 }
 
-// 保存分组排序
-const saveCategoriesSort = async () => {
-  saving.value = true
+// 获取服务器分组列表
+const fetchServerCategories = async () => {
+  serverLoading.value = true
+  try {
+    const response = await apiRequest(`${API_BASE_URL}/categories/type/server`)
+    const result: ApiResponse<Category[]> = await response.json()
+
+    if (result.success) {
+      serverCategories.value = result.data
+    } else {
+      console.error('获取服务器分组失败:', result.message)
+    }
+  } catch (error) {
+    console.error('获取服务器分组失败:', error)
+  } finally {
+    serverLoading.value = false
+  }
+}
+
+// 保存导航分组排序
+const saveNavigationCategoriesSort = async () => {
+  navigationSaving.value = true
   try {
     // 更新排序号
-    const sortedCategories = categories.value.map((category, index) => ({
+    const sortedCategories = navigationCategories.value.map((category, index) => ({
       ...category,
       order: index + 1
     }))
@@ -232,36 +277,79 @@ const saveCategoriesSort = async () => {
     const result: ApiResponse<string> = await response.json()
 
     if (result.success) {
-      categories.value = sortedCategories
-      console.log('分组排序保存成功')
+      navigationCategories.value = sortedCategories
+      console.log('导航分组排序保存成功')
     } else {
-      console.error('保存排序失败:', result.message)
+      console.error('保存导航分组排序失败:', result.message)
       // 重新获取数据以恢复原始顺序
-      await fetchCategories()
+      await fetchNavigationCategories()
     }
   } catch (error) {
-    console.error('保存排序失败:', error)
+    console.error('保存导航分组排序失败:', error)
     // 重新获取数据以恢复原始顺序
-    await fetchCategories()
+    await fetchNavigationCategories()
   } finally {
-    saving.value = false
+    navigationSaving.value = false
   }
 }
 
-// 处理拖拽结束
-const handleDragEnd = () => {
-  console.log('拖拽排序完成')
-  saveCategoriesSort()
+// 保存服务器分组排序
+const saveServerCategoriesSort = async () => {
+  serverSaving.value = true
+  try {
+    // 更新排序号
+    const sortedCategories = serverCategories.value.map((category, index) => ({
+      ...category,
+      order: index + 1
+    }))
+
+    const response = await apiRequest(`${API_BASE_URL}/categories/sort`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(sortedCategories)
+    })
+
+    const result: ApiResponse<string> = await response.json()
+
+    if (result.success) {
+      serverCategories.value = sortedCategories
+      console.log('服务器分组排序保存成功')
+    } else {
+      console.error('保存服务器分组排序失败:', result.message)
+      // 重新获取数据以恢复原始顺序
+      await fetchServerCategories()
+    }
+  } catch (error) {
+    console.error('保存服务器分组排序失败:', error)
+    // 重新获取数据以恢复原始顺序
+    await fetchServerCategories()
+  } finally {
+    serverSaving.value = false
+  }
 }
 
-// 创建新分组
-const createCategory = async () => {
-  if (!addCategoryForm.value.name.trim()) {
-    console.error('分组名称不能为空')
+// 处理导航分组拖拽结束
+const handleNavigationDragEnd = () => {
+  console.log('导航分组拖拽排序完成')
+  saveNavigationCategoriesSort()
+}
+
+// 处理服务器分组拖拽结束
+const handleServerDragEnd = () => {
+  console.log('服务器分组拖拽排序完成')
+  saveServerCategoriesSort()
+}
+
+// 创建新导航分组
+const createNavigationCategory = async () => {
+  if (!addNavigationCategoryForm.value.name.trim()) {
+    console.error('导航分组名称不能为空')
     return
   }
 
-  addCategoryLoading.value = true
+  addNavigationCategoryLoading.value = true
   try {
     const response = await apiRequest(`${API_BASE_URL}/categories`, {
       method: 'POST',
@@ -269,128 +357,269 @@ const createCategory = async () => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        name: addCategoryForm.value.name.trim()
+        name: addNavigationCategoryForm.value.name.trim(),
+        type: 'navigation'
       })
     })
 
     const result: ApiResponse<Category> = await response.json()
 
     if (result.success) {
-      console.log('分组创建成功')
+      console.log('导航分组创建成功')
       // 重置表单
-      addCategoryForm.value.name = ''
-      showAddCategoryForm.value = false
+      addNavigationCategoryForm.value.name = ''
+      showAddNavigationCategoryForm.value = false
       // 重新获取分组列表
-      await fetchCategories()
+      await fetchNavigationCategories()
     } else {
-      console.error('分组创建失败:', result.message)
+      console.error('导航分组创建失败:', result.message)
     }
   } catch (error) {
-    console.error('分组创建失败:', error)
+    console.error('导航分组创建失败:', error)
   } finally {
-    addCategoryLoading.value = false
+    addNavigationCategoryLoading.value = false
   }
 }
 
-// 取消新增分组
-const cancelAddCategory = () => {
-  addCategoryForm.value.name = ''
-  showAddCategoryForm.value = false
+// 取消新增导航分组
+const cancelAddNavigationCategory = () => {
+  addNavigationCategoryForm.value.name = ''
+  showAddNavigationCategoryForm.value = false
 }
 
-// 开始编辑分组
-const startEditCategory = (category: Category) => {
-  editingCategoryId.value = category.id
-  editCategoryForm.value.name = category.name
-}
-
-// 保存编辑分组
-const saveEditCategory = async () => {
-  if (!editCategoryForm.value.name.trim()) {
-    console.error('分组名称不能为空')
+// 创建新服务器分组
+const createServerCategory = async () => {
+  if (!addServerCategoryForm.value.name.trim()) {
+    console.error('服务器分组名称不能为空')
     return
   }
 
-  if (editingCategoryId.value === null) {
-    return
-  }
-
-  editCategoryLoading.value = true
+  addServerCategoryLoading.value = true
   try {
-    const response = await apiRequest(`${API_BASE_URL}/categories/${editingCategoryId.value}`, {
+    const response = await apiRequest(`${API_BASE_URL}/categories`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        name: addServerCategoryForm.value.name.trim(),
+        type: 'server'
+      })
+    })
+
+    const result: ApiResponse<Category> = await response.json()
+
+    if (result.success) {
+      console.log('服务器分组创建成功')
+      // 重置表单
+      addServerCategoryForm.value.name = ''
+      showAddServerCategoryForm.value = false
+      // 重新获取分组列表
+      await fetchServerCategories()
+    } else {
+      console.error('服务器分组创建失败:', result.message)
+    }
+  } catch (error) {
+    console.error('服务器分组创建失败:', error)
+  } finally {
+    addServerCategoryLoading.value = false
+  }
+}
+
+// 取消新增服务器分组
+const cancelAddServerCategory = () => {
+  addServerCategoryForm.value.name = ''
+  showAddServerCategoryForm.value = false
+}
+
+// 开始编辑导航分组
+const startEditNavigationCategory = (category: Category) => {
+  editingNavigationCategoryId.value = category.id
+  editNavigationCategoryForm.value.name = category.name
+}
+
+// 保存编辑导航分组
+const saveEditNavigationCategory = async () => {
+  if (!editNavigationCategoryForm.value.name.trim()) {
+    console.error('导航分组名称不能为空')
+    return
+  }
+
+  if (editingNavigationCategoryId.value === null) {
+    return
+  }
+
+  editNavigationCategoryLoading.value = true
+  try {
+    const response = await apiRequest(`${API_BASE_URL}/categories/${editingNavigationCategoryId.value}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        name: editCategoryForm.value.name.trim()
+        name: editNavigationCategoryForm.value.name.trim()
       })
     })
 
     const result: ApiResponse<Category> = await response.json()
 
     if (result.success) {
-      console.log('分组更新成功')
+      console.log('导航分组更新成功')
       // 取消编辑状态
-      cancelEditCategory()
+      cancelEditNavigationCategory()
       // 重新获取分组列表
-      await fetchCategories()
+      await fetchNavigationCategories()
     } else {
-      console.error('分组更新失败:', result.message)
+      console.error('导航分组更新失败:', result.message)
     }
   } catch (error) {
-    console.error('分组更新失败:', error)
+    console.error('导航分组更新失败:', error)
   } finally {
-    editCategoryLoading.value = false
+    editNavigationCategoryLoading.value = false
   }
 }
 
-// 取消编辑分组
-const cancelEditCategory = () => {
-  editingCategoryId.value = null
-  editCategoryForm.value.name = ''
+// 取消编辑导航分组
+const cancelEditNavigationCategory = () => {
+  editingNavigationCategoryId.value = null
+  editNavigationCategoryForm.value.name = ''
 }
 
-// 显示删除确认对话框
-const showDeleteCategoryConfirm = (category: Category) => {
-  deletingCategory.value = category
-  showDeleteConfirm.value = true
+// 开始编辑服务器分组
+const startEditServerCategory = (category: Category) => {
+  editingServerCategoryId.value = category.id
+  editServerCategoryForm.value.name = category.name
 }
 
-// 确认删除分组
-const confirmDeleteCategory = async () => {
-  if (!deletingCategory.value) {
+// 保存编辑服务器分组
+const saveEditServerCategory = async () => {
+  if (!editServerCategoryForm.value.name.trim()) {
+    console.error('服务器分组名称不能为空')
     return
   }
 
-  deleteCategoryLoading.value = true
+  if (editingServerCategoryId.value === null) {
+    return
+  }
+
+  editServerCategoryLoading.value = true
   try {
-    const response = await apiRequest(`${API_BASE_URL}/categories/${deletingCategory.value.id}`, {
+    const response = await apiRequest(`${API_BASE_URL}/categories/${editingServerCategoryId.value}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        name: editServerCategoryForm.value.name.trim()
+      })
+    })
+
+    const result: ApiResponse<Category> = await response.json()
+
+    if (result.success) {
+      console.log('服务器分组更新成功')
+      // 取消编辑状态
+      cancelEditServerCategory()
+      // 重新获取分组列表
+      await fetchServerCategories()
+    } else {
+      console.error('服务器分组更新失败:', result.message)
+    }
+  } catch (error) {
+    console.error('服务器分组更新失败:', error)
+  } finally {
+    editServerCategoryLoading.value = false
+  }
+}
+
+// 取消编辑服务器分组
+const cancelEditServerCategory = () => {
+  editingServerCategoryId.value = null
+  editServerCategoryForm.value.name = ''
+}
+
+// 显示删除导航分组确认对话框
+const showDeleteNavigationCategoryConfirm = (category: Category) => {
+  deletingNavigationCategory.value = category
+  showDeleteNavigationConfirm.value = true
+}
+
+// 确认删除导航分组
+const confirmDeleteNavigationCategory = async () => {
+  if (!deletingNavigationCategory.value) {
+    return
+  }
+
+  deleteNavigationCategoryLoading.value = true
+  try {
+    const response = await apiRequest(`${API_BASE_URL}/categories/${deletingNavigationCategory.value.id}`, {
       method: 'DELETE'
     })
 
     const result: ApiResponse<string> = await response.json()
 
     if (result.success) {
-      console.log('分组删除成功')
+      console.log('导航分组删除成功')
       // 关闭确认对话框
-      cancelDeleteCategory()
+      cancelDeleteNavigationCategory()
       // 重新获取分组列表
-      await fetchCategories()
+      await fetchNavigationCategories()
     } else {
-      console.error('分组删除失败:', result.message)
+      console.error('导航分组删除失败:', result.message)
     }
   } catch (error) {
-    console.error('分组删除失败:', error)
+    console.error('导航分组删除失败:', error)
   } finally {
-    deleteCategoryLoading.value = false
+    deleteNavigationCategoryLoading.value = false
   }
 }
 
-// 取消删除分组
-const cancelDeleteCategory = () => {
-  deletingCategory.value = null
-  showDeleteConfirm.value = false
+// 取消删除导航分组
+const cancelDeleteNavigationCategory = () => {
+  deletingNavigationCategory.value = null
+  showDeleteNavigationConfirm.value = false
+}
+
+// 显示删除服务器分组确认对话框
+const showDeleteServerCategoryConfirmDialog = (category: Category) => {
+  deletingServerCategory.value = category
+  showDeleteServerCategoryConfirm.value = true
+}
+
+// 确认删除服务器分组
+const confirmDeleteServerCategory = async () => {
+  if (!deletingServerCategory.value) {
+    return
+  }
+
+  deleteServerCategoryLoading.value = true
+  try {
+    const response = await apiRequest(`${API_BASE_URL}/categories/${deletingServerCategory.value.id}`, {
+      method: 'DELETE'
+    })
+
+    const result: ApiResponse<string> = await response.json()
+
+    if (result.success) {
+      console.log('服务器分组删除成功')
+      // 关闭确认对话框
+      cancelDeleteServerCategory()
+      // 重新获取分组列表
+      await fetchServerCategories()
+    } else {
+      console.error('服务器分组删除失败:', result.message)
+    }
+  } catch (error) {
+    console.error('服务器分组删除失败:', error)
+  } finally {
+    deleteServerCategoryLoading.value = false
+  }
+}
+
+// 取消删除服务器分组
+const cancelDeleteServerCategory = () => {
+  deletingServerCategory.value = null
+  showDeleteServerCategoryConfirm.value = false
 }
 
 // 修改密码
@@ -451,7 +680,8 @@ const cancelPasswordChange = () => {
 
 // 全部展开/收起功能
 const toggleAllSections = () => {
-  const allCollapsed = isGroupManagementCollapsed.value &&
+  const allCollapsed = isNavigationGroupManagementCollapsed.value &&
+                      isServerGroupManagementCollapsed.value &&
                       isPasswordSettingsCollapsed.value &&
                       isSystemConfigCollapsed.value &&
                       isThemeSettingsCollapsed.value &&
@@ -462,7 +692,8 @@ const toggleAllSections = () => {
 
   const newState = !allCollapsed
 
-  isGroupManagementCollapsed.value = newState
+  isNavigationGroupManagementCollapsed.value = newState
+  isServerGroupManagementCollapsed.value = newState
   isPasswordSettingsCollapsed.value = newState
   isSystemConfigCollapsed.value = newState
   isThemeSettingsCollapsed.value = newState
@@ -474,7 +705,8 @@ const toggleAllSections = () => {
 
 // 计算是否全部收起
 const allSectionsCollapsed = computed(() => {
-  return isGroupManagementCollapsed.value &&
+  return isNavigationGroupManagementCollapsed.value &&
+         isServerGroupManagementCollapsed.value &&
          isPasswordSettingsCollapsed.value &&
          isSystemConfigCollapsed.value &&
          isThemeSettingsCollapsed.value &&
@@ -1257,7 +1489,8 @@ const onAfterLeave = (el: HTMLElement) => {
 
 // 页面加载时获取数据
 onMounted(async () => {
-  fetchCategories()
+  fetchNavigationCategories()
+  fetchServerCategories()
   await loadSavedWallpaper()
   await loadLogoConfig()
   await loadMusicConfig()
@@ -1282,7 +1515,7 @@ onUnmounted(() => {
       <div class="page-header">
         <div class="header-left">
           <h1 class="page-title">系统设置</h1>
-          <p class="page-description">管理导航分组和系统配置</p>
+          <p class="page-description">分别管理导航分组、服务器分组和系统配置</p>
         </div>
         <div class="header-right">
           <button class="toggle-all-btn" @click="toggleAllSections">
@@ -1294,186 +1527,379 @@ onUnmounted(() => {
 
       <!-- 设置网格布局 -->
       <div class="settings-grid">
-        <!-- 分组管理 -->
-        <div class="settings-item group-management-item">
+        <!-- 分组管理 - 左右布局 -->
+        <div class="settings-item group-management-item full-width">
           <ClientOnly>
             <div class="settings-wrapper">
-              <div class="item-header" @click="isGroupManagementCollapsed = !isGroupManagementCollapsed">
+              <div class="item-header">
                 <div class="header-content">
                   <Icon icon="mdi:folder-multiple" class="header-icon" />
                   <div>
                     <h2 class="item-title">分组管理</h2>
-                    <p class="item-description">拖拽调整分组显示顺序</p>
+                    <p class="item-description">分别管理导航分组和服务器分组</p>
                   </div>
                 </div>
-                <div class="header-actions">
-                  <button
-                    v-if="!showAddCategoryForm && !isGroupManagementCollapsed"
-                    class="add-category-btn"
-                    @click.stop="showAddCategoryForm = true"
-                  >
-                    <Icon icon="mdi:plus" class="btn-icon" />
-                    新增分组
-                  </button>
-                  <button
-                    v-if="saving && !isGroupManagementCollapsed"
-                    class="save-button saving"
-                    disabled
-                  >
-                    <Icon icon="mdi:loading" class="spin" />
-                    保存中...
-                  </button>
-                  <button class="collapse-btn" :class="{ collapsed: isGroupManagementCollapsed }">
-                    <Icon icon="mdi:chevron-down" class="collapse-icon" />
-                  </button>
-                </div>
               </div>
 
-          <Transition
-            name="expand"
-            mode="out-in"
-            @enter="onEnter"
-            @after-enter="onAfterEnter"
-            @leave="onLeave"
-            @after-leave="onAfterLeave"
-          >
-            <div v-if="!isGroupManagementCollapsed" class="item-content">
-            <!-- 新增分组表单 -->
-            <div v-if="showAddCategoryForm" class="add-category-form">
-              <div class="form-header">
-                <h3 class="form-title">新增分组</h3>
-                <p class="form-description">输入分组名称创建新的导航分组</p>
-              </div>
-
-              <div class="form-group">
-                <label class="form-label">分组名称</label>
-                <input
-                  v-model="addCategoryForm.name"
-                  type="text"
-                  class="form-input"
-                  placeholder="请输入分组名称"
-                  @keyup.enter="createCategory"
-                  :disabled="addCategoryLoading"
-                />
-              </div>
-
-              <div class="form-actions">
-                <button
-                  class="cancel-btn"
-                  @click="cancelAddCategory"
-                  :disabled="addCategoryLoading"
-                >
-                  取消
-                </button>
-                <button
-                  class="save-btn"
-                  @click="createCategory"
-                  :disabled="addCategoryLoading || !addCategoryForm.name.trim()"
-                >
-                  <Icon v-if="addCategoryLoading" icon="mdi:loading" class="spin btn-icon" />
-                  <Icon v-else icon="mdi:check" class="btn-icon" />
-                  {{ addCategoryLoading ? '创建中...' : '创建' }}
-                </button>
-              </div>
-            </div>
-
-            <div v-else-if="loading" class="loading-state compact">
-              <Icon icon="mdi:loading" class="loading-icon spin" />
-              <p>加载中...</p>
-            </div>
-
-            <div v-else-if="categories.length === 0" class="empty-state compact">
-              <Icon icon="mdi:folder-off" class="empty-icon" />
-              <p>暂无数据</p>
-            </div>
-
-            <VueDraggable
-              v-else
-              v-model="categories"
-              class="categories-list"
-              :animation="200"
-              ghost-class="ghost-item"
-              chosen-class="chosen-item"
-              drag-class="drag-item"
-              @end="handleDragEnd"
-            >
-              <div
-                v-for="(category, index) in categories"
-                :key="category.id"
-                class="category-item"
-              >
-                <div class="drag-handle">
-                  <Icon icon="mdi:drag-vertical" class="drag-icon" />
-                </div>
-
-                <div class="category-info">
-                  <!-- 编辑状态 -->
-                  <div v-if="editingCategoryId === category.id" class="edit-form">
-                    <input
-                      v-model="editCategoryForm.name"
-                      type="text"
-                      class="edit-input"
-                      placeholder="请输入分组名称"
-                      @keyup.enter="saveEditCategory"
-                      @keyup.esc="cancelEditCategory"
-                      :disabled="editCategoryLoading"
-                    />
-                    <div class="edit-actions">
+              <!-- 左右分栏布局 -->
+              <div class="group-management-layout">
+                <!-- 左侧：导航分组管理 -->
+                <div class="group-section navigation-groups">
+                  <div class="section-header" @click="isNavigationGroupManagementCollapsed = !isNavigationGroupManagementCollapsed">
+                    <div class="header-content">
+                      <Icon icon="mdi:navigation" class="header-icon" />
+                      <div>
+                        <h3 class="section-title">导航分组</h3>
+                        <p class="section-description">管理导航页面的分组</p>
+                      </div>
+                    </div>
+                    <div class="header-actions">
                       <button
-                        class="edit-save-btn"
-                        @click="saveEditCategory"
-                        :disabled="editCategoryLoading || !editCategoryForm.name.trim()"
+                        v-if="!showAddNavigationCategoryForm && !isNavigationGroupManagementCollapsed"
+                        class="add-category-btn"
+                        @click.stop="showAddNavigationCategoryForm = true"
                       >
-                        <Icon v-if="editCategoryLoading" icon="mdi:loading" class="spin" />
-                        <Icon v-else icon="mdi:check" />
+                        <Icon icon="mdi:plus" class="btn-icon" />
+                        新增分组
                       </button>
                       <button
-                        class="edit-cancel-btn"
-                        @click="cancelEditCategory"
-                        :disabled="editCategoryLoading"
+                        v-if="navigationSaving && !isNavigationGroupManagementCollapsed"
+                        class="save-button saving"
+                        disabled
                       >
-                        <Icon icon="mdi:close" />
+                        <Icon icon="mdi:loading" class="spin" />
+                        保存中...
+                      </button>
+                      <button class="collapse-btn" :class="{ collapsed: isNavigationGroupManagementCollapsed }">
+                        <Icon icon="mdi:chevron-down" class="collapse-icon" />
                       </button>
                     </div>
                   </div>
 
-                  <!-- 显示状态 -->
-                  <div v-else>
-                    <div class="category-name">{{ category.name }}</div>
-                    <div class="category-meta">
-                      #{{ index + 1 }}
+                  <Transition
+                    name="expand"
+                    mode="out-in"
+                    @enter="onEnter"
+                    @after-enter="onAfterEnter"
+                    @leave="onLeave"
+                    @after-leave="onAfterLeave"
+                  >
+                    <div v-if="!isNavigationGroupManagementCollapsed" class="section-content">
+                      <!-- 新增导航分组表单 -->
+                      <div v-if="showAddNavigationCategoryForm" class="add-category-form">
+                        <div class="form-header">
+                          <h4 class="form-title">新增导航分组</h4>
+                          <p class="form-description">输入分组名称创建新的导航分组</p>
+                        </div>
+
+                        <div class="form-group">
+                          <label class="form-label">分组名称</label>
+                          <input
+                            v-model="addNavigationCategoryForm.name"
+                            type="text"
+                            class="form-input"
+                            placeholder="请输入分组名称"
+                            @keyup.enter="createNavigationCategory"
+                            :disabled="addNavigationCategoryLoading"
+                          />
+                        </div>
+
+                        <div class="form-actions">
+                          <button
+                            class="cancel-btn"
+                            @click="cancelAddNavigationCategory"
+                            :disabled="addNavigationCategoryLoading"
+                          >
+                            取消
+                          </button>
+                          <button
+                            class="save-btn"
+                            @click="createNavigationCategory"
+                            :disabled="addNavigationCategoryLoading || !addNavigationCategoryForm.name.trim()"
+                          >
+                            <Icon v-if="addNavigationCategoryLoading" icon="mdi:loading" class="spin btn-icon" />
+                            <Icon v-else icon="mdi:check" class="btn-icon" />
+                            {{ addNavigationCategoryLoading ? '创建中...' : '创建' }}
+                          </button>
+                        </div>
+                      </div>
+
+                      <div v-else-if="navigationLoading" class="loading-state compact">
+                        <Icon icon="mdi:loading" class="loading-icon spin" />
+                        <p>加载中...</p>
+                      </div>
+
+                      <div v-else-if="navigationCategories.length === 0" class="empty-state compact">
+                        <Icon icon="mdi:folder-off" class="empty-icon" />
+                        <p>暂无导航分组</p>
+                      </div>
+
+                      <VueDraggable
+                        v-else
+                        v-model="navigationCategories"
+                        class="categories-list"
+                        :animation="200"
+                        ghost-class="ghost-item"
+                        chosen-class="chosen-item"
+                        drag-class="drag-item"
+                        @end="handleNavigationDragEnd"
+                      >
+                        <div
+                          v-for="(category, index) in navigationCategories"
+                          :key="category.id"
+                          class="category-item"
+                        >
+                          <div class="drag-handle">
+                            <Icon icon="mdi:drag-vertical" class="drag-icon" />
+                          </div>
+
+                          <div class="category-info">
+                            <!-- 编辑状态 -->
+                            <div v-if="editingNavigationCategoryId === category.id" class="edit-form">
+                              <input
+                                v-model="editNavigationCategoryForm.name"
+                                type="text"
+                                class="edit-input"
+                                placeholder="请输入分组名称"
+                                @keyup.enter="saveEditNavigationCategory"
+                                @keyup.esc="cancelEditNavigationCategory"
+                                :disabled="editNavigationCategoryLoading"
+                              />
+                              <div class="edit-actions">
+                                <button
+                                  class="edit-save-btn"
+                                  @click="saveEditNavigationCategory"
+                                  :disabled="editNavigationCategoryLoading || !editNavigationCategoryForm.name.trim()"
+                                >
+                                  <Icon v-if="editNavigationCategoryLoading" icon="mdi:loading" class="spin" />
+                                  <Icon v-else icon="mdi:check" />
+                                </button>
+                                <button
+                                  class="edit-cancel-btn"
+                                  @click="cancelEditNavigationCategory"
+                                  :disabled="editNavigationCategoryLoading"
+                                >
+                                  <Icon icon="mdi:close" />
+                                </button>
+                              </div>
+                            </div>
+
+                            <!-- 显示状态 -->
+                            <div v-else>
+                              <div class="category-name">{{ category.name }}</div>
+                              <div class="category-meta">
+                                #{{ index + 1 }}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div class="category-actions">
+                            <span class="order-badge">{{ index + 1 }}</span>
+
+                            <!-- 操作按钮 -->
+                            <div v-if="editingNavigationCategoryId !== category.id" class="action-buttons">
+                              <button
+                                class="edit-btn"
+                                @click="startEditNavigationCategory(category)"
+                                title="编辑分组"
+                              >
+                                <Icon icon="mdi:pencil" />
+                              </button>
+                              <button
+                                class="delete-btn"
+                                @click="showDeleteNavigationCategoryConfirm(category)"
+                                title="删除分组"
+                              >
+                                <Icon icon="mdi:delete" />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </VueDraggable>
+                    </div>
+                  </Transition>
+                </div>
+
+                <!-- 右侧：服务器分组管理 -->
+                <div class="group-section server-groups">
+                  <div class="section-header" @click="isServerGroupManagementCollapsed = !isServerGroupManagementCollapsed">
+                    <div class="header-content">
+                      <Icon icon="mdi:server" class="header-icon" />
+                      <div>
+                        <h3 class="section-title">服务器分组</h3>
+                        <p class="section-description">管理SSH服务器的分组</p>
+                      </div>
+                    </div>
+                    <div class="header-actions">
+                      <button
+                        v-if="!showAddServerCategoryForm && !isServerGroupManagementCollapsed"
+                        class="add-category-btn"
+                        @click.stop="showAddServerCategoryForm = true"
+                      >
+                        <Icon icon="mdi:plus" class="btn-icon" />
+                        新增分组
+                      </button>
+                      <button
+                        v-if="serverSaving && !isServerGroupManagementCollapsed"
+                        class="save-button saving"
+                        disabled
+                      >
+                        <Icon icon="mdi:loading" class="spin" />
+                        保存中...
+                      </button>
+                      <button class="collapse-btn" :class="{ collapsed: isServerGroupManagementCollapsed }">
+                        <Icon icon="mdi:chevron-down" class="collapse-icon" />
+                      </button>
                     </div>
                   </div>
-                </div>
 
-                <div class="category-actions">
-                  <span class="order-badge">{{ index + 1 }}</span>
+                  <Transition
+                    name="expand"
+                    mode="out-in"
+                    @enter="onEnter"
+                    @after-enter="onAfterEnter"
+                    @leave="onLeave"
+                    @after-leave="onAfterLeave"
+                  >
+                    <div v-if="!isServerGroupManagementCollapsed" class="section-content">
+                      <!-- 新增服务器分组表单 -->
+                      <div v-if="showAddServerCategoryForm" class="add-category-form">
+                        <div class="form-header">
+                          <h4 class="form-title">新增服务器分组</h4>
+                          <p class="form-description">输入分组名称创建新的服务器分组</p>
+                        </div>
 
-                  <!-- 操作按钮 -->
-                  <div v-if="editingCategoryId !== category.id" class="action-buttons">
-                    <button
-                      class="edit-btn"
-                      @click="startEditCategory(category)"
-                      title="编辑分组"
-                    >
-                      <Icon icon="mdi:pencil" />
-                    </button>
-                    <button
-                      class="delete-btn"
-                      @click="showDeleteCategoryConfirm(category)"
-                      title="删除分组"
-                    >
-                      <Icon icon="mdi:delete" />
-                    </button>
-                  </div>
+                        <div class="form-group">
+                          <label class="form-label">分组名称</label>
+                          <input
+                            v-model="addServerCategoryForm.name"
+                            type="text"
+                            class="form-input"
+                            placeholder="请输入分组名称"
+                            @keyup.enter="createServerCategory"
+                            :disabled="addServerCategoryLoading"
+                          />
+                        </div>
+
+                        <div class="form-actions">
+                          <button
+                            class="cancel-btn"
+                            @click="cancelAddServerCategory"
+                            :disabled="addServerCategoryLoading"
+                          >
+                            取消
+                          </button>
+                          <button
+                            class="save-btn"
+                            @click="createServerCategory"
+                            :disabled="addServerCategoryLoading || !addServerCategoryForm.name.trim()"
+                          >
+                            <Icon v-if="addServerCategoryLoading" icon="mdi:loading" class="spin btn-icon" />
+                            <Icon v-else icon="mdi:check" class="btn-icon" />
+                            {{ addServerCategoryLoading ? '创建中...' : '创建' }}
+                          </button>
+                        </div>
+                      </div>
+
+                      <div v-else-if="serverLoading" class="loading-state compact">
+                        <Icon icon="mdi:loading" class="loading-icon spin" />
+                        <p>加载中...</p>
+                      </div>
+
+                      <div v-else-if="serverCategories.length === 0" class="empty-state compact">
+                        <Icon icon="mdi:folder-off" class="empty-icon" />
+                        <p>暂无服务器分组</p>
+                      </div>
+
+                      <VueDraggable
+                        v-else
+                        v-model="serverCategories"
+                        class="categories-list"
+                        :animation="200"
+                        ghost-class="ghost-item"
+                        chosen-class="chosen-item"
+                        drag-class="drag-item"
+                        @end="handleServerDragEnd"
+                      >
+                        <div
+                          v-for="(category, index) in serverCategories"
+                          :key="category.id"
+                          class="category-item"
+                        >
+                          <div class="drag-handle">
+                            <Icon icon="mdi:drag-vertical" class="drag-icon" />
+                          </div>
+
+                          <div class="category-info">
+                            <!-- 编辑状态 -->
+                            <div v-if="editingServerCategoryId === category.id" class="edit-form">
+                              <input
+                                v-model="editServerCategoryForm.name"
+                                type="text"
+                                class="edit-input"
+                                placeholder="请输入分组名称"
+                                @keyup.enter="saveEditServerCategory"
+                                @keyup.esc="cancelEditServerCategory"
+                                :disabled="editServerCategoryLoading"
+                              />
+                              <div class="edit-actions">
+                                <button
+                                  class="edit-save-btn"
+                                  @click="saveEditServerCategory"
+                                  :disabled="editServerCategoryLoading || !editServerCategoryForm.name.trim()"
+                                >
+                                  <Icon v-if="editServerCategoryLoading" icon="mdi:loading" class="spin" />
+                                  <Icon v-else icon="mdi:check" />
+                                </button>
+                                <button
+                                  class="edit-cancel-btn"
+                                  @click="cancelEditServerCategory"
+                                  :disabled="editServerCategoryLoading"
+                                >
+                                  <Icon icon="mdi:close" />
+                                </button>
+                              </div>
+                            </div>
+
+                            <!-- 显示状态 -->
+                            <div v-else>
+                              <div class="category-name">{{ category.name }}</div>
+                              <div class="category-meta">
+                                #{{ index + 1 }}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div class="category-actions">
+                            <span class="order-badge">{{ index + 1 }}</span>
+
+                            <!-- 操作按钮 -->
+                            <div v-if="editingServerCategoryId !== category.id" class="action-buttons">
+                              <button
+                                class="edit-btn"
+                                @click="startEditServerCategory(category)"
+                                title="编辑分组"
+                              >
+                                <Icon icon="mdi:pencil" />
+                              </button>
+                              <button
+                                class="delete-btn"
+                                @click="showDeleteServerCategoryConfirmDialog(category)"
+                                title="删除分组"
+                              >
+                                <Icon icon="mdi:delete" />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </VueDraggable>
+                    </div>
+                  </Transition>
                 </div>
               </div>
-            </VueDraggable>
-              </div>
-          </Transition>
 
               <BorderBeam
-                  v-if="!isGroupManagementCollapsed"
+                  v-if="!isNavigationGroupManagementCollapsed || !isServerGroupManagementCollapsed"
                   :size="200"
                   :duration="15"
                   :delay="0"
@@ -2722,17 +3148,17 @@ onUnmounted(() => {
       </div>
     </div>
 
-    <!-- 删除确认对话框 -->
-    <div v-if="showDeleteConfirm" class="modal-overlay" @click="cancelDeleteCategory">
+    <!-- 导航分组删除确认对话框 -->
+    <div v-if="showDeleteNavigationConfirm" class="modal-overlay" @click="cancelDeleteNavigationCategory">
       <div class="delete-confirm-dialog" @click.stop>
         <div class="dialog-header">
           <Icon icon="mdi:alert-circle" class="warning-icon" />
-          <h3 class="dialog-title">确认删除分组</h3>
+          <h3 class="dialog-title">确认删除导航分组</h3>
         </div>
 
         <div class="dialog-content">
           <p class="dialog-message">
-            您确定要删除分组 <strong>"{{ deletingCategory?.name }}"</strong> 吗？
+            您确定要删除导航分组 <strong>"{{ deletingNavigationCategory?.name }}"</strong> 吗？
           </p>
           <p class="dialog-warning">
             此操作不可撤销，该分组下的所有导航项也将被删除。
@@ -2742,35 +3168,73 @@ onUnmounted(() => {
         <div class="dialog-actions">
           <button
             class="dialog-cancel-btn"
-            @click="cancelDeleteCategory"
-            :disabled="deleteCategoryLoading"
+            @click="cancelDeleteNavigationCategory"
+            :disabled="deleteNavigationCategoryLoading"
           >
             取消
           </button>
           <button
             class="dialog-confirm-btn"
-            @click="confirmDeleteCategory"
-            :disabled="deleteCategoryLoading"
+            @click="confirmDeleteNavigationCategory"
+            :disabled="deleteNavigationCategoryLoading"
           >
-            <Icon v-if="deleteCategoryLoading" icon="mdi:loading" class="spin btn-icon" />
+            <Icon v-if="deleteNavigationCategoryLoading" icon="mdi:loading" class="spin btn-icon" />
             <Icon v-else icon="mdi:delete" class="btn-icon" />
-            {{ deleteCategoryLoading ? '删除中...' : '确认删除' }}
+            {{ deleteNavigationCategoryLoading ? '删除中...' : '确认删除' }}
           </button>
         </div>
       </div>
     </div>
 
-    <!-- 服务器删除确认对话框 -->
-    <div v-if="showDeleteServerConfirm" class="modal-overlay" @click="cancelDeleteServer">
+    <!-- 服务器分组删除确认对话框 -->
+    <div v-if="showDeleteServerCategoryConfirm" class="modal-overlay" @click="cancelDeleteServerCategory">
       <div class="delete-confirm-dialog" @click.stop>
         <div class="dialog-header">
           <Icon icon="mdi:alert-circle" class="warning-icon" />
-          <h3 class="dialog-title">确认删除服务器</h3>
+          <h3 class="dialog-title">确认删除服务器分组</h3>
         </div>
 
         <div class="dialog-content">
           <p class="dialog-message">
-            您确定要删除服务器 <strong>"{{ deletingServer?.serverName }}"</strong> 吗？
+            您确定要删除服务器分组 <strong>"{{ deletingServerCategory?.name }}"</strong> 吗？
+          </p>
+          <p class="dialog-warning">
+            此操作不可撤销，该分组下的所有服务器也将被移动到默认分组。
+          </p>
+        </div>
+
+        <div class="dialog-actions">
+          <button
+            class="dialog-cancel-btn"
+            @click="cancelDeleteServerCategory"
+            :disabled="deleteServerCategoryLoading"
+          >
+            取消
+          </button>
+          <button
+            class="dialog-confirm-btn"
+            @click="confirmDeleteServerCategory"
+            :disabled="deleteServerCategoryLoading"
+          >
+            <Icon v-if="deleteServerCategoryLoading" icon="mdi:loading" class="spin btn-icon" />
+            <Icon v-else icon="mdi:delete" class="btn-icon" />
+            {{ deleteServerCategoryLoading ? '删除中...' : '确认删除' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 服务器配置删除确认对话框 -->
+    <div v-if="showDeleteServerConfirm" class="modal-overlay" @click="cancelDeleteServer">
+      <div class="delete-confirm-dialog" @click.stop>
+        <div class="dialog-header">
+          <Icon icon="mdi:alert-circle" class="warning-icon" />
+          <h3 class="dialog-title">确认删除服务器配置</h3>
+        </div>
+
+        <div class="dialog-content">
+          <p class="dialog-message">
+            您确定要删除服务器配置 <strong>"{{ deletingServer?.serverName }}"</strong> 吗？
           </p>
           <p class="dialog-warning">
             此操作不可撤销，服务器配置信息将被永久删除。
@@ -2936,12 +3400,71 @@ onUnmounted(() => {
 
 /* 设置项特殊样式 */
 .password-settings-item,
-.group-management-item,
 .system-config-item,
 .music-settings-item,
 .backup-restore-item,
 .system-info-item {
   position: relative;
+}
+
+/* 分组管理项 - 全宽布局 */
+.group-management-item {
+  position: relative;
+  grid-column: 1 / -1; /* 占据整行 */
+}
+
+.group-management-item.full-width {
+  grid-column: 1 / -1;
+}
+
+.group-management-item .settings-wrapper {
+  max-width: none; /* 移除最大宽度限制 */
+}
+
+/* 分组管理左右布局 */
+.group-management-layout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+  padding: 1.5rem;
+}
+
+.group-section {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0.75rem;
+  overflow: hidden;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.25rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.section-header:hover {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.section-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+  margin: 0 0 0.25rem 0;
+}
+
+.section-description {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.6);
+  margin: 0;
+}
+
+.section-content {
+  padding: 1.25rem;
 }
 
 /* 服务器设置项 - 扩大宽度 */
@@ -4488,6 +5011,12 @@ onUnmounted(() => {
     grid-template-columns: 1fr;
     gap: 1rem;
   }
+
+  /* 分组管理在中等屏幕上变为上下布局 */
+  .group-management-layout {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
 }
 
 @media (max-width: 768px) {
@@ -4517,6 +5046,23 @@ onUnmounted(() => {
   .settings-grid {
     grid-template-columns: 1fr;
     gap: 1rem;
+  }
+
+  /* 分组管理在移动端的样式 */
+  .group-management-layout {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+    padding: 1rem;
+  }
+
+  .section-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+
+  .section-content {
+    padding: 1rem;
   }
 
   .item-header {
