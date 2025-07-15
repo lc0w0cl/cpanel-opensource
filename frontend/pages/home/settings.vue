@@ -3702,31 +3702,31 @@ onUnmounted(() => {
 .password-form {
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: 1rem;
 }
 
 .form-group {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.375rem;
 }
 
 .form-label {
-  font-size: 0.875rem;
+  font-size: 0.8rem;
   font-weight: 500;
   color: rgba(255, 255, 255, 0.8);
 }
 
 .form-input {
-  padding: 0.75rem 1rem;
+  padding: 0.5rem 0.75rem;
   border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 0.5rem;
+  border-radius: 0.375rem;
   background: linear-gradient(135deg,
     rgba(255, 255, 255, 0.08) 0%,
     rgba(255, 255, 255, 0.04) 100%
   );
   color: rgba(255, 255, 255, 0.9);
-  font-size: 0.875rem;
+  font-size: 0.8rem;
   transition: all 0.3s ease;
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
@@ -3748,20 +3748,20 @@ onUnmounted(() => {
 
 .form-actions {
   display: flex;
-  gap: 1rem;
+  gap: 0.75rem;
   justify-content: flex-end;
-  margin-top: 0.5rem;
+  margin-top: 0.375rem;
 }
 
 .cancel-btn,
 .save-btn {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.75rem 1.5rem;
+  gap: 0.375rem;
+  padding: 0.5rem 1rem;
   border: none;
-  border-radius: 0.5rem;
-  font-size: 0.875rem;
+  border-radius: 0.375rem;
+  font-size: 0.8rem;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.3s ease;
@@ -4579,10 +4579,10 @@ onUnmounted(() => {
 .radio-option {
   display: flex;
   align-items: flex-start;
-  gap: 0.75rem;
-  padding: 1rem;
+  gap: 0.5rem;
+  padding: 0.75rem;
   border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 0.5rem;
+  border-radius: 0.375rem;
   background: rgba(255, 255, 255, 0.02);
   cursor: pointer;
   transition: all 0.3s ease;
@@ -4606,8 +4606,8 @@ onUnmounted(() => {
 
 .radio-option input[type="radio"] {
   appearance: none;
-  width: 1.25rem;
-  height: 1.25rem;
+  width: 1rem;
+  height: 1rem;
   border: 2px solid rgba(255, 255, 255, 0.3);
   border-radius: 50%;
   background: transparent;
@@ -4625,13 +4625,13 @@ onUnmounted(() => {
 .radio-content {
   display: flex;
   align-items: flex-start;
-  gap: 0.75rem;
+  gap: 0.5rem;
   flex: 1;
 }
 
 .option-icon {
-  width: 1.5rem;
-  height: 1.5rem;
+  width: 1.25rem;
+  height: 1.25rem;
   color: rgba(236, 72, 153, 0.8);
   flex-shrink: 0;
   margin-top: 0.125rem;
@@ -4640,26 +4640,26 @@ onUnmounted(() => {
 .option-text {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: 0.125rem;
 }
 
 .option-title {
-  font-size: 1rem;
+  font-size: 0.875rem;
   font-weight: 600;
   color: rgba(255, 255, 255, 0.9);
 }
 
 .option-description {
-  font-size: 0.875rem;
+  font-size: 0.75rem;
   color: rgba(255, 255, 255, 0.6);
-  line-height: 1.4;
+  line-height: 1.3;
 }
 
 .server-path-settings {
-  margin-top: 1rem;
-  padding: 1rem;
+  margin-top: 0.75rem;
+  padding: 0.75rem;
   border: 1px solid rgba(236, 72, 153, 0.2);
-  border-radius: 0.5rem;
+  border-radius: 0.375rem;
   background: linear-gradient(135deg,
     rgba(236, 72, 153, 0.08) 0%,
     rgba(236, 72, 153, 0.04) 100%
@@ -4668,7 +4668,7 @@ onUnmounted(() => {
 
 .path-input-group {
   display: flex;
-  gap: 0.75rem;
+  gap: 0.5rem;
   align-items: flex-end;
 }
 
@@ -4679,16 +4679,16 @@ onUnmounted(() => {
 .save-path-btn {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.75rem 1rem;
+  gap: 0.375rem;
+  padding: 0.5rem 0.75rem;
   border: 1px solid rgba(236, 72, 153, 0.3);
-  border-radius: 0.5rem;
+  border-radius: 0.375rem;
   background: linear-gradient(135deg,
     rgba(236, 72, 153, 0.2) 0%,
     rgba(236, 72, 153, 0.1) 100%
   );
   color: rgba(236, 72, 153, 0.9);
-  font-size: 0.875rem;
+  font-size: 0.8rem;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.3s ease;
@@ -4880,8 +4880,8 @@ onUnmounted(() => {
 
 .form-section {
   background: rgba(255, 255, 255, 0.02);
-  border-radius: 0.5rem;
-  padding: 1.25rem;
+  border-radius: 0.375rem;
+  padding: 1rem;
   border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
@@ -4898,7 +4898,7 @@ onUnmounted(() => {
 .form-row {
   display: grid;
   grid-template-columns: 2fr 1fr;
-  gap: 1rem;
+  gap: 0.75rem;
 }
 
 @media (max-width: 640px) {
@@ -4909,14 +4909,14 @@ onUnmounted(() => {
 
 .form-textarea {
   width: 100%;
-  padding: 0.75rem;
+  padding: 0.5rem 0.75rem;
   border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 0.5rem;
+  border-radius: 0.375rem;
   background: rgba(255, 255, 255, 0.05);
   color: rgba(255, 255, 255, 0.9);
-  font-size: 0.875rem;
+  font-size: 0.8rem;
   resize: vertical;
-  min-height: 80px;
+  min-height: 60px;
   font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
 }
 
@@ -4933,39 +4933,39 @@ onUnmounted(() => {
 .auth-type-selector {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 0.75rem;
-  margin-bottom: 1rem;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
 }
 
 .auth-fields {
-  margin-top: 1rem;
+  margin-top: 0.75rem;
 }
 
 .form-actions {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-top: 2rem;
-  padding-top: 1.5rem;
+  margin-top: 1.5rem;
+  padding-top: 1rem;
   border-top: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .action-left,
 .action-right {
   display: flex;
-  gap: 0.75rem;
+  gap: 0.5rem;
 }
 
 .test-btn {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.75rem 1.25rem;
+  gap: 0.375rem;
+  padding: 0.5rem 1rem;
   border: 1px solid rgba(34, 197, 94, 0.3);
-  border-radius: 0.5rem;
+  border-radius: 0.375rem;
   background: rgba(34, 197, 94, 0.1);
   color: rgba(34, 197, 94, 0.9);
-  font-size: 0.875rem;
+  font-size: 0.8rem;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.3s ease;
@@ -4989,19 +4989,19 @@ onUnmounted(() => {
 
 .servers-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(450px, 1fr));
-  gap: 1.5rem;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 1rem;
   max-width: none;
 }
 
 .server-card {
   background: rgba(255, 255, 255, 0.02);
   border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 0.75rem;
-  padding: 1.5rem;
+  border-radius: 0.5rem;
+  padding: 1rem;
   transition: all 0.3s ease;
   position: relative;
-  min-height: 140px;
+  min-height: 100px;
 }
 
 .server-card:hover {
@@ -5019,7 +5019,7 @@ onUnmounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  margin-bottom: 0.75rem;
+  margin-bottom: 0.5rem;
 }
 
 .server-info {
@@ -5027,14 +5027,14 @@ onUnmounted(() => {
 }
 
 .server-name {
-  font-size: 1rem;
+  font-size: 0.9rem;
   font-weight: 600;
   color: rgba(255, 255, 255, 0.9);
-  margin: 0 0 0.25rem 0;
+  margin: 0 0 0.125rem 0;
 }
 
 .server-address {
-  font-size: 0.875rem;
+  font-size: 0.8rem;
   color: rgba(255, 255, 255, 0.6);
   margin: 0;
   font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
@@ -5043,26 +5043,26 @@ onUnmounted(() => {
 .server-badges {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: 0.125rem;
   align-items: flex-end;
 }
 
 .default-badge {
-  padding: 0.25rem 0.5rem;
+  padding: 0.125rem 0.375rem;
   border-radius: 0.25rem;
   background: rgba(59, 130, 246, 0.2);
   color: rgba(59, 130, 246, 0.9);
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   font-weight: 500;
 }
 
 .auth-badge {
   display: flex;
   align-items: center;
-  gap: 0.25rem;
-  padding: 0.25rem 0.5rem;
+  gap: 0.125rem;
+  padding: 0.125rem 0.375rem;
   border-radius: 0.25rem;
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   font-weight: 500;
 }
 
@@ -5079,25 +5079,25 @@ onUnmounted(() => {
 .group-badge {
   display: flex;
   align-items: center;
-  gap: 0.25rem;
-  padding: 0.25rem 0.5rem;
+  gap: 0.125rem;
+  padding: 0.125rem 0.375rem;
   background: rgba(168, 85, 247, 0.2);
   color: rgba(168, 85, 247, 0.9);
   border-radius: 0.25rem;
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   font-weight: 500;
 }
 
 .server-description {
-  font-size: 0.875rem;
+  font-size: 0.8rem;
   color: rgba(255, 255, 255, 0.7);
-  margin-bottom: 1rem;
-  line-height: 1.4;
+  margin-bottom: 0.75rem;
+  line-height: 1.3;
 }
 
 .server-actions {
   display: flex;
-  gap: 0.5rem;
+  gap: 0.375rem;
   justify-content: flex-end;
 }
 
@@ -5105,13 +5105,13 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 2rem;
-  height: 2rem;
+  width: 1.75rem;
+  height: 1.75rem;
   border: none;
-  border-radius: 0.375rem;
+  border-radius: 0.25rem;
   cursor: pointer;
   transition: all 0.3s ease;
-  font-size: 0.875rem;
+  font-size: 0.8rem;
 }
 
 .set-default-btn {
@@ -5181,25 +5181,25 @@ onUnmounted(() => {
 
 /* 私钥管理样式 */
 .private-key-selector {
-  margin-bottom: 1rem;
+  margin-bottom: 0.75rem;
 }
 
 .selector-header {
   display: flex;
   justify-content: flex-end;
-  margin-bottom: 1rem;
+  margin-bottom: 0.75rem;
 }
 
 .manage-keys-btn {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 1rem;
+  gap: 0.375rem;
+  padding: 0.375rem 0.75rem;
   border: 1px solid rgba(168, 85, 247, 0.3);
-  border-radius: 0.375rem;
+  border-radius: 0.25rem;
   background: rgba(168, 85, 247, 0.1);
   color: rgba(168, 85, 247, 0.9);
-  font-size: 0.875rem;
+  font-size: 0.75rem;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.3s ease;
@@ -5213,18 +5213,18 @@ onUnmounted(() => {
 .key-source-options {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 0.75rem;
-  margin-bottom: 1rem;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
 }
 
 .form-select {
   width: 100%;
-  padding: 0.75rem;
+  padding: 0.5rem 0.75rem;
   border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 0.5rem;
+  border-radius: 0.375rem;
   background: rgba(255, 255, 255, 0.05);
   color: rgba(255, 255, 255, 0.9);
-  font-size: 0.875rem;
+  font-size: 0.8rem;
 }
 
 .form-select:focus {
@@ -5249,9 +5249,9 @@ onUnmounted(() => {
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  padding: 0.75rem;
+  padding: 0.5rem 0.75rem;
   border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 0.5rem;
+  border-radius: 0.375rem;
   background: rgba(255, 255, 255, 0.05);
   cursor: pointer;
   transition: all 0.3s ease;
@@ -5281,16 +5281,16 @@ onUnmounted(() => {
 
 .placeholder {
   color: rgba(255, 255, 255, 0.4);
-  font-size: 0.875rem;
+  font-size: 0.8rem;
 }
 
 .selected-value {
   color: rgba(255, 255, 255, 0.9);
-  font-size: 0.875rem;
+  font-size: 0.8rem;
 }
 
 .select-arrow {
-  font-size: 1.25rem;
+  font-size: 1.1rem;
   color: rgba(255, 255, 255, 0.6);
   transition: transform 0.3s ease;
 }
@@ -5322,7 +5322,7 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0.75rem;
+  padding: 0.5rem 0.75rem;
   cursor: pointer;
   transition: all 0.3s ease;
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
@@ -5345,40 +5345,40 @@ onUnmounted(() => {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: 0.125rem;
 }
 
 .item-text {
   color: rgba(255, 255, 255, 0.4);
-  font-size: 0.875rem;
+  font-size: 0.75rem;
 }
 
 .item-name {
   color: rgba(255, 255, 255, 0.9);
-  font-size: 0.875rem;
+  font-size: 0.8rem;
   font-weight: 500;
 }
 
 .item-description {
   color: rgba(255, 255, 255, 0.6);
-  font-size: 0.75rem;
+  font-size: 0.7rem;
 }
 
 .item-type {
   display: inline-block;
-  padding: 0.125rem 0.375rem;
-  border-radius: 0.25rem;
+  padding: 0.0625rem 0.25rem;
+  border-radius: 0.1875rem;
   background: rgba(168, 85, 247, 0.2);
   color: rgba(168, 85, 247, 0.9);
-  font-size: 0.625rem;
+  font-size: 0.6rem;
   font-weight: 500;
-  margin-top: 0.25rem;
+  margin-top: 0.125rem;
   width: fit-content;
 }
 
 .check-icon {
   color: rgba(34, 197, 94, 0.8);
-  font-size: 1rem;
+  font-size: 0.875rem;
 }
 
 /* 下拉动画 */
@@ -5553,20 +5553,20 @@ onUnmounted(() => {
 
 .key-actions {
   display: flex;
-  gap: 0.5rem;
+  gap: 0.375rem;
 }
 
 .key-actions button {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 2rem;
-  height: 2rem;
+  width: 1.75rem;
+  height: 1.75rem;
   border: none;
-  border-radius: 0.375rem;
+  border-radius: 0.25rem;
   cursor: pointer;
   transition: all 0.3s ease;
-  font-size: 0.875rem;
+  font-size: 0.8rem;
 }
 
 .key-actions .edit-btn {
