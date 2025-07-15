@@ -298,6 +298,30 @@ public class ServerServiceImpl extends ServiceImpl<ServerMapper, Server> impleme
         return true;
     }
 
+    @Override
+    @Transactional
+    public boolean updateServerOrderWithSort(List<Map<String, Object>> servers) {
+        try {
+            for (Map<String, Object> serverInfo : servers) {
+                Integer id = (Integer) serverInfo.get("id");
+                Integer sortOrder = (Integer) serverInfo.get("sortOrder");
+
+                if (id != null && sortOrder != null) {
+                    Server server = getById(id);
+                    if (server != null) {
+                        server.setSortOrder(sortOrder);
+                        updateById(server);
+                        log.debug("更新服务器排序: ID={}, sortOrder={}", id, sortOrder);
+                    }
+                }
+            }
+            return true;
+        } catch (Exception e) {
+            log.error("更新服务器排序失败", e);
+            return false;
+        }
+    }
+
     /**
      * 将Server实体转换为ServerResponse DTO
      */

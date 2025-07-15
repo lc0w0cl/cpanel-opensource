@@ -107,4 +107,11 @@ public interface ServerService extends IService<Server> {
      * @return 按分组组织的服务器列表
      */
     Map<String, List<ServerResponse>> getGroupedServers();
+
+    /**
+     * 更新服务器排序（支持组内排序）
+     * @param servers 包含服务器ID和排序信息的列表
+     * @return 是否更新成功
+     */
+    boolean updateServerOrderWithSort(List<Map<String, Object>> servers);
 }

@@ -95,6 +95,29 @@ const showEditServerForm = ref(false)
 const editingServerId = ref(null)
 const showDeleteServerConfirm = ref(false)
 const deletingServer = ref(null)
+
+// 分组相关
+const groupedServers = computed(() => {
+  const grouped = {}
+  serverConfigs.value.forEach(server => {
+    const groupName = server.groupName || '默认分组'
+    if (!grouped[groupName]) {
+      grouped[groupName] = []
+    }
+    grouped[groupName].push(server)
+  })
+
+  // 按组内的sortOrder排序
+  Object.keys(grouped).forEach(groupName => {
+    grouped[groupName].sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0))
+  })
+
+  return grouped
+})
+
+const groupNames = computed(() => {
+  return Object.keys(groupedServers.value).sort()
+})
 const deleteServerLoading = ref(false)
 
 // 私钥管理相关
@@ -937,6 +960,50 @@ const setDefaultServer = async (serverId) => {
     }
   } catch (error) {
     console.error('默认服务器设置失败:', error)
+  }
+}
+
+// 拖拽排序处理
+const onServerDragEnd = async (groupName, newOrder) => {
+  try {
+    // 更新本地排序
+    const serversInGroup = newOrder.map((server, index) => ({
+      ...server,
+      sortOrder: index
+    }))
+
+    // 更新serverConfigs中对应的服务器
+    serversInGroup.forEach(updatedServer => {
+      const index = serverConfigs.value.findIndex(s => s.id === updatedServer.id)
+      if (index !== -1) {
+        serverConfigs.value[index] = updatedServer
+      }
+    })
+
+    // 发送到后端保存排序
+    const response = await apiRequest(`${API_BASE_URL}/servers/update-order`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        servers: serversInGroup.map(server => ({
+          id: server.id,
+          sortOrder: server.sortOrder
+        }))
+      })
+    })
+
+    const result = await response.json()
+    if (!result.success) {
+      console.error('更新服务器排序失败:', result.message)
+      // 如果失败，重新加载服务器列表
+      await loadServerConfigs()
+    }
+  } catch (error) {
+    console.error('更新服务器排序失败:', error)
+    // 如果失败，重新加载服务器列表
+    await loadServerConfigs()
   }
 }
 
@@ -2250,60 +2317,83 @@ onUnmounted(() => {
                       </button>
                     </div>
 
-                    <div v-else class="servers-grid">
+                    <div v-else class="servers-container">
                       <div
-                        v-for="server in serverConfigs"
-                        :key="server.id"
-                        class="server-card"
-                        :class="{ 'is-default': server.isDefault }"
+                        v-for="groupName in groupNames"
+                        :key="groupName"
+                        class="server-group"
                       >
-                        <div class="server-header">
-                          <div class="server-info">
-                            <h4 class="server-name">{{ server.serverName }}</h4>
-                            <p class="server-address">{{ server.username }}@{{ server.host }}:{{ server.port }}</p>
-                          </div>
-                          <div class="server-badges">
-                            <span v-if="server.isDefault" class="default-badge">默认</span>
-                            <span v-if="server.groupName" class="group-badge">
-                              <Icon icon="mdi:folder" />
-                              {{ server.groupName }}
-                            </span>
-                            <span class="auth-badge" :class="server.authType">
-                              <Icon :icon="server.authType === 'password' ? 'mdi:key' : 'mdi:key-variant'" />
-                              {{ server.authType === 'password' ? '密码' : '公钥' }}
-                            </span>
+                        <div class="group-header">
+                          <div class="group-info">
+                            <Icon icon="mdi:folder" class="group-icon" />
+                            <h3 class="group-name">{{ groupName }}</h3>
+                            <span class="group-count">({{ groupedServers[groupName].length }})</span>
                           </div>
                         </div>
 
-                        <div v-if="server.description" class="server-description">
-                          {{ server.description }}
-                        </div>
+                        <VueDraggable
+                          v-model="groupedServers[groupName]"
+                          :animation="200"
+                          ghost-class="ghost"
+                          chosen-class="chosen"
+                          drag-class="drag"
+                          @end="onServerDragEnd(groupName, groupedServers[groupName])"
+                          class="servers-grid"
+                        >
+                          <div
+                            v-for="server in groupedServers[groupName]"
+                            :key="server.id"
+                            class="server-card"
+                            :class="{ 'is-default': server.isDefault }"
+                          >
+                            <div class="server-header">
+                              <div class="server-info">
+                                <h4 class="server-name">{{ server.serverName }}</h4>
+                                <p class="server-address">{{ server.username }}@{{ server.host }}:{{ server.port }}</p>
+                              </div>
+                              <div class="server-badges">
+                                <span v-if="server.isDefault" class="default-badge">默认</span>
+                                <span class="auth-badge" :class="server.authType">
+                                  <Icon :icon="server.authType === 'password' ? 'mdi:key' : 'mdi:key-variant'" />
+                                  {{ server.authType === 'password' ? '密码' : '公钥' }}
+                                </span>
+                                <div class="drag-handle" title="拖拽排序">
+                                  <Icon icon="mdi:drag" />
+                                </div>
+                              </div>
+                            </div>
 
-                        <div class="server-actions">
-                          <button
-                            v-if="!server.isDefault"
-                            class="set-default-btn"
-                            @click="setDefaultServer(server.id)"
-                            title="设为默认"
-                          >
-                            <Icon icon="mdi:star-outline" />
-                          </button>
-                          <button
-                            class="edit-btn"
-                            @click="startEditServer(server)"
-                            title="编辑"
-                          >
-                            <Icon icon="mdi:pencil" />
-                          </button>
-                          <button
-                            class="delete-btn"
-                            @click="showDeleteServerConfirmDialog(server)"
-                            title="删除"
-                            :disabled="server.isDefault"
-                          >
-                            <Icon icon="mdi:delete" />
-                          </button>
-                        </div>
+                            <div v-if="server.description" class="server-description">
+                              {{ server.description }}
+                            </div>
+
+                            <div class="server-actions">
+                              <button
+                                v-if="!server.isDefault"
+                                class="set-default-btn"
+                                @click="setDefaultServer(server.id)"
+                                title="设为默认"
+                              >
+                                <Icon icon="mdi:star-outline" />
+                              </button>
+                              <button
+                                class="edit-btn"
+                                @click="startEditServer(server)"
+                                title="编辑"
+                              >
+                                <Icon icon="mdi:pencil" />
+                              </button>
+                              <button
+                                class="delete-btn"
+                                @click="showDeleteServerConfirmDialog(server)"
+                                title="删除"
+                                :disabled="server.isDefault"
+                              >
+                                <Icon icon="mdi:delete" />
+                              </button>
+                            </div>
+                          </div>
+                        </VueDraggable>
                       </div>
                     </div>
                   </div>
@@ -4987,6 +5077,55 @@ onUnmounted(() => {
   margin-top: 1rem;
 }
 
+/* 服务器容器和分组样式 */
+.servers-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.server-group {
+  background: rgba(255, 255, 255, 0.01);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 0.5rem;
+  padding: 1rem;
+}
+
+.group-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.group-info {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.group-icon {
+  font-size: 1.25rem;
+  color: rgba(168, 85, 247, 0.8);
+}
+
+.group-name {
+  font-size: 1rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+  margin: 0;
+}
+
+.group-count {
+  font-size: 0.875rem;
+  color: rgba(255, 255, 255, 0.6);
+  background: rgba(255, 255, 255, 0.1);
+  padding: 0.125rem 0.5rem;
+  border-radius: 0.75rem;
+}
+
 .servers-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
@@ -5008,6 +5147,45 @@ onUnmounted(() => {
   background: rgba(255, 255, 255, 0.04);
   border-color: rgba(255, 255, 255, 0.2);
   transform: translateY(-2px);
+}
+
+/* 拖拽相关样式 */
+.drag-handle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  color: rgba(255, 255, 255, 0.4);
+  cursor: grab;
+  border-radius: 0.25rem;
+  transition: all 0.3s ease;
+}
+
+.drag-handle:hover {
+  color: rgba(255, 255, 255, 0.7);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.drag-handle:active {
+  cursor: grabbing;
+}
+
+/* 拖拽状态样式 */
+.ghost {
+  opacity: 0.5;
+  background: rgba(59, 130, 246, 0.1);
+  border: 2px dashed rgba(59, 130, 246, 0.3);
+}
+
+.chosen {
+  transform: rotate(5deg);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+}
+
+.drag {
+  transform: rotate(5deg);
+  opacity: 0.8;
 }
 
 .server-card.is-default {

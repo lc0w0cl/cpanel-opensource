@@ -287,4 +287,31 @@ public class ServerController {
             return ApiResponse.error("获取分组化服务器列表失败：" + e.getMessage());
         }
     }
+
+    /**
+     * 更新服务器排序（支持组内排序）
+     * @param request 包含服务器排序信息的请求
+     * @return 操作结果
+     */
+    @PostMapping("/update-order")
+    public ApiResponse<String> updateServerOrderWithSort(@RequestBody Map<String, Object> request) {
+        try {
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> servers = (List<Map<String, Object>>) request.get("servers");
+
+            if (servers == null || servers.isEmpty()) {
+                return ApiResponse.error("服务器列表不能为空");
+            }
+
+            boolean success = serverService.updateServerOrderWithSort(servers);
+            if (success) {
+                return ApiResponse.success("服务器排序更新成功");
+            } else {
+                return ApiResponse.error("服务器排序更新失败");
+            }
+        } catch (Exception e) {
+            log.error("更新服务器排序失败", e);
+            return ApiResponse.error("更新服务器排序失败：" + e.getMessage());
+        }
+    }
 }
