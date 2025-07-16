@@ -126,7 +126,16 @@ const deletingServer = ref(null)
 const groupedServers = computed(() => {
   const grouped = {}
   serverConfigs.value.forEach(server => {
-    const groupName = server.groupName || '默认分组'
+    // 优先使用groupName，如果没有则通过categoryId查找分组名称
+    let groupName = server.groupName
+    if (!groupName && server.categoryId) {
+      const category = serverCategories.value.find(cat => cat.id === server.categoryId)
+      groupName = category ? category.name : '默认分组'
+    }
+    if (!groupName) {
+      groupName = '默认分组'
+    }
+
     if (!grouped[groupName]) {
       grouped[groupName] = []
     }
@@ -142,7 +151,42 @@ const groupedServers = computed(() => {
 })
 
 const groupNames = computed(() => {
-  return Object.keys(groupedServers.value).sort()
+  const serverGroupNames = Object.keys(groupedServers.value)
+
+  // 按照服务器分组管理中的顺序排序
+  const orderedGroups = []
+
+  // 首先添加在服务器分组管理中定义的分组（按order排序）
+  const managedGroups = serverCategories.value
+    .sort((a, b) => (a.order || 0) - (b.order || 0))
+    .map(category => category.name)
+    .filter(name => serverGroupNames.includes(name))
+
+  orderedGroups.push(...managedGroups)
+
+  // 然后添加默认分组（如果存在）
+  if (serverGroupNames.includes('默认分组') && !orderedGroups.includes('默认分组')) {
+    orderedGroups.push('默认分组')
+  }
+
+  // 最后添加其他未在分组管理中定义的分组（按字母排序）
+  const otherGroups = serverGroupNames
+    .filter(name => !orderedGroups.includes(name))
+    .sort()
+
+  orderedGroups.push(...otherGroups)
+
+  return orderedGroups
+})
+
+// 可用的服务器分组选项（从服务器分组管理中获取）
+const availableServerGroups = computed(() => {
+  const groups = serverCategories.value.map(category => category.name)
+  // 添加默认分组
+  if (!groups.includes('默认分组')) {
+    groups.unshift('默认分组')
+  }
+  return groups
 })
 const deleteServerLoading = ref(false)
 
@@ -166,6 +210,7 @@ const deletingPrivateKey = ref(null)
 const deletePrivateKeyLoading = ref(false)
 const showPrivateKeyDropdown = ref(false)
 const showKeyTypeDropdown = ref(false)
+const showServerGroupDropdown = ref(false)
 
 // 服务器表单数据
 const serverForm = ref({
@@ -1080,6 +1125,16 @@ const saveServerConfig = async () => {
 
   serverSettingsSaving.value = true
   try {
+    const formData = { ...serverForm.value }
+
+    // 处理分组信息
+    if (!formData.groupName || !formData.groupName.trim()) {
+      // 如果没有选择分组，使用默认分组
+      formData.groupName = '默认分组'
+    }
+
+    // 后端会根据groupName自动处理categoryId，所以保留groupName字段
+
     const url = editingServerId.value
       ? `${API_BASE_URL}/servers/${editingServerId.value}`
       : `${API_BASE_URL}/servers`
@@ -1091,7 +1146,7 @@ const saveServerConfig = async () => {
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(serverForm.value)
+      body: JSON.stringify(formData)
     })
 
     const result = await response.json()
@@ -1115,6 +1170,16 @@ const saveServerConfig = async () => {
 
 const startEditServer = (server) => {
   editingServerId.value = server.id
+
+  // 如果服务器有categoryId，需要找到对应的分组名称
+  let groupName = server.groupName || ''
+  if (server.categoryId && !groupName) {
+    const category = serverCategories.value.find(cat => cat.id === server.categoryId)
+    if (category) {
+      groupName = category.name
+    }
+  }
+
   serverForm.value = {
     serverName: server.serverName || '',
     host: server.host || '',
@@ -1127,7 +1192,7 @@ const startEditServer = (server) => {
     selectedPrivateKeyId: '',
     useExistingKey: false,
     description: server.description || '',
-    groupName: server.groupName || '',
+    groupName: groupName,
     isDefault: server.isDefault || false
   }
   showEditServerForm.value = true
@@ -1443,12 +1508,23 @@ const selectKeyTypeOption = (keyType) => {
   showKeyTypeDropdown.value = false
 }
 
+// 服务器分组选择相关方法
+const selectServerGroupOption = (groupName) => {
+  serverForm.value.groupName = groupName
+  showServerGroupDropdown.value = false
+}
+
+const getSelectedServerGroupName = () => {
+  return serverForm.value.groupName || '请选择分组'
+}
+
 // 点击外部关闭下拉框
 const handleClickOutside = (event) => {
   const selectWrapper = event.target.closest('.custom-select-wrapper')
   if (!selectWrapper) {
     showPrivateKeyDropdown.value = false
     showKeyTypeDropdown.value = false
+    showServerGroupDropdown.value = false
   }
 }
 
@@ -2492,15 +2568,53 @@ onUnmounted(() => {
 
                         <div class="form-group">
                           <label class="form-label">服务器分组</label>
-                          <input
-                            v-model="serverForm.groupName"
-                            type="text"
-                            class="form-input"
-                            placeholder="例如：生产环境、测试环境、美国服务器等"
-                            :disabled="serverSettingsSaving"
-                          />
+                          <div class="custom-select-wrapper">
+                            <div
+                              class="custom-select"
+                              :class="{
+                                'is-open': showServerGroupDropdown,
+                                'is-disabled': serverSettingsSaving,
+                                'has-value': serverForm.groupName
+                              }"
+                              @click="!serverSettingsSaving && (showServerGroupDropdown = !showServerGroupDropdown)"
+                            >
+                              <div class="select-display">
+                                <span v-if="!serverForm.groupName" class="placeholder">
+                                  请选择分组
+                                </span>
+                                <span v-else class="selected-value">
+                                  {{ serverForm.groupName }}
+                                </span>
+                              </div>
+                              <Icon
+                                icon="mdi:chevron-down"
+                                class="select-arrow"
+                                :class="{ 'is-open': showServerGroupDropdown }"
+                              />
+                            </div>
+
+                            <Transition name="dropdown">
+                              <div v-if="showServerGroupDropdown" class="select-dropdown">
+                                <div class="dropdown-content">
+                                  <div
+                                    v-for="groupName in availableServerGroups"
+                                    :key="groupName"
+                                    class="dropdown-item"
+                                    :class="{ 'is-selected': serverForm.groupName === groupName }"
+                                    @click="selectServerGroupOption(groupName)"
+                                  >
+                                    <div class="item-content">
+                                      <Icon icon="mdi:folder" class="item-icon" />
+                                      <span class="item-name">{{ groupName }}</span>
+                                    </div>
+                                    <Icon v-if="serverForm.groupName === groupName" icon="mdi:check" class="check-icon" />
+                                  </div>
+                                </div>
+                              </div>
+                            </Transition>
+                          </div>
                           <p class="form-hint">
-                            用于在终端页面中对服务器进行分组显示，如果不填写将归入"默认分组"
+                            选择服务器所属的分组，可在"服务器分组管理"中创建新分组
                           </p>
                         </div>
 

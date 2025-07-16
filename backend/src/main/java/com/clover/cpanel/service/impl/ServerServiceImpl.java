@@ -88,10 +88,14 @@ public class ServerServiceImpl extends ServiceImpl<ServerMapper, Server> impleme
                 server.setSortOrder(lastServer != null ? lastServer.getSortOrder() + 1 : 1);
             }
 
-            // 处理分类ID
+            // 处理分类ID和分组名称
             if (server.getCategoryId() == null) {
-                // 如果没有分类ID，则使用默认分组
-                Integer categoryId = panelCategoryService.getOrCreateServerCategory("默认分组");
+                // 如果没有分类ID，根据groupName创建或获取分组
+                String groupName = request.getGroupName();
+                if (groupName == null || groupName.trim().isEmpty()) {
+                    groupName = "默认分组";
+                }
+                Integer categoryId = panelCategoryService.getOrCreateServerCategory(groupName);
                 server.setCategoryId(categoryId);
             }
 
@@ -131,6 +135,13 @@ public class ServerServiceImpl extends ServiceImpl<ServerMapper, Server> impleme
 
             // 复制属性，但保留ID和时间戳
             BeanUtils.copyProperties(request, existingServer, "id", "createdAt", "updatedAt");
+
+            // 处理分组名称更新
+            if (request.getGroupName() != null && !request.getGroupName().trim().isEmpty()) {
+                String groupName = request.getGroupName().trim();
+                Integer categoryId = panelCategoryService.getOrCreateServerCategory(groupName);
+                existingServer.setCategoryId(categoryId);
+            }
 
             // 如果设置为默认服务器，先清除其他服务器的默认状态
             if (Boolean.TRUE.equals(existingServer.getIsDefault())) {
@@ -355,6 +366,24 @@ public class ServerServiceImpl extends ServiceImpl<ServerMapper, Server> impleme
     private ServerResponse convertToResponse(Server server) {
         ServerResponse response = new ServerResponse();
         BeanUtils.copyProperties(server, response);
+
+        // 设置分组名称
+        if (server.getCategoryId() != null) {
+            try {
+                PanelCategory category = panelCategoryService.getById(server.getCategoryId());
+                if (category != null) {
+                    response.setGroupName(category.getName());
+                } else {
+                    response.setGroupName("默认分组");
+                }
+            } catch (Exception e) {
+                log.warn("获取服务器分组名称失败: categoryId={}", server.getCategoryId(), e);
+                response.setGroupName("默认分组");
+            }
+        } else {
+            response.setGroupName("默认分组");
+        }
+
         return response;
     }
 }
