@@ -36,24 +36,9 @@ public interface ServerMapper extends BaseMapper<Server> {
     List<Server> getServersByStatus(String status);
 
     /**
-     * 获取所有服务器，按分组和排序顺序排列
+     * 获取所有服务器，按分类和排序顺序排列
      * @return 服务器列表
      */
-    @Select("SELECT * FROM panel_servers ORDER BY group_name ASC, sort_order ASC, id ASC")
+    @Select("SELECT * FROM panel_servers ORDER BY category_id ASC, sort_order ASC, id ASC")
     List<Server> getAllServersOrdered();
-
-    /**
-     * 根据分组获取服务器列表
-     * @param groupName 分组名称
-     * @return 服务器列表
-     */
-    @Select("SELECT * FROM panel_servers WHERE group_name = #{groupName} ORDER BY sort_order ASC, id ASC")
-    List<Server> getServersByGroup(String groupName);
-
-    /**
-     * 获取所有分组名称
-     * @return 分组名称列表
-     */
-    @Select("SELECT DISTINCT group_name FROM panel_servers WHERE group_name IS NOT NULL AND group_name != '' ORDER BY group_name ASC")
-    List<String> getAllGroups();
 }

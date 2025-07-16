@@ -63,10 +63,7 @@ public class ServerRequest {
      */
     private Integer categoryId;
 
-    /**
-     * 服务器分组（兼容字段）
-     */
-    private String groupName;
+
 
     /**
      * 是否为默认服务器

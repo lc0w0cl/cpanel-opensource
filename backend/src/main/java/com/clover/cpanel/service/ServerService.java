@@ -90,23 +90,10 @@ public interface ServerService extends IService<Server> {
     boolean updateServerOrder(List<Integer> serverIds);
 
     /**
-     * 根据分组获取服务器列表
-     * @param groupName 分组名称
-     * @return 服务器列表
+     * 获取按分类ID分组的服务器列表
+     * @return 按分类ID组织的服务器列表
      */
-    List<ServerResponse> getServersByGroup(String groupName);
-
-    /**
-     * 获取所有分组名称
-     * @return 分组名称列表
-     */
-    List<String> getAllGroups();
-
-    /**
-     * 获取分组化的服务器列表
-     * @return 按分组组织的服务器列表
-     */
-    Map<String, List<ServerResponse>> getGroupedServers();
+    Map<Integer, List<ServerResponse>> getServersByCategory();
 
     /**
      * 更新服务器排序（支持组内排序）
@@ -121,10 +108,4 @@ public interface ServerService extends IService<Server> {
      * @return 服务器列表
      */
     List<ServerResponse> getServersByCategoryId(Integer categoryId);
-
-    /**
-     * 获取按分类ID分组的服务器列表
-     * @return 按分类ID组织的服务器列表
-     */
-    Map<Integer, List<ServerResponse>> getServersByCategory();
 }

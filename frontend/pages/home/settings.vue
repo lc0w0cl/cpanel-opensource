@@ -2,13 +2,14 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 import { VueDraggable } from 'vue-draggable-plus'
 import { Icon } from '@iconify/vue'
-
+import './settings.css'
 // 子页面不需要定义 layout 和 middleware，由父页面处理
 
 // 类型定义
 interface Category {
   id: number
   name: string
+  type: string
   order: number
   createdAt: string
   updatedAt: string
@@ -20,32 +21,57 @@ interface ApiResponse<T> {
   data: T
 }
 
-// 响应式数据
-const categories = ref<Category[]>([])
-const loading = ref(false)
-const saving = ref(false)
+// 导航分组相关数据
+const navigationCategories = ref<Category[]>([])
+const navigationLoading = ref(false)
+const navigationSaving = ref(false)
 
-// 新增分组相关
-const showAddCategoryForm = ref(false)
-const addCategoryForm = ref({
+// 服务器分组相关数据
+const serverCategories = ref<Category[]>([])
+const serverLoading = ref(false)
+const serverSaving = ref(false)
+
+// 新增导航分组相关
+const showAddNavigationCategoryForm = ref(false)
+const addNavigationCategoryForm = ref({
   name: ''
 })
-const addCategoryLoading = ref(false)
+const addNavigationCategoryLoading = ref(false)
 
-// 编辑分组相关
-const editingCategoryId = ref<number | null>(null)
-const editCategoryForm = ref({
+// 编辑导航分组相关
+const editingNavigationCategoryId = ref<number | null>(null)
+const editNavigationCategoryForm = ref({
   name: ''
 })
-const editCategoryLoading = ref(false)
+const editNavigationCategoryLoading = ref(false)
 
-// 删除分组相关
-const showDeleteConfirm = ref(false)
-const deletingCategory = ref<Category | null>(null)
-const deleteCategoryLoading = ref(false)
+// 删除导航分组相关
+const showDeleteNavigationConfirm = ref(false)
+const deletingNavigationCategory = ref<Category | null>(null)
+const deleteNavigationCategoryLoading = ref(false)
+
+// 新增服务器分组相关
+const showAddServerCategoryForm = ref(false)
+const addServerCategoryForm = ref({
+  name: ''
+})
+const addServerCategoryLoading = ref(false)
+
+// 编辑服务器分组相关
+const editingServerCategoryId = ref<number | null>(null)
+const editServerCategoryForm = ref({
+  name: ''
+})
+const editServerCategoryLoading = ref(false)
+
+// 删除服务器分组相关
+const showDeleteServerCategoryConfirm = ref(false)
+const deletingServerCategory = ref<Category | null>(null)
+const deleteServerCategoryLoading = ref(false)
 
 // 所有设置项的折叠状态
-const isGroupManagementCollapsed = ref(true)
+const isNavigationGroupManagementCollapsed = ref(true)
+const isServerGroupManagementCollapsed = ref(true)
 const isPasswordSettingsCollapsed = ref(true)
 const isSystemConfigCollapsed = ref(true)
 const isThemeSettingsCollapsed = ref(true)
@@ -192,31 +218,50 @@ const resetPrivateKeyForm = () => {
 const config = useRuntimeConfig()
 const API_BASE_URL = `${config.public.apiBaseUrl}/api`
 
-// 获取分组列表
-const fetchCategories = async () => {
-  loading.value = true
+// 获取导航分组列表
+const fetchNavigationCategories = async () => {
+  navigationLoading.value = true
   try {
-    const response = await apiRequest(`${API_BASE_URL}/categories`)
+    const response = await apiRequest(`${API_BASE_URL}/categories/type/navigation`)
     const result: ApiResponse<Category[]> = await response.json()
 
     if (result.success) {
-      categories.value = result.data
+      navigationCategories.value = result.data
     } else {
-      console.error('获取分组失败:', result.message)
+      console.error('获取导航分组失败:', result.message)
     }
   } catch (error) {
-    console.error('获取分组失败:', error)
+    console.error('获取导航分组失败:', error)
   } finally {
-    loading.value = false
+    navigationLoading.value = false
   }
 }
 
-// 保存分组排序
-const saveCategoriesSort = async () => {
-  saving.value = true
+// 获取服务器分组列表
+const fetchServerCategories = async () => {
+  serverLoading.value = true
+  try {
+    const response = await apiRequest(`${API_BASE_URL}/categories/type/server`)
+    const result: ApiResponse<Category[]> = await response.json()
+
+    if (result.success) {
+      serverCategories.value = result.data
+    } else {
+      console.error('获取服务器分组失败:', result.message)
+    }
+  } catch (error) {
+    console.error('获取服务器分组失败:', error)
+  } finally {
+    serverLoading.value = false
+  }
+}
+
+// 保存导航分组排序
+const saveNavigationCategoriesSort = async () => {
+  navigationSaving.value = true
   try {
     // 更新排序号
-    const sortedCategories = categories.value.map((category, index) => ({
+    const sortedCategories = navigationCategories.value.map((category, index) => ({
       ...category,
       order: index + 1
     }))
@@ -232,36 +277,79 @@ const saveCategoriesSort = async () => {
     const result: ApiResponse<string> = await response.json()
 
     if (result.success) {
-      categories.value = sortedCategories
-      console.log('分组排序保存成功')
+      navigationCategories.value = sortedCategories
+      console.log('导航分组排序保存成功')
     } else {
-      console.error('保存排序失败:', result.message)
+      console.error('保存导航分组排序失败:', result.message)
       // 重新获取数据以恢复原始顺序
-      await fetchCategories()
+      await fetchNavigationCategories()
     }
   } catch (error) {
-    console.error('保存排序失败:', error)
+    console.error('保存导航分组排序失败:', error)
     // 重新获取数据以恢复原始顺序
-    await fetchCategories()
+    await fetchNavigationCategories()
   } finally {
-    saving.value = false
+    navigationSaving.value = false
   }
 }
 
-// 处理拖拽结束
-const handleDragEnd = () => {
-  console.log('拖拽排序完成')
-  saveCategoriesSort()
+// 保存服务器分组排序
+const saveServerCategoriesSort = async () => {
+  serverSaving.value = true
+  try {
+    // 更新排序号
+    const sortedCategories = serverCategories.value.map((category, index) => ({
+      ...category,
+      order: index + 1
+    }))
+
+    const response = await apiRequest(`${API_BASE_URL}/categories/sort`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(sortedCategories)
+    })
+
+    const result: ApiResponse<string> = await response.json()
+
+    if (result.success) {
+      serverCategories.value = sortedCategories
+      console.log('服务器分组排序保存成功')
+    } else {
+      console.error('保存服务器分组排序失败:', result.message)
+      // 重新获取数据以恢复原始顺序
+      await fetchServerCategories()
+    }
+  } catch (error) {
+    console.error('保存服务器分组排序失败:', error)
+    // 重新获取数据以恢复原始顺序
+    await fetchServerCategories()
+  } finally {
+    serverSaving.value = false
+  }
 }
 
-// 创建新分组
-const createCategory = async () => {
-  if (!addCategoryForm.value.name.trim()) {
-    console.error('分组名称不能为空')
+// 处理导航分组拖拽结束
+const handleNavigationDragEnd = () => {
+  console.log('导航分组拖拽排序完成')
+  saveNavigationCategoriesSort()
+}
+
+// 处理服务器分组拖拽结束
+const handleServerDragEnd = () => {
+  console.log('服务器分组拖拽排序完成')
+  saveServerCategoriesSort()
+}
+
+// 创建新导航分组
+const createNavigationCategory = async () => {
+  if (!addNavigationCategoryForm.value.name.trim()) {
+    console.error('导航分组名称不能为空')
     return
   }
 
-  addCategoryLoading.value = true
+  addNavigationCategoryLoading.value = true
   try {
     const response = await apiRequest(`${API_BASE_URL}/categories`, {
       method: 'POST',
@@ -269,128 +357,269 @@ const createCategory = async () => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        name: addCategoryForm.value.name.trim()
+        name: addNavigationCategoryForm.value.name.trim(),
+        type: 'navigation'
       })
     })
 
     const result: ApiResponse<Category> = await response.json()
 
     if (result.success) {
-      console.log('分组创建成功')
+      console.log('导航分组创建成功')
       // 重置表单
-      addCategoryForm.value.name = ''
-      showAddCategoryForm.value = false
+      addNavigationCategoryForm.value.name = ''
+      showAddNavigationCategoryForm.value = false
       // 重新获取分组列表
-      await fetchCategories()
+      await fetchNavigationCategories()
     } else {
-      console.error('分组创建失败:', result.message)
+      console.error('导航分组创建失败:', result.message)
     }
   } catch (error) {
-    console.error('分组创建失败:', error)
+    console.error('导航分组创建失败:', error)
   } finally {
-    addCategoryLoading.value = false
+    addNavigationCategoryLoading.value = false
   }
 }
 
-// 取消新增分组
-const cancelAddCategory = () => {
-  addCategoryForm.value.name = ''
-  showAddCategoryForm.value = false
+// 取消新增导航分组
+const cancelAddNavigationCategory = () => {
+  addNavigationCategoryForm.value.name = ''
+  showAddNavigationCategoryForm.value = false
 }
 
-// 开始编辑分组
-const startEditCategory = (category: Category) => {
-  editingCategoryId.value = category.id
-  editCategoryForm.value.name = category.name
-}
-
-// 保存编辑分组
-const saveEditCategory = async () => {
-  if (!editCategoryForm.value.name.trim()) {
-    console.error('分组名称不能为空')
+// 创建新服务器分组
+const createServerCategory = async () => {
+  if (!addServerCategoryForm.value.name.trim()) {
+    console.error('服务器分组名称不能为空')
     return
   }
 
-  if (editingCategoryId.value === null) {
-    return
-  }
-
-  editCategoryLoading.value = true
+  addServerCategoryLoading.value = true
   try {
-    const response = await apiRequest(`${API_BASE_URL}/categories/${editingCategoryId.value}`, {
+    const response = await apiRequest(`${API_BASE_URL}/categories`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        name: addServerCategoryForm.value.name.trim(),
+        type: 'server'
+      })
+    })
+
+    const result: ApiResponse<Category> = await response.json()
+
+    if (result.success) {
+      console.log('服务器分组创建成功')
+      // 重置表单
+      addServerCategoryForm.value.name = ''
+      showAddServerCategoryForm.value = false
+      // 重新获取分组列表
+      await fetchServerCategories()
+    } else {
+      console.error('服务器分组创建失败:', result.message)
+    }
+  } catch (error) {
+    console.error('服务器分组创建失败:', error)
+  } finally {
+    addServerCategoryLoading.value = false
+  }
+}
+
+// 取消新增服务器分组
+const cancelAddServerCategory = () => {
+  addServerCategoryForm.value.name = ''
+  showAddServerCategoryForm.value = false
+}
+
+// 开始编辑导航分组
+const startEditNavigationCategory = (category: Category) => {
+  editingNavigationCategoryId.value = category.id
+  editNavigationCategoryForm.value.name = category.name
+}
+
+// 保存编辑导航分组
+const saveEditNavigationCategory = async () => {
+  if (!editNavigationCategoryForm.value.name.trim()) {
+    console.error('导航分组名称不能为空')
+    return
+  }
+
+  if (editingNavigationCategoryId.value === null) {
+    return
+  }
+
+  editNavigationCategoryLoading.value = true
+  try {
+    const response = await apiRequest(`${API_BASE_URL}/categories/${editingNavigationCategoryId.value}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        name: editCategoryForm.value.name.trim()
+        name: editNavigationCategoryForm.value.name.trim()
       })
     })
 
     const result: ApiResponse<Category> = await response.json()
 
     if (result.success) {
-      console.log('分组更新成功')
+      console.log('导航分组更新成功')
       // 取消编辑状态
-      cancelEditCategory()
+      cancelEditNavigationCategory()
       // 重新获取分组列表
-      await fetchCategories()
+      await fetchNavigationCategories()
     } else {
-      console.error('分组更新失败:', result.message)
+      console.error('导航分组更新失败:', result.message)
     }
   } catch (error) {
-    console.error('分组更新失败:', error)
+    console.error('导航分组更新失败:', error)
   } finally {
-    editCategoryLoading.value = false
+    editNavigationCategoryLoading.value = false
   }
 }
 
-// 取消编辑分组
-const cancelEditCategory = () => {
-  editingCategoryId.value = null
-  editCategoryForm.value.name = ''
+// 取消编辑导航分组
+const cancelEditNavigationCategory = () => {
+  editingNavigationCategoryId.value = null
+  editNavigationCategoryForm.value.name = ''
 }
 
-// 显示删除确认对话框
-const showDeleteCategoryConfirm = (category: Category) => {
-  deletingCategory.value = category
-  showDeleteConfirm.value = true
+// 开始编辑服务器分组
+const startEditServerCategory = (category: Category) => {
+  editingServerCategoryId.value = category.id
+  editServerCategoryForm.value.name = category.name
 }
 
-// 确认删除分组
-const confirmDeleteCategory = async () => {
-  if (!deletingCategory.value) {
+// 保存编辑服务器分组
+const saveEditServerCategory = async () => {
+  if (!editServerCategoryForm.value.name.trim()) {
+    console.error('服务器分组名称不能为空')
     return
   }
 
-  deleteCategoryLoading.value = true
+  if (editingServerCategoryId.value === null) {
+    return
+  }
+
+  editServerCategoryLoading.value = true
   try {
-    const response = await apiRequest(`${API_BASE_URL}/categories/${deletingCategory.value.id}`, {
+    const response = await apiRequest(`${API_BASE_URL}/categories/${editingServerCategoryId.value}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        name: editServerCategoryForm.value.name.trim()
+      })
+    })
+
+    const result: ApiResponse<Category> = await response.json()
+
+    if (result.success) {
+      console.log('服务器分组更新成功')
+      // 取消编辑状态
+      cancelEditServerCategory()
+      // 重新获取分组列表
+      await fetchServerCategories()
+    } else {
+      console.error('服务器分组更新失败:', result.message)
+    }
+  } catch (error) {
+    console.error('服务器分组更新失败:', error)
+  } finally {
+    editServerCategoryLoading.value = false
+  }
+}
+
+// 取消编辑服务器分组
+const cancelEditServerCategory = () => {
+  editingServerCategoryId.value = null
+  editServerCategoryForm.value.name = ''
+}
+
+// 显示删除导航分组确认对话框
+const showDeleteNavigationCategoryConfirm = (category: Category) => {
+  deletingNavigationCategory.value = category
+  showDeleteNavigationConfirm.value = true
+}
+
+// 确认删除导航分组
+const confirmDeleteNavigationCategory = async () => {
+  if (!deletingNavigationCategory.value) {
+    return
+  }
+
+  deleteNavigationCategoryLoading.value = true
+  try {
+    const response = await apiRequest(`${API_BASE_URL}/categories/${deletingNavigationCategory.value.id}`, {
       method: 'DELETE'
     })
 
     const result: ApiResponse<string> = await response.json()
 
     if (result.success) {
-      console.log('分组删除成功')
+      console.log('导航分组删除成功')
       // 关闭确认对话框
-      cancelDeleteCategory()
+      cancelDeleteNavigationCategory()
       // 重新获取分组列表
-      await fetchCategories()
+      await fetchNavigationCategories()
     } else {
-      console.error('分组删除失败:', result.message)
+      console.error('导航分组删除失败:', result.message)
     }
   } catch (error) {
-    console.error('分组删除失败:', error)
+    console.error('导航分组删除失败:', error)
   } finally {
-    deleteCategoryLoading.value = false
+    deleteNavigationCategoryLoading.value = false
   }
 }
 
-// 取消删除分组
-const cancelDeleteCategory = () => {
-  deletingCategory.value = null
-  showDeleteConfirm.value = false
+// 取消删除导航分组
+const cancelDeleteNavigationCategory = () => {
+  deletingNavigationCategory.value = null
+  showDeleteNavigationConfirm.value = false
+}
+
+// 显示删除服务器分组确认对话框
+const showDeleteServerCategoryConfirmDialog = (category: Category) => {
+  deletingServerCategory.value = category
+  showDeleteServerCategoryConfirm.value = true
+}
+
+// 确认删除服务器分组
+const confirmDeleteServerCategory = async () => {
+  if (!deletingServerCategory.value) {
+    return
+  }
+
+  deleteServerCategoryLoading.value = true
+  try {
+    const response = await apiRequest(`${API_BASE_URL}/categories/${deletingServerCategory.value.id}`, {
+      method: 'DELETE'
+    })
+
+    const result: ApiResponse<string> = await response.json()
+
+    if (result.success) {
+      console.log('服务器分组删除成功')
+      // 关闭确认对话框
+      cancelDeleteServerCategory()
+      // 重新获取分组列表
+      await fetchServerCategories()
+    } else {
+      console.error('服务器分组删除失败:', result.message)
+    }
+  } catch (error) {
+    console.error('服务器分组删除失败:', error)
+  } finally {
+    deleteServerCategoryLoading.value = false
+  }
+}
+
+// 取消删除服务器分组
+const cancelDeleteServerCategory = () => {
+  deletingServerCategory.value = null
+  showDeleteServerCategoryConfirm.value = false
 }
 
 // 修改密码
@@ -451,7 +680,8 @@ const cancelPasswordChange = () => {
 
 // 全部展开/收起功能
 const toggleAllSections = () => {
-  const allCollapsed = isGroupManagementCollapsed.value &&
+  const allCollapsed = isNavigationGroupManagementCollapsed.value &&
+                      isServerGroupManagementCollapsed.value &&
                       isPasswordSettingsCollapsed.value &&
                       isSystemConfigCollapsed.value &&
                       isThemeSettingsCollapsed.value &&
@@ -462,7 +692,8 @@ const toggleAllSections = () => {
 
   const newState = !allCollapsed
 
-  isGroupManagementCollapsed.value = newState
+  isNavigationGroupManagementCollapsed.value = newState
+  isServerGroupManagementCollapsed.value = newState
   isPasswordSettingsCollapsed.value = newState
   isSystemConfigCollapsed.value = newState
   isThemeSettingsCollapsed.value = newState
@@ -474,7 +705,8 @@ const toggleAllSections = () => {
 
 // 计算是否全部收起
 const allSectionsCollapsed = computed(() => {
-  return isGroupManagementCollapsed.value &&
+  return isNavigationGroupManagementCollapsed.value &&
+         isServerGroupManagementCollapsed.value &&
          isPasswordSettingsCollapsed.value &&
          isSystemConfigCollapsed.value &&
          isThemeSettingsCollapsed.value &&
@@ -1257,7 +1489,8 @@ const onAfterLeave = (el: HTMLElement) => {
 
 // 页面加载时获取数据
 onMounted(async () => {
-  fetchCategories()
+  fetchNavigationCategories()
+  fetchServerCategories()
   await loadSavedWallpaper()
   await loadLogoConfig()
   await loadMusicConfig()
@@ -1282,7 +1515,7 @@ onUnmounted(() => {
       <div class="page-header">
         <div class="header-left">
           <h1 class="page-title">系统设置</h1>
-          <p class="page-description">管理导航分组和系统配置</p>
+          <p class="page-description">分别管理导航分组、服务器分组和系统配置</p>
         </div>
         <div class="header-right">
           <button class="toggle-all-btn" @click="toggleAllSections">
@@ -1294,186 +1527,379 @@ onUnmounted(() => {
 
       <!-- 设置网格布局 -->
       <div class="settings-grid">
-        <!-- 分组管理 -->
-        <div class="settings-item group-management-item">
+        <!-- 分组管理 - 左右布局 -->
+        <div class="settings-item group-management-item full-width">
           <ClientOnly>
             <div class="settings-wrapper">
-              <div class="item-header" @click="isGroupManagementCollapsed = !isGroupManagementCollapsed">
+              <div class="item-header">
                 <div class="header-content">
                   <Icon icon="mdi:folder-multiple" class="header-icon" />
                   <div>
                     <h2 class="item-title">分组管理</h2>
-                    <p class="item-description">拖拽调整分组显示顺序</p>
+                    <p class="item-description">分别管理导航分组和服务器分组</p>
                   </div>
                 </div>
-                <div class="header-actions">
-                  <button
-                    v-if="!showAddCategoryForm && !isGroupManagementCollapsed"
-                    class="add-category-btn"
-                    @click.stop="showAddCategoryForm = true"
-                  >
-                    <Icon icon="mdi:plus" class="btn-icon" />
-                    新增分组
-                  </button>
-                  <button
-                    v-if="saving && !isGroupManagementCollapsed"
-                    class="save-button saving"
-                    disabled
-                  >
-                    <Icon icon="mdi:loading" class="spin" />
-                    保存中...
-                  </button>
-                  <button class="collapse-btn" :class="{ collapsed: isGroupManagementCollapsed }">
-                    <Icon icon="mdi:chevron-down" class="collapse-icon" />
-                  </button>
-                </div>
               </div>
 
-          <Transition
-            name="expand"
-            mode="out-in"
-            @enter="onEnter"
-            @after-enter="onAfterEnter"
-            @leave="onLeave"
-            @after-leave="onAfterLeave"
-          >
-            <div v-if="!isGroupManagementCollapsed" class="item-content">
-            <!-- 新增分组表单 -->
-            <div v-if="showAddCategoryForm" class="add-category-form">
-              <div class="form-header">
-                <h3 class="form-title">新增分组</h3>
-                <p class="form-description">输入分组名称创建新的导航分组</p>
-              </div>
-
-              <div class="form-group">
-                <label class="form-label">分组名称</label>
-                <input
-                  v-model="addCategoryForm.name"
-                  type="text"
-                  class="form-input"
-                  placeholder="请输入分组名称"
-                  @keyup.enter="createCategory"
-                  :disabled="addCategoryLoading"
-                />
-              </div>
-
-              <div class="form-actions">
-                <button
-                  class="cancel-btn"
-                  @click="cancelAddCategory"
-                  :disabled="addCategoryLoading"
-                >
-                  取消
-                </button>
-                <button
-                  class="save-btn"
-                  @click="createCategory"
-                  :disabled="addCategoryLoading || !addCategoryForm.name.trim()"
-                >
-                  <Icon v-if="addCategoryLoading" icon="mdi:loading" class="spin btn-icon" />
-                  <Icon v-else icon="mdi:check" class="btn-icon" />
-                  {{ addCategoryLoading ? '创建中...' : '创建' }}
-                </button>
-              </div>
-            </div>
-
-            <div v-else-if="loading" class="loading-state compact">
-              <Icon icon="mdi:loading" class="loading-icon spin" />
-              <p>加载中...</p>
-            </div>
-
-            <div v-else-if="categories.length === 0" class="empty-state compact">
-              <Icon icon="mdi:folder-off" class="empty-icon" />
-              <p>暂无数据</p>
-            </div>
-
-            <VueDraggable
-              v-else
-              v-model="categories"
-              class="categories-list"
-              :animation="200"
-              ghost-class="ghost-item"
-              chosen-class="chosen-item"
-              drag-class="drag-item"
-              @end="handleDragEnd"
-            >
-              <div
-                v-for="(category, index) in categories"
-                :key="category.id"
-                class="category-item"
-              >
-                <div class="drag-handle">
-                  <Icon icon="mdi:drag-vertical" class="drag-icon" />
-                </div>
-
-                <div class="category-info">
-                  <!-- 编辑状态 -->
-                  <div v-if="editingCategoryId === category.id" class="edit-form">
-                    <input
-                      v-model="editCategoryForm.name"
-                      type="text"
-                      class="edit-input"
-                      placeholder="请输入分组名称"
-                      @keyup.enter="saveEditCategory"
-                      @keyup.esc="cancelEditCategory"
-                      :disabled="editCategoryLoading"
-                    />
-                    <div class="edit-actions">
+              <!-- 左右分栏布局 -->
+              <div class="group-management-layout">
+                <!-- 左侧：导航分组管理 -->
+                <div class="group-section navigation-groups">
+                  <div class="section-header" @click="isNavigationGroupManagementCollapsed = !isNavigationGroupManagementCollapsed">
+                    <div class="header-content">
+                      <Icon icon="mdi:navigation" class="header-icon" />
+                      <div>
+                        <h3 class="section-title">导航分组</h3>
+                        <p class="section-description">管理导航页面的分组</p>
+                      </div>
+                    </div>
+                    <div class="header-actions">
                       <button
-                        class="edit-save-btn"
-                        @click="saveEditCategory"
-                        :disabled="editCategoryLoading || !editCategoryForm.name.trim()"
+                        v-if="!showAddNavigationCategoryForm && !isNavigationGroupManagementCollapsed"
+                        class="add-category-btn"
+                        @click.stop="showAddNavigationCategoryForm = true"
                       >
-                        <Icon v-if="editCategoryLoading" icon="mdi:loading" class="spin" />
-                        <Icon v-else icon="mdi:check" />
+                        <Icon icon="mdi:plus" class="btn-icon" />
+                        新增分组
                       </button>
                       <button
-                        class="edit-cancel-btn"
-                        @click="cancelEditCategory"
-                        :disabled="editCategoryLoading"
+                        v-if="navigationSaving && !isNavigationGroupManagementCollapsed"
+                        class="save-button saving"
+                        disabled
                       >
-                        <Icon icon="mdi:close" />
+                        <Icon icon="mdi:loading" class="spin" />
+                        保存中...
+                      </button>
+                      <button class="collapse-btn" :class="{ collapsed: isNavigationGroupManagementCollapsed }">
+                        <Icon icon="mdi:chevron-down" class="collapse-icon" />
                       </button>
                     </div>
                   </div>
 
-                  <!-- 显示状态 -->
-                  <div v-else>
-                    <div class="category-name">{{ category.name }}</div>
-                    <div class="category-meta">
-                      #{{ index + 1 }}
+                  <Transition
+                    name="expand"
+                    mode="out-in"
+                    @enter="onEnter"
+                    @after-enter="onAfterEnter"
+                    @leave="onLeave"
+                    @after-leave="onAfterLeave"
+                  >
+                    <div v-if="!isNavigationGroupManagementCollapsed" class="section-content">
+                      <!-- 新增导航分组表单 -->
+                      <div v-if="showAddNavigationCategoryForm" class="add-category-form">
+                        <div class="form-header">
+                          <h4 class="form-title">新增导航分组</h4>
+                          <p class="form-description">输入分组名称创建新的导航分组</p>
+                        </div>
+
+                        <div class="form-group">
+                          <label class="form-label">分组名称</label>
+                          <input
+                            v-model="addNavigationCategoryForm.name"
+                            type="text"
+                            class="form-input"
+                            placeholder="请输入分组名称"
+                            @keyup.enter="createNavigationCategory"
+                            :disabled="addNavigationCategoryLoading"
+                          />
+                        </div>
+
+                        <div class="form-actions">
+                          <button
+                            class="cancel-btn"
+                            @click="cancelAddNavigationCategory"
+                            :disabled="addNavigationCategoryLoading"
+                          >
+                            取消
+                          </button>
+                          <button
+                            class="save-btn"
+                            @click="createNavigationCategory"
+                            :disabled="addNavigationCategoryLoading || !addNavigationCategoryForm.name.trim()"
+                          >
+                            <Icon v-if="addNavigationCategoryLoading" icon="mdi:loading" class="spin btn-icon" />
+                            <Icon v-else icon="mdi:check" class="btn-icon" />
+                            {{ addNavigationCategoryLoading ? '创建中...' : '创建' }}
+                          </button>
+                        </div>
+                      </div>
+
+                      <div v-else-if="navigationLoading" class="loading-state compact">
+                        <Icon icon="mdi:loading" class="loading-icon spin" />
+                        <p>加载中...</p>
+                      </div>
+
+                      <div v-else-if="navigationCategories.length === 0" class="empty-state compact">
+                        <Icon icon="mdi:folder-off" class="empty-icon" />
+                        <p>暂无导航分组</p>
+                      </div>
+
+                      <VueDraggable
+                        v-else
+                        v-model="navigationCategories"
+                        class="categories-list"
+                        :animation="200"
+                        ghost-class="ghost-item"
+                        chosen-class="chosen-item"
+                        drag-class="drag-item"
+                        @end="handleNavigationDragEnd"
+                      >
+                        <div
+                          v-for="(category, index) in navigationCategories"
+                          :key="category.id"
+                          class="category-item"
+                        >
+                          <div class="drag-handle">
+                            <Icon icon="mdi:drag-vertical" class="drag-icon" />
+                          </div>
+
+                          <div class="category-info">
+                            <!-- 编辑状态 -->
+                            <div v-if="editingNavigationCategoryId === category.id" class="edit-form">
+                              <input
+                                v-model="editNavigationCategoryForm.name"
+                                type="text"
+                                class="edit-input"
+                                placeholder="请输入分组名称"
+                                @keyup.enter="saveEditNavigationCategory"
+                                @keyup.esc="cancelEditNavigationCategory"
+                                :disabled="editNavigationCategoryLoading"
+                              />
+                              <div class="edit-actions">
+                                <button
+                                  class="edit-save-btn"
+                                  @click="saveEditNavigationCategory"
+                                  :disabled="editNavigationCategoryLoading || !editNavigationCategoryForm.name.trim()"
+                                >
+                                  <Icon v-if="editNavigationCategoryLoading" icon="mdi:loading" class="spin" />
+                                  <Icon v-else icon="mdi:check" />
+                                </button>
+                                <button
+                                  class="edit-cancel-btn"
+                                  @click="cancelEditNavigationCategory"
+                                  :disabled="editNavigationCategoryLoading"
+                                >
+                                  <Icon icon="mdi:close" />
+                                </button>
+                              </div>
+                            </div>
+
+                            <!-- 显示状态 -->
+                            <div v-else>
+                              <div class="category-name">{{ category.name }}</div>
+                              <div class="category-meta">
+                                #{{ index + 1 }}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div class="category-actions">
+                            <span class="order-badge">{{ index + 1 }}</span>
+
+                            <!-- 操作按钮 -->
+                            <div v-if="editingNavigationCategoryId !== category.id" class="action-buttons">
+                              <button
+                                class="edit-btn"
+                                @click="startEditNavigationCategory(category)"
+                                title="编辑分组"
+                              >
+                                <Icon icon="mdi:pencil" />
+                              </button>
+                              <button
+                                class="delete-btn"
+                                @click="showDeleteNavigationCategoryConfirm(category)"
+                                title="删除分组"
+                              >
+                                <Icon icon="mdi:delete" />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </VueDraggable>
+                    </div>
+                  </Transition>
+                </div>
+
+                <!-- 右侧：服务器分组管理 -->
+                <div class="group-section server-groups">
+                  <div class="section-header" @click="isServerGroupManagementCollapsed = !isServerGroupManagementCollapsed">
+                    <div class="header-content">
+                      <Icon icon="mdi:server" class="header-icon" />
+                      <div>
+                        <h3 class="section-title">服务器分组</h3>
+                        <p class="section-description">管理SSH服务器的分组</p>
+                      </div>
+                    </div>
+                    <div class="header-actions">
+                      <button
+                        v-if="!showAddServerCategoryForm && !isServerGroupManagementCollapsed"
+                        class="add-category-btn"
+                        @click.stop="showAddServerCategoryForm = true"
+                      >
+                        <Icon icon="mdi:plus" class="btn-icon" />
+                        新增分组
+                      </button>
+                      <button
+                        v-if="serverSaving && !isServerGroupManagementCollapsed"
+                        class="save-button saving"
+                        disabled
+                      >
+                        <Icon icon="mdi:loading" class="spin" />
+                        保存中...
+                      </button>
+                      <button class="collapse-btn" :class="{ collapsed: isServerGroupManagementCollapsed }">
+                        <Icon icon="mdi:chevron-down" class="collapse-icon" />
+                      </button>
                     </div>
                   </div>
-                </div>
 
-                <div class="category-actions">
-                  <span class="order-badge">{{ index + 1 }}</span>
+                  <Transition
+                    name="expand"
+                    mode="out-in"
+                    @enter="onEnter"
+                    @after-enter="onAfterEnter"
+                    @leave="onLeave"
+                    @after-leave="onAfterLeave"
+                  >
+                    <div v-if="!isServerGroupManagementCollapsed" class="section-content">
+                      <!-- 新增服务器分组表单 -->
+                      <div v-if="showAddServerCategoryForm" class="add-category-form">
+                        <div class="form-header">
+                          <h4 class="form-title">新增服务器分组</h4>
+                          <p class="form-description">输入分组名称创建新的服务器分组</p>
+                        </div>
 
-                  <!-- 操作按钮 -->
-                  <div v-if="editingCategoryId !== category.id" class="action-buttons">
-                    <button
-                      class="edit-btn"
-                      @click="startEditCategory(category)"
-                      title="编辑分组"
-                    >
-                      <Icon icon="mdi:pencil" />
-                    </button>
-                    <button
-                      class="delete-btn"
-                      @click="showDeleteCategoryConfirm(category)"
-                      title="删除分组"
-                    >
-                      <Icon icon="mdi:delete" />
-                    </button>
-                  </div>
+                        <div class="form-group">
+                          <label class="form-label">分组名称</label>
+                          <input
+                            v-model="addServerCategoryForm.name"
+                            type="text"
+                            class="form-input"
+                            placeholder="请输入分组名称"
+                            @keyup.enter="createServerCategory"
+                            :disabled="addServerCategoryLoading"
+                          />
+                        </div>
+
+                        <div class="form-actions">
+                          <button
+                            class="cancel-btn"
+                            @click="cancelAddServerCategory"
+                            :disabled="addServerCategoryLoading"
+                          >
+                            取消
+                          </button>
+                          <button
+                            class="save-btn"
+                            @click="createServerCategory"
+                            :disabled="addServerCategoryLoading || !addServerCategoryForm.name.trim()"
+                          >
+                            <Icon v-if="addServerCategoryLoading" icon="mdi:loading" class="spin btn-icon" />
+                            <Icon v-else icon="mdi:check" class="btn-icon" />
+                            {{ addServerCategoryLoading ? '创建中...' : '创建' }}
+                          </button>
+                        </div>
+                      </div>
+
+                      <div v-else-if="serverLoading" class="loading-state compact">
+                        <Icon icon="mdi:loading" class="loading-icon spin" />
+                        <p>加载中...</p>
+                      </div>
+
+                      <div v-else-if="serverCategories.length === 0" class="empty-state compact">
+                        <Icon icon="mdi:folder-off" class="empty-icon" />
+                        <p>暂无服务器分组</p>
+                      </div>
+
+                      <VueDraggable
+                        v-else
+                        v-model="serverCategories"
+                        class="categories-list"
+                        :animation="200"
+                        ghost-class="ghost-item"
+                        chosen-class="chosen-item"
+                        drag-class="drag-item"
+                        @end="handleServerDragEnd"
+                      >
+                        <div
+                          v-for="(category, index) in serverCategories"
+                          :key="category.id"
+                          class="category-item"
+                        >
+                          <div class="drag-handle">
+                            <Icon icon="mdi:drag-vertical" class="drag-icon" />
+                          </div>
+
+                          <div class="category-info">
+                            <!-- 编辑状态 -->
+                            <div v-if="editingServerCategoryId === category.id" class="edit-form">
+                              <input
+                                v-model="editServerCategoryForm.name"
+                                type="text"
+                                class="edit-input"
+                                placeholder="请输入分组名称"
+                                @keyup.enter="saveEditServerCategory"
+                                @keyup.esc="cancelEditServerCategory"
+                                :disabled="editServerCategoryLoading"
+                              />
+                              <div class="edit-actions">
+                                <button
+                                  class="edit-save-btn"
+                                  @click="saveEditServerCategory"
+                                  :disabled="editServerCategoryLoading || !editServerCategoryForm.name.trim()"
+                                >
+                                  <Icon v-if="editServerCategoryLoading" icon="mdi:loading" class="spin" />
+                                  <Icon v-else icon="mdi:check" />
+                                </button>
+                                <button
+                                  class="edit-cancel-btn"
+                                  @click="cancelEditServerCategory"
+                                  :disabled="editServerCategoryLoading"
+                                >
+                                  <Icon icon="mdi:close" />
+                                </button>
+                              </div>
+                            </div>
+
+                            <!-- 显示状态 -->
+                            <div v-else>
+                              <div class="category-name">{{ category.name }}</div>
+                              <div class="category-meta">
+                                #{{ index + 1 }}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div class="category-actions">
+                            <span class="order-badge">{{ index + 1 }}</span>
+
+                            <!-- 操作按钮 -->
+                            <div v-if="editingServerCategoryId !== category.id" class="action-buttons">
+                              <button
+                                class="edit-btn"
+                                @click="startEditServerCategory(category)"
+                                title="编辑分组"
+                              >
+                                <Icon icon="mdi:pencil" />
+                              </button>
+                              <button
+                                class="delete-btn"
+                                @click="showDeleteServerCategoryConfirmDialog(category)"
+                                title="删除分组"
+                              >
+                                <Icon icon="mdi:delete" />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </VueDraggable>
+                    </div>
+                  </Transition>
                 </div>
               </div>
-            </VueDraggable>
-              </div>
-          </Transition>
 
               <BorderBeam
-                  v-if="!isGroupManagementCollapsed"
+                  v-if="!isNavigationGroupManagementCollapsed || !isServerGroupManagementCollapsed"
                   :size="200"
                   :duration="15"
                   :delay="0"
@@ -2722,17 +3148,17 @@ onUnmounted(() => {
       </div>
     </div>
 
-    <!-- 删除确认对话框 -->
-    <div v-if="showDeleteConfirm" class="modal-overlay" @click="cancelDeleteCategory">
+    <!-- 导航分组删除确认对话框 -->
+    <div v-if="showDeleteNavigationConfirm" class="modal-overlay" @click="cancelDeleteNavigationCategory">
       <div class="delete-confirm-dialog" @click.stop>
         <div class="dialog-header">
           <Icon icon="mdi:alert-circle" class="warning-icon" />
-          <h3 class="dialog-title">确认删除分组</h3>
+          <h3 class="dialog-title">确认删除导航分组</h3>
         </div>
 
         <div class="dialog-content">
           <p class="dialog-message">
-            您确定要删除分组 <strong>"{{ deletingCategory?.name }}"</strong> 吗？
+            您确定要删除导航分组 <strong>"{{ deletingNavigationCategory?.name }}"</strong> 吗？
           </p>
           <p class="dialog-warning">
             此操作不可撤销，该分组下的所有导航项也将被删除。
@@ -2742,35 +3168,73 @@ onUnmounted(() => {
         <div class="dialog-actions">
           <button
             class="dialog-cancel-btn"
-            @click="cancelDeleteCategory"
-            :disabled="deleteCategoryLoading"
+            @click="cancelDeleteNavigationCategory"
+            :disabled="deleteNavigationCategoryLoading"
           >
             取消
           </button>
           <button
             class="dialog-confirm-btn"
-            @click="confirmDeleteCategory"
-            :disabled="deleteCategoryLoading"
+            @click="confirmDeleteNavigationCategory"
+            :disabled="deleteNavigationCategoryLoading"
           >
-            <Icon v-if="deleteCategoryLoading" icon="mdi:loading" class="spin btn-icon" />
+            <Icon v-if="deleteNavigationCategoryLoading" icon="mdi:loading" class="spin btn-icon" />
             <Icon v-else icon="mdi:delete" class="btn-icon" />
-            {{ deleteCategoryLoading ? '删除中...' : '确认删除' }}
+            {{ deleteNavigationCategoryLoading ? '删除中...' : '确认删除' }}
           </button>
         </div>
       </div>
     </div>
 
-    <!-- 服务器删除确认对话框 -->
-    <div v-if="showDeleteServerConfirm" class="modal-overlay" @click="cancelDeleteServer">
+    <!-- 服务器分组删除确认对话框 -->
+    <div v-if="showDeleteServerCategoryConfirm" class="modal-overlay" @click="cancelDeleteServerCategory">
       <div class="delete-confirm-dialog" @click.stop>
         <div class="dialog-header">
           <Icon icon="mdi:alert-circle" class="warning-icon" />
-          <h3 class="dialog-title">确认删除服务器</h3>
+          <h3 class="dialog-title">确认删除服务器分组</h3>
         </div>
 
         <div class="dialog-content">
           <p class="dialog-message">
-            您确定要删除服务器 <strong>"{{ deletingServer?.serverName }}"</strong> 吗？
+            您确定要删除服务器分组 <strong>"{{ deletingServerCategory?.name }}"</strong> 吗？
+          </p>
+          <p class="dialog-warning">
+            此操作不可撤销，该分组下的所有服务器也将被移动到默认分组。
+          </p>
+        </div>
+
+        <div class="dialog-actions">
+          <button
+            class="dialog-cancel-btn"
+            @click="cancelDeleteServerCategory"
+            :disabled="deleteServerCategoryLoading"
+          >
+            取消
+          </button>
+          <button
+            class="dialog-confirm-btn"
+            @click="confirmDeleteServerCategory"
+            :disabled="deleteServerCategoryLoading"
+          >
+            <Icon v-if="deleteServerCategoryLoading" icon="mdi:loading" class="spin btn-icon" />
+            <Icon v-else icon="mdi:delete" class="btn-icon" />
+            {{ deleteServerCategoryLoading ? '删除中...' : '确认删除' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 服务器配置删除确认对话框 -->
+    <div v-if="showDeleteServerConfirm" class="modal-overlay" @click="cancelDeleteServer">
+      <div class="delete-confirm-dialog" @click.stop>
+        <div class="dialog-header">
+          <Icon icon="mdi:alert-circle" class="warning-icon" />
+          <h3 class="dialog-title">确认删除服务器配置</h3>
+        </div>
+
+        <div class="dialog-content">
+          <p class="dialog-message">
+            您确定要删除服务器配置 <strong>"{{ deletingServer?.serverName }}"</strong> 吗？
           </p>
           <p class="dialog-warning">
             此操作不可撤销，服务器配置信息将被永久删除。
@@ -2839,2933 +3303,5 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
-.settings-container {
-  min-height: 100vh;
-  padding: 2rem;
-  max-width: 100%;
-  /* 优化渲染性能 */
-  contain: layout style paint;
-}
 
-/* 页面标题 */
-.page-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 2rem;
-  padding-left: 0.5rem;
-  padding-right: 0.5rem;
-}
-
-.header-left {
-  flex: 1;
-}
-
-.header-right {
-  flex-shrink: 0;
-}
-
-.page-title {
-  font-size: 1.4rem;
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.9);
-  margin: 0 0 0.5rem 0;
-  text-align: left;
-}
-
-.page-description {
-  font-size: 0.875rem;
-  color: rgba(255, 255, 255, 0.6);
-  margin: 0;
-  text-align: left;
-}
-
-/* 全部展开/收起按钮 */
-.toggle-all-btn {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.75rem 1rem;
-  border: 1px solid rgba(59, 130, 246, 0.3);
-  border-radius: 0.5rem;
-  background: linear-gradient(135deg,
-    rgba(59, 130, 246, 0.15) 0%,
-    rgba(59, 130, 246, 0.08) 100%
-  );
-  color: rgba(59, 130, 246, 0.9);
-  font-size: 0.875rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.toggle-all-btn:hover {
-  background: linear-gradient(135deg,
-    rgba(59, 130, 246, 0.25) 0%,
-    rgba(59, 130, 246, 0.15) 100%
-  );
-  border-color: rgba(59, 130, 246, 0.5);
-  color: rgba(59, 130, 246, 1);
-  transform: translateY(-1px);
-}
-
-/* 设置网格布局 */
-.settings-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
-  gap: 1.5rem;
-  align-items: start;
-}
-
-/* 设置项 */
-.settings-item {
-  border-radius: 0.75rem;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  overflow: hidden;
-  transition: border-color 0.3s ease, transform 0.2s ease;
-  height: fit-content;
-  /* 性能优化 */
-  contain: layout style;
-  transform: translateZ(0);
-  backface-visibility: hidden;
-}
-
-.settings-item:hover {
-  border-color: rgba(255, 255, 255, 0.2);
-}
-
-/* 设置项特殊样式 */
-.password-settings-item,
-.group-management-item,
-.system-config-item,
-.music-settings-item,
-.backup-restore-item,
-.system-info-item {
-  position: relative;
-}
-
-/* 服务器设置项 - 扩大宽度 */
-.server-settings-item {
-  position: relative;
-  grid-column: 1 / -1; /* 占据整行 */
-}
-
-.server-settings-item .settings-wrapper {
-  max-width: none; /* 移除最大宽度限制 */
-}
-
-.server-settings-item .item-content {
-  //padding: 2rem; /* 增加内边距 */
-}
-
-/* 主题设置项 - 扩大宽度 */
-.theme-settings-item {
-  position: relative;
-  grid-column: 1 / -1; /* 占据整行 */
-}
-
-.theme-settings-item .settings-wrapper {
-  max-width: none; /* 移除最大宽度限制 */
-}
-
-.theme-settings-item .item-content {
-  padding: 2rem; /* 增加内边距 */
-}
-
-/* 音乐设置项 - 扩大宽度，和主题设置一样长 */
-.music-settings-item {
-  position: relative;
-  grid-column: 1 / -1; /* 占据整行 */
-}
-
-.music-settings-item .settings-wrapper {
-  max-width: none; /* 移除最大宽度限制 */
-}
-
-.music-settings-item .item-content {
-  padding: 2rem; /* 增加内边距 */
-}
-
-.password-settings-wrapper,
-.settings-wrapper {
-  position: relative;
-  width: 100%;
-  height: 100%;
-}
-
-/* 移除全宽样式，所有设置项都使用网格布局 */
-
-.item-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 1rem 1.5rem;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-}
-
-.item-header:hover {
-  background: rgba(255, 255, 255, 0.02);
-}
-
-.header-content {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-}
-
-.header-icon {
-  width: 1.5rem;
-  height: 1.5rem;
-  color: rgba(59, 130, 246, 0.8);
-}
-
-.item-title {
-  font-size: 1.1rem;
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.9);
-  margin: 0 0 0.25rem 0;
-}
-
-.item-description {
-  font-size: 0.8rem;
-  color: rgba(255, 255, 255, 0.6);
-  margin: 0;
-}
-
-.header-actions {
-  display: flex;
-  gap: 1rem;
-}
-
-.save-button {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.75rem 1.5rem;
-  border: none;
-  border-radius: 0.5rem;
-  background: linear-gradient(135deg,
-    rgba(34, 197, 94, 0.2) 0%,
-    rgba(34, 197, 94, 0.1) 100%
-  );
-  color: rgba(34, 197, 94, 0.9);
-  font-size: 0.875rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  border: 1px solid rgba(34, 197, 94, 0.3);
-}
-
-.save-button.saving {
-  opacity: 0.7;
-  cursor: not-allowed;
-}
-
-.item-content {
-  //padding: 0 1.5rem 1.5rem 1.5rem;
-  overflow: hidden;
-  transform-origin: top;
-  /* 启用硬件加速 */
-  transform: translateZ(0);
-  backface-visibility: hidden;
-  perspective: 1000px;
-}
-
-/* 折叠按钮样式 */
-.collapse-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 2rem;
-  height: 2rem;
-  border: none;
-  border-radius: 0.5rem;
-  background: rgba(255, 255, 255, 0.05);
-  color: rgba(255, 255, 255, 0.6);
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.collapse-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
-  color: rgba(255, 255, 255, 0.8);
-}
-
-.collapse-icon {
-  width: 1.25rem;
-  height: 1.25rem;
-  transition: transform 0.3s ease;
-}
-
-.collapse-btn.collapsed .collapse-icon {
-  transform: rotate(-90deg);
-}
-
-/* 展开/收起动画 - 高性能版本 */
-.expand-enter-active {
-  transition: height 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94),
-              opacity 0.25s ease-out 0.1s,
-              transform 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-  overflow: hidden;
-  will-change: height, opacity, transform;
-  transform: translateZ(0); /* 启用硬件加速 */
-}
-
-.expand-leave-active {
-  transition: height 0.3s cubic-bezier(0.55, 0.06, 0.68, 0.19),
-              opacity 0.2s ease-in,
-              transform 0.3s cubic-bezier(0.55, 0.06, 0.68, 0.19);
-  overflow: hidden;
-  will-change: height, opacity, transform;
-  transform: translateZ(0); /* 启用硬件加速 */
-}
-
-.expand-enter-from {
-  opacity: 0;
-  transform: translateY(-6px) scale(0.99);
-}
-
-.expand-enter-to {
-  opacity: 1;
-  transform: translateY(0) scale(1);
-}
-
-.expand-leave-from {
-  opacity: 1;
-  transform: translateY(0) scale(1);
-}
-
-.expand-leave-to {
-  opacity: 0;
-  transform: translateY(-6px) scale(0.99);
-}
-
-/* 加载和空状态 */
-.loading-state,
-.empty-state,
-.coming-soon {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 3rem 1rem;
-  text-align: center;
-}
-
-.loading-icon,
-.empty-icon,
-.coming-soon-icon {
-  width: 3rem;
-  height: 3rem;
-  color: rgba(255, 255, 255, 0.4);
-  margin-bottom: 1rem;
-}
-
-.loading-state p,
-.empty-state p,
-.coming-soon p {
-  color: rgba(255, 255, 255, 0.6);
-  font-size: 1rem;
-  margin: 0;
-}
-
-/* 紧凑状态样式 */
-.loading-state.compact,
-.empty-state.compact {
-  padding: 2rem 1rem;
-}
-
-.loading-state.compact .loading-icon,
-.empty-state.compact .empty-icon {
-  width: 2rem;
-  height: 2rem;
-  margin-bottom: 0.5rem;
-}
-
-.loading-state.compact p,
-.empty-state.compact p {
-  font-size: 0.875rem;
-}
-
-/* 分组列表 */
-.categories-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.category-item {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 0.75rem;
-  border-radius: 0.5rem;
-  background: transparent;
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  cursor: grab;
-  position: relative;
-  overflow: hidden;
-}
-
-.category-item:hover {
-  transform: translateY(-1px);
-  border-color: rgba(255, 255, 255, 0.15);
-  background: rgba(255, 255, 255, 0.02);
-}
-
-.category-item:active {
-  cursor: grabbing;
-}
-
-.drag-handle {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 2rem;
-  height: 2rem;
-  border-radius: 0.375rem;
-  background: rgba(168, 85, 247, 0.1);
-  border: 1px solid rgba(168, 85, 247, 0.2);
-  cursor: grab;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  flex-shrink: 0;
-}
-
-.drag-handle:hover {
-  background: rgba(168, 85, 247, 0.15);
-  border-color: rgba(168, 85, 247, 0.3);
-  transform: translateY(-1px);
-}
-
-.drag-handle:active {
-  cursor: grabbing;
-}
-
-.drag-icon {
-  width: 1rem;
-  height: 1rem;
-  color: rgba(168, 85, 247, 0.8);
-}
-
-.category-info {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-
-.category-name {
-  font-size: 1rem;
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.9);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  text-align: left;
-  transition: all 0.3s ease;
-}
-
-.category-meta {
-  font-size: 0.75rem;
-  color: rgba(255, 255, 255, 0.5);
-  text-align: left;
-}
-
-.category-actions {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.action-buttons {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  margin-left: 0.5rem;
-}
-
-.edit-btn,
-.delete-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.75rem;
-  height: 1.75rem;
-  border-radius: 0.375rem;
-  border: none;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  font-size: 0.75rem;
-}
-
-.edit-btn {
-  background: linear-gradient(135deg,
-    rgba(255, 193, 7, 0.2) 0%,
-    rgba(255, 193, 7, 0.1) 100%
-  );
-  color: rgba(255, 193, 7, 0.9);
-  border: 1px solid rgba(255, 193, 7, 0.3);
-}
-
-.edit-btn:hover {
-  background: linear-gradient(135deg,
-    rgba(255, 193, 7, 0.3) 0%,
-    rgba(255, 193, 7, 0.15) 100%
-  );
-  border-color: rgba(255, 193, 7, 0.5);
-  transform: translateY(-1px) scale(1.05);
-}
-
-.delete-btn {
-  background: linear-gradient(135deg,
-    rgba(239, 68, 68, 0.2) 0%,
-    rgba(239, 68, 68, 0.1) 100%
-  );
-  color: rgba(239, 68, 68, 0.9);
-  border: 1px solid rgba(239, 68, 68, 0.3);
-}
-
-.delete-btn:hover {
-  background: linear-gradient(135deg,
-    rgba(239, 68, 68, 0.3) 0%,
-    rgba(239, 68, 68, 0.15) 100%
-  );
-  border-color: rgba(239, 68, 68, 0.5);
-  transform: translateY(-1px) scale(1.05);
-}
-
-/* 编辑表单样式 */
-.edit-form {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  width: 100%;
-}
-
-.edit-input {
-  flex: 1;
-  padding: 0.5rem 0.75rem;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 0.5rem;
-  background: linear-gradient(135deg,
-    rgba(255, 255, 255, 0.08) 0%,
-    rgba(255, 255, 255, 0.04) 100%
-  );
-  color: rgba(255, 255, 255, 0.9);
-  font-size: 0.875rem;
-  transition: all 0.3s ease;
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-}
-
-.edit-input:focus {
-  outline: none;
-  border-color: rgba(59, 130, 246, 0.5);
-  background: linear-gradient(135deg,
-    rgba(255, 255, 255, 0.12) 0%,
-    rgba(255, 255, 255, 0.06) 100%
-  );
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-}
-
-.edit-input::placeholder {
-  color: rgba(255, 255, 255, 0.4);
-}
-
-.edit-actions {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.edit-save-btn,
-.edit-cancel-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 2rem;
-  height: 2rem;
-  border-radius: 0.5rem;
-  border: none;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  font-size: 0.875rem;
-}
-
-.edit-save-btn {
-  background: linear-gradient(135deg,
-    rgba(34, 197, 94, 0.2) 0%,
-    rgba(34, 197, 94, 0.1) 100%
-  );
-  color: rgba(34, 197, 94, 0.9);
-  border: 1px solid rgba(34, 197, 94, 0.3);
-}
-
-.edit-save-btn:hover:not(:disabled) {
-  background: linear-gradient(135deg,
-    rgba(34, 197, 94, 0.3) 0%,
-    rgba(34, 197, 94, 0.15) 100%
-  );
-  border-color: rgba(34, 197, 94, 0.5);
-  transform: translateY(-1px) scale(1.05);
-}
-
-.edit-cancel-btn {
-  background: linear-gradient(135deg,
-    rgba(239, 68, 68, 0.2) 0%,
-    rgba(239, 68, 68, 0.1) 100%
-  );
-  color: rgba(239, 68, 68, 0.9);
-  border: 1px solid rgba(239, 68, 68, 0.3);
-}
-
-.edit-cancel-btn:hover:not(:disabled) {
-  background: linear-gradient(135deg,
-    rgba(239, 68, 68, 0.3) 0%,
-    rgba(239, 68, 68, 0.15) 100%
-  );
-  border-color: rgba(239, 68, 68, 0.5);
-  transform: translateY(-1px) scale(1.05);
-}
-
-.edit-save-btn:disabled,
-.edit-cancel-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-  transform: none;
-}
-
-/* 删除确认对话框样式 */
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-  animation: modalFadeIn 0.3s ease;
-}
-
-.delete-confirm-dialog {
-  min-width: 400px;
-  max-width: 500px;
-  border-radius: 1rem;
-  overflow: hidden;
-
-  /* 液态玻璃效果 */
-  background: linear-gradient(135deg,
-    rgba(255, 255, 255, 0.15) 0%,
-    rgba(255, 255, 255, 0.08) 50%,
-    rgba(255, 255, 255, 0.05) 100%
-  );
-  backdrop-filter: blur(20px) saturate(150%);
-  -webkit-backdrop-filter: blur(20px) saturate(150%);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-
-  /* 阴影效果 */
-  box-shadow:
-    0 20px 40px rgba(0, 0, 0, 0.3),
-    0 8px 16px rgba(0, 0, 0, 0.2),
-    inset 0 1px 0 rgba(255, 255, 255, 0.3),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.1);
-
-  animation: dialogSlideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.dialog-header {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  padding: 1.5rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.warning-icon {
-  width: 2rem;
-  height: 2rem;
-  color: rgba(255, 193, 7, 0.9);
-}
-
-.dialog-title {
-  font-size: 1.2rem;
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.9);
-  margin: 0;
-}
-
-.dialog-content {
-  padding: 1.5rem;
-}
-
-.dialog-message {
-  font-size: 1rem;
-  color: rgba(255, 255, 255, 0.8);
-  margin: 0 0 1rem 0;
-  line-height: 1.5;
-}
-
-.dialog-warning {
-  font-size: 0.875rem;
-  color: rgba(255, 193, 7, 0.8);
-  margin: 0;
-  line-height: 1.4;
-}
-
-.dialog-actions {
-  display: flex;
-  gap: 1rem;
-  justify-content: flex-end;
-  padding: 1.5rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.dialog-cancel-btn,
-.dialog-confirm-btn {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.75rem 1.5rem;
-  border: none;
-  border-radius: 0.5rem;
-  font-size: 0.875rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.dialog-cancel-btn {
-  background: linear-gradient(135deg,
-    rgba(255, 255, 255, 0.15) 0%,
-    rgba(255, 255, 255, 0.08) 100%
-  );
-  color: rgba(255, 255, 255, 0.8);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-}
-
-.dialog-cancel-btn:hover:not(:disabled) {
-  background: linear-gradient(135deg,
-    rgba(255, 255, 255, 0.25) 0%,
-    rgba(255, 255, 255, 0.15) 100%
-  );
-  border-color: rgba(255, 255, 255, 0.3);
-  color: rgba(255, 255, 255, 1);
-}
-
-.dialog-confirm-btn {
-  background: linear-gradient(135deg,
-    rgba(239, 68, 68, 0.2) 0%,
-    rgba(239, 68, 68, 0.1) 100%
-  );
-  color: rgba(239, 68, 68, 0.9);
-  border: 1px solid rgba(239, 68, 68, 0.3);
-}
-
-.dialog-confirm-btn:hover:not(:disabled) {
-  background: linear-gradient(135deg,
-    rgba(239, 68, 68, 0.3) 0%,
-    rgba(239, 68, 68, 0.15) 100%
-  );
-  border-color: rgba(239, 68, 68, 0.5);
-  color: rgba(239, 68, 68, 1);
-}
-
-.dialog-cancel-btn:disabled,
-.dialog-confirm-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-/* 动画 */
-@keyframes modalFadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-@keyframes dialogSlideIn {
-  from {
-    opacity: 0;
-    transform: translateY(-20px) scale(0.95);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-
-.order-badge {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.5rem;
-  height: 1.5rem;
-  border-radius: 50%;
-  background: linear-gradient(135deg,
-    rgba(59, 130, 246, 0.2) 0%,
-    rgba(59, 130, 246, 0.1) 100%
-  );
-  border: 1px solid rgba(59, 130, 246, 0.3);
-  color: rgba(59, 130, 246, 0.9);
-  font-size: 0.625rem;
-  font-weight: 600;
-}
-
-/* 拖拽状态样式 */
-.ghost-item {
-  opacity: 0.5;
-  transform: scale(0.95);
-  background: linear-gradient(135deg,
-    rgba(168, 85, 247, 0.2) 0%,
-    rgba(168, 85, 247, 0.1) 100%
-  );
-  border: 2px dashed rgba(168, 85, 247, 0.5);
-}
-
-.chosen-item {
-  transform: scale(1.02);
-  box-shadow: 0 8px 25px rgba(168, 85, 247, 0.3);
-  z-index: 1000;
-}
-
-.drag-item {
-  transform: rotate(2deg) scale(1.05);
-  box-shadow: 0 12px 30px rgba(168, 85, 247, 0.4);
-  z-index: 1001;
-}
-
-/* 动画 */
-.spin {
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-/* 新增分组按钮样式 */
-.add-category-btn {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.75rem 1rem;
-  border: 1px solid rgba(34, 197, 94, 0.3);
-  border-radius: 0.5rem;
-  background: linear-gradient(135deg,
-    rgba(34, 197, 94, 0.15) 0%,
-    rgba(34, 197, 94, 0.08) 100%
-  );
-  color: rgba(34, 197, 94, 0.9);
-  font-size: 0.875rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.add-category-btn:hover {
-  background: linear-gradient(135deg,
-    rgba(34, 197, 94, 0.25) 0%,
-    rgba(34, 197, 94, 0.15) 100%
-  );
-  border-color: rgba(34, 197, 94, 0.5);
-  color: rgba(34, 197, 94, 1);
-  transform: translateY(-1px);
-}
-
-/* 新增分组表单样式 */
-.add-category-form {
-  padding: 1.5rem;
-  margin-bottom: 1.5rem;
-  border-radius: 0.75rem;
-  background: rgba(34, 197, 94, 0.03);
-  border: 1px solid rgba(34, 197, 94, 0.15);
-}
-
-.form-header {
-  margin-bottom: 1.5rem;
-}
-
-.form-title {
-  font-size: 1.1rem;
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.9);
-  margin: 0 0 0.5rem 0;
-}
-
-.form-description {
-  font-size: 0.875rem;
-  color: rgba(255, 255, 255, 0.6);
-  margin: 0;
-}
-
-/* 密码设置样式 */
-.change-password-btn {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.75rem 1rem;
-  border: 1px solid rgba(255, 193, 7, 0.3);
-  border-radius: 0.5rem;
-  background: linear-gradient(135deg,
-    rgba(255, 193, 7, 0.15) 0%,
-    rgba(255, 193, 7, 0.08) 100%
-  );
-  color: rgba(255, 193, 7, 0.9);
-  font-size: 0.875rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.change-password-btn:hover {
-  background: linear-gradient(135deg,
-    rgba(255, 193, 7, 0.25) 0%,
-    rgba(255, 193, 7, 0.15) 100%
-  );
-  border-color: rgba(255, 193, 7, 0.5);
-  color: rgba(255, 193, 7, 1);
-  transform: translateY(-1px);
-}
-
-.btn-icon {
-  width: 1rem;
-  height: 1rem;
-}
-
-.password-info {
-  padding: 1rem 0;
-}
-
-.info-item {
-  display: flex;
-  align-items: flex-start;
-  gap: 1rem;
-  padding: 1rem;
-  border-radius: 0.5rem;
-  background: rgba(59, 130, 246, 0.05);
-  border: 1px solid rgba(59, 130, 246, 0.15);
-}
-
-.info-icon {
-  width: 1.5rem;
-  height: 1.5rem;
-  color: rgba(59, 130, 246, 0.8);
-  flex-shrink: 0;
-  margin-top: 0.125rem;
-}
-
-.info-content {
-  flex: 1;
-}
-
-.info-title {
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.9);
-  margin: 0 0 0.25rem 0;
-}
-
-.info-description {
-  font-size: 0.8rem;
-  color: rgba(255, 255, 255, 0.6);
-  margin: 0;
-  line-height: 1.4;
-}
-
-.password-form {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-.form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 0.375rem;
-}
-
-.form-label {
-  font-size: 0.8rem;
-  font-weight: 500;
-  color: rgba(255, 255, 255, 0.8);
-}
-
-.form-input {
-  padding: 0.5rem 0.75rem;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 0.375rem;
-  background: linear-gradient(135deg,
-    rgba(255, 255, 255, 0.08) 0%,
-    rgba(255, 255, 255, 0.04) 100%
-  );
-  color: rgba(255, 255, 255, 0.9);
-  font-size: 0.8rem;
-  transition: all 0.3s ease;
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-}
-
-.form-input:focus {
-  outline: none;
-  border-color: rgba(59, 130, 246, 0.5);
-  background: linear-gradient(135deg,
-    rgba(255, 255, 255, 0.12) 0%,
-    rgba(255, 255, 255, 0.06) 100%
-  );
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-}
-
-.form-input::placeholder {
-  color: rgba(255, 255, 255, 0.4);
-}
-
-.form-actions {
-  display: flex;
-  gap: 0.75rem;
-  justify-content: flex-end;
-  margin-top: 0.375rem;
-}
-
-.cancel-btn,
-.save-btn {
-  display: flex;
-  align-items: center;
-  gap: 0.375rem;
-  padding: 0.5rem 1rem;
-  border: none;
-  border-radius: 0.375rem;
-  font-size: 0.8rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.cancel-btn {
-  background: linear-gradient(135deg,
-    rgba(239, 68, 68, 0.15) 0%,
-    rgba(239, 68, 68, 0.08) 100%
-  );
-  color: rgba(239, 68, 68, 0.9);
-  border: 1px solid rgba(239, 68, 68, 0.3);
-}
-
-.cancel-btn:hover {
-  background: linear-gradient(135deg,
-    rgba(239, 68, 68, 0.25) 0%,
-    rgba(239, 68, 68, 0.15) 100%
-  );
-  border-color: rgba(239, 68, 68, 0.5);
-  color: rgba(239, 68, 68, 1);
-}
-
-.save-btn {
-  background: linear-gradient(135deg,
-    rgba(34, 197, 94, 0.2) 0%,
-    rgba(34, 197, 94, 0.1) 100%
-  );
-  color: rgba(34, 197, 94, 0.9);
-  border: 1px solid rgba(34, 197, 94, 0.3);
-}
-
-.save-btn:hover:not(:disabled) {
-  background: linear-gradient(135deg,
-    rgba(34, 197, 94, 0.3) 0%,
-    rgba(34, 197, 94, 0.15) 100%
-  );
-  border-color: rgba(34, 197, 94, 0.5);
-  color: rgba(34, 197, 94, 1);
-}
-
-.save-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-/* 系统信息样式 */
-.system-info {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.info-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0.75rem 1rem;
-  border-radius: 0.5rem;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.info-label {
-  font-size: 0.875rem;
-  color: rgba(255, 255, 255, 0.7);
-  font-weight: 500;
-}
-
-.info-value {
-  font-size: 0.875rem;
-  color: rgba(255, 255, 255, 0.9);
-  font-weight: 600;
-  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
-}
-
-/* 主题设置样式已移至 WallpaperManager 组件 */
-
-
-
-.wallpaper-upload-preview {
-  margin-bottom: 1.5rem;
-}
-
-.upload-preview-container {
-  width: 100%;
-  height: 200px;
-  border-radius: 0.75rem;
-  border: 2px dashed rgba(249, 115, 22, 0.3);
-  background-color: rgba(255, 255, 255, 0.02);
-  position: relative;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  overflow: hidden;
-}
-
-/* 背景图片层 */
-.background-layer {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
-  border-radius: 0.75rem;
-  /* 扩展背景以避免模糊边缘 */
-  transform: scale(1.1);
-  z-index: 1;
-}
-
-.upload-preview-container:hover {
-  border-color: rgba(249, 115, 22, 0.5);
-  transform: translateY(-2px);
-}
-
-.preview-mask {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  border-radius: 0.75rem;
-  pointer-events: none;
-  z-index: 2;
-}
-
-/* 上传覆盖层 */
-.upload-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: linear-gradient(135deg,
-    rgba(0, 0, 0, 0.3) 0%,
-    rgba(0, 0, 0, 0.1) 100%
-  );
-  border-radius: 0.75rem;
-  transition: all 0.3s ease;
-  z-index: 3;
-}
-
-.upload-preview-container:hover .upload-overlay {
-  background: linear-gradient(135deg,
-    rgba(0, 0, 0, 0.5) 0%,
-    rgba(0, 0, 0, 0.2) 100%
-  );
-}
-
-/* 无壁纸上传状态 */
-.no-wallpaper-upload {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 1rem;
-  text-align: center;
-  color: rgba(255, 255, 255, 0.8);
-}
-
-.upload-icon {
-  width: 3rem;
-  height: 3rem;
-  color: rgba(249, 115, 22, 0.7);
-  margin-bottom: 0.5rem;
-}
-
-.upload-text {
-  font-size: 1rem;
-  font-weight: 500;
-  color: rgba(255, 255, 255, 0.8);
-  margin: 0;
-}
-
-.upload-hint {
-  font-size: 0.8rem;
-  color: rgba(255, 255, 255, 0.5);
-  margin: 0;
-}
-
-/* 有壁纸状态 */
-.has-wallpaper-upload {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.wallpaper-actions-overlay {
-  display: flex;
-  gap: 1rem;
-  opacity: 0;
-  transform: translateY(10px);
-  transition: all 0.3s ease;
-}
-
-.upload-preview-container:hover .wallpaper-actions-overlay {
-  opacity: 1;
-  transform: translateY(0);
-}
-
-.overlay-btn {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.75rem 1.25rem;
-  border: none;
-  border-radius: 0.5rem;
-  font-size: 0.875rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-}
-
-.change-btn {
-  background: linear-gradient(135deg,
-    rgba(249, 115, 22, 0.8) 0%,
-    rgba(249, 115, 22, 0.6) 100%
-  );
-  color: white;
-}
-
-.change-btn:hover {
-  background: linear-gradient(135deg,
-    rgba(249, 115, 22, 0.9) 0%,
-    rgba(249, 115, 22, 0.7) 100%
-  );
-  transform: translateY(-1px);
-}
-
-.overlay-btn.preview-btn {
-  background: linear-gradient(135deg,
-    rgba(59, 130, 246, 0.8) 0%,
-    rgba(59, 130, 246, 0.6) 100%
-  );
-  color: white;
-}
-
-.overlay-btn.preview-btn:hover {
-  background: linear-gradient(135deg,
-    rgba(59, 130, 246, 0.9) 0%,
-    rgba(59, 130, 246, 0.7) 100%
-  );
-  transform: translateY(-1px);
-}
-
-.preview-info {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-top: 0.75rem;
-  padding: 0 0.5rem;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-}
-
-.wallpaper-status {
-  font-size: 0.8rem;
-  color: rgba(249, 115, 22, 0.8);
-  font-weight: 600;
-  padding: 0.25rem 0.5rem;
-  background: linear-gradient(135deg,
-    rgba(249, 115, 22, 0.1) 0%,
-    rgba(249, 115, 22, 0.05) 100%
-  );
-  border-radius: 0.375rem;
-  border: 1px solid rgba(249, 115, 22, 0.2);
-}
-
-.blur-value,
-.mask-value {
-  font-size: 0.8rem;
-  color: rgba(255, 255, 255, 0.6);
-  font-weight: 500;
-}
-
-
-
-/* 模糊度控制 */
-.blur-control,
-.mask-control {
-  margin-bottom: 1.5rem;
-}
-
-.control-label {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: rgba(255, 255, 255, 0.8);
-  margin-bottom: 1rem;
-}
-
-.control-icon {
-  width: 1rem;
-  height: 1rem;
-  color: rgba(249, 115, 22, 0.7);
-}
-
-.slider-container {
-  position: relative;
-}
-
-.blur-slider,
-.mask-slider {
-  width: 100%;
-  height: 6px;
-  border-radius: 3px;
-  outline: none;
-  cursor: pointer;
-  -webkit-appearance: none;
-  appearance: none;
-}
-
-.blur-slider {
-  background: linear-gradient(to right,
-    rgba(255, 255, 255, 0.1) 0%,
-    rgba(249, 115, 22, 0.3) 100%
-  );
-}
-
-.mask-slider {
-  background: linear-gradient(to right,
-    rgba(255, 255, 255, 0.1) 0%,
-    rgba(0, 0, 0, 0.5) 100%
-  );
-}
-
-.blur-slider::-webkit-slider-thumb,
-.mask-slider::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  border: 2px solid rgba(255, 255, 255, 0.2);
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.blur-slider::-webkit-slider-thumb {
-  background: linear-gradient(135deg,
-    rgba(249, 115, 22, 0.9) 0%,
-    rgba(249, 115, 22, 0.7) 100%
-  );
-}
-
-.mask-slider::-webkit-slider-thumb {
-  background: linear-gradient(135deg,
-    rgba(0, 0, 0, 0.8) 0%,
-    rgba(0, 0, 0, 0.6) 100%
-  );
-}
-
-.blur-slider::-webkit-slider-thumb:hover,
-.mask-slider::-webkit-slider-thumb:hover {
-  transform: scale(1.1);
-  border-color: rgba(255, 255, 255, 0.4);
-}
-
-.blur-slider::-moz-range-thumb,
-.mask-slider::-moz-range-thumb {
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  border: 2px solid rgba(255, 255, 255, 0.2);
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.blur-slider::-moz-range-thumb {
-  background: linear-gradient(135deg,
-    rgba(249, 115, 22, 0.9) 0%,
-    rgba(249, 115, 22, 0.7) 100%
-  );
-}
-
-.mask-slider::-moz-range-thumb {
-  background: linear-gradient(135deg,
-    rgba(0, 0, 0, 0.8) 0%,
-    rgba(0, 0, 0, 0.6) 100%
-  );
-}
-
-.slider-labels {
-  display: flex;
-  justify-content: space-between;
-  margin-top: 0.5rem;
-  font-size: 0.75rem;
-  color: rgba(255, 255, 255, 0.5);
-}
-
-/* 操作按钮 */
-.wallpaper-actions {
-  display: flex;
-  gap: 1rem;
-  flex-wrap: wrap;
-}
-
-.action-btn {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.75rem 1.25rem;
-  border: none;
-  border-radius: 0.5rem;
-  font-size: 0.875rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  flex: 1;
-  min-width: 120px;
-  justify-content: center;
-}
-
-.preview-btn {
-  background: linear-gradient(135deg,
-    rgba(59, 130, 246, 0.2) 0%,
-    rgba(59, 130, 246, 0.1) 100%
-  );
-  color: rgba(59, 130, 246, 0.9);
-  border: 1px solid rgba(59, 130, 246, 0.3);
-}
-
-.preview-btn:hover:not(:disabled) {
-  background: linear-gradient(135deg,
-    rgba(59, 130, 246, 0.3) 0%,
-    rgba(59, 130, 246, 0.15) 100%
-  );
-  border-color: rgba(59, 130, 246, 0.5);
-  transform: translateY(-1px);
-}
-
-.apply-btn {
-  background: linear-gradient(135deg,
-    rgba(34, 197, 94, 0.2) 0%,
-    rgba(34, 197, 94, 0.1) 100%
-  );
-  color: rgba(34, 197, 94, 0.9);
-  border: 1px solid rgba(34, 197, 94, 0.3);
-}
-
-.apply-btn:hover:not(:disabled) {
-  background: linear-gradient(135deg,
-    rgba(34, 197, 94, 0.3) 0%,
-    rgba(34, 197, 94, 0.15) 100%
-  );
-  border-color: rgba(34, 197, 94, 0.5);
-  transform: translateY(-1px);
-}
-
-.reset-btn {
-  background: linear-gradient(135deg,
-    rgba(239, 68, 68, 0.2) 0%,
-    rgba(239, 68, 68, 0.1) 100%
-  );
-  color: rgba(239, 68, 68, 0.9);
-  border: 1px solid rgba(239, 68, 68, 0.3);
-}
-
-.reset-btn:hover:not(:disabled) {
-  background: linear-gradient(135deg,
-    rgba(239, 68, 68, 0.3) 0%,
-    rgba(239, 68, 68, 0.15) 100%
-  );
-  border-color: rgba(239, 68, 68, 0.5);
-  transform: translateY(-1px);
-}
-
-.action-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-  transform: none;
-}
-
-/* 配置区域样式 */
-.config-section {
-  margin-bottom: 2rem;
-}
-
-.section-header {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  margin-bottom: 1.5rem;
-  padding-bottom: 0.75rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.section-icon {
-  width: 1.25rem;
-  height: 1.25rem;
-  color: rgba(59, 130, 246, 0.8);
-}
-
-.section-title {
-  font-size: 1rem;
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.9);
-  margin: 0;
-}
-
-/* Logo设置样式 */
-.logo-settings {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-}
-
-.logo-preview {
-  display: flex;
-  justify-content: center;
-}
-
-.preview-container {
-  width: 80px;
-  height: 80px;
-  border-radius: 0.75rem;
-  border: 2px solid rgba(255, 255, 255, 0.1);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(255, 255, 255, 0.05);
-  overflow: hidden;
-}
-
-.logo-image {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-}
-
-.default-logo {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.5rem;
-  color: rgba(255, 255, 255, 0.5);
-}
-
-.default-icon {
-  width: 2rem;
-  height: 2rem;
-}
-
-.default-logo span {
-  font-size: 0.75rem;
-}
-
-.logo-actions {
-  display: flex;
-  gap: 1rem;
-  justify-content: center;
-}
-
-.upload-btn, .reset-btn {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.75rem 1.5rem;
-  border: none;
-  border-radius: 0.5rem;
-  font-size: 0.875rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-}
-
-.upload-btn {
-  background: linear-gradient(135deg,
-    rgba(34, 197, 94, 0.2) 0%,
-    rgba(34, 197, 94, 0.1) 100%
-  );
-  color: rgba(34, 197, 94, 0.9);
-  border-color: rgba(34, 197, 94, 0.3);
-}
-
-.upload-btn:hover:not(.disabled) {
-  background: linear-gradient(135deg,
-    rgba(34, 197, 94, 0.3) 0%,
-    rgba(34, 197, 94, 0.15) 100%
-  );
-  border-color: rgba(34, 197, 94, 0.5);
-  transform: translateY(-1px);
-}
-
-.reset-btn {
-  background: linear-gradient(135deg,
-    rgba(239, 68, 68, 0.2) 0%,
-    rgba(239, 68, 68, 0.1) 100%
-  );
-  color: rgba(239, 68, 68, 0.9);
-  border-color: rgba(239, 68, 68, 0.3);
-}
-
-.reset-btn:hover:not(:disabled) {
-  background: linear-gradient(135deg,
-    rgba(239, 68, 68, 0.3) 0%,
-    rgba(239, 68, 68, 0.15) 100%
-  );
-  border-color: rgba(239, 68, 68, 0.5);
-  transform: translateY(-1px);
-}
-
-.upload-btn.disabled,
-.reset-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-  transform: none;
-}
-
-.logo-tips {
-  text-align: center;
-}
-
-.logo-tips p {
-  font-size: 0.8rem;
-  color: rgba(255, 255, 255, 0.6);
-  margin: 0;
-}
-
-/* 响应式设计 */
-@media (max-width: 1024px) {
-  .settings-grid {
-    grid-template-columns: 1fr;
-    gap: 1rem;
-  }
-}
-
-@media (max-width: 768px) {
-  .settings-container {
-    padding: 1rem;
-  }
-
-  .page-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 1rem;
-  }
-
-  .header-right {
-    width: 100%;
-  }
-
-  .toggle-all-btn {
-    width: 100%;
-    justify-content: center;
-  }
-
-  .page-title {
-    font-size: 1.5rem;
-  }
-
-  .settings-grid {
-    grid-template-columns: 1fr;
-    gap: 1rem;
-  }
-
-  .item-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 1rem;
-  }
-
-  .header-content {
-    width: 100%;
-  }
-
-  .header-actions {
-    width: 100%;
-    justify-content: flex-end;
-  }
-
-  .category-item {
-    padding: 0.75rem;
-    gap: 0.75rem;
-  }
-
-  .category-name {
-    font-size: 0.875rem;
-  }
-
-  .category-meta {
-    font-size: 0.7rem;
-  }
-
-  .form-actions {
-    flex-direction: column;
-  }
-
-  .cancel-btn,
-  .save-btn {
-    width: 100%;
-    justify-content: center;
-  }
-
-  /* 移动端编辑和删除按钮优化 */
-  .edit-btn,
-  .delete-btn {
-    width: 2.5rem;
-    height: 2.5rem;
-    font-size: 1rem;
-  }
-
-  .action-buttons {
-    gap: 0.75rem;
-  }
-
-  /* 移动端编辑表单优化 */
-  .edit-form {
-    flex-direction: column;
-    gap: 1rem;
-    align-items: stretch;
-  }
-
-  .edit-actions {
-    justify-content: center;
-    gap: 1rem;
-  }
-
-  .edit-save-btn,
-  .edit-cancel-btn {
-    width: 3rem;
-    height: 3rem;
-    font-size: 1rem;
-  }
-
-  /* 移动端对话框优化 */
-  .delete-confirm-dialog {
-    min-width: 320px;
-    max-width: 90vw;
-    margin: 1rem;
-  }
-
-  .dialog-actions {
-    flex-direction: column;
-    gap: 0.75rem;
-  }
-
-  .dialog-cancel-btn,
-  .dialog-confirm-btn {
-    width: 100%;
-    justify-content: center;
-    padding: 1rem;
-  }
-
-  /* 移动端壁纸设置优化 */
-  .wallpaper-actions {
-    flex-direction: column;
-  }
-
-  .action-btn {
-    width: 100%;
-    min-width: auto;
-  }
-
-  .upload-preview-container {
-    height: 150px;
-  }
-
-  .upload-icon {
-    width: 2.5rem;
-    height: 2.5rem;
-  }
-
-  .wallpaper-actions-overlay {
-    flex-direction: column;
-    gap: 0.5rem;
-  }
-
-  .overlay-btn {
-    padding: 0.5rem 1rem;
-    font-size: 0.8rem;
-  }
-
-  /* 移动端音乐设置优化 */
-  .path-input-group {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .save-path-btn {
-    justify-content: center;
-  }
-}
-
-/* 音乐设置样式 */
-.music-settings {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-}
-
-.download-location-settings {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-.radio-group {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.radio-option {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.5rem;
-  padding: 0.75rem;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 0.375rem;
-  background: rgba(255, 255, 255, 0.02);
-  cursor: pointer;
-  transition: all 0.3s ease;
-  position: relative;
-  overflow: hidden;
-}
-
-.radio-option:hover {
-  border-color: rgba(255, 255, 255, 0.2);
-  background: rgba(255, 255, 255, 0.04);
-  transform: translateY(-1px);
-}
-
-.radio-option.active {
-  border-color: rgba(236, 72, 153, 0.5);
-  background: linear-gradient(135deg,
-    rgba(236, 72, 153, 0.15) 0%,
-    rgba(236, 72, 153, 0.08) 100%
-  );
-}
-
-.radio-option input[type="radio"] {
-  appearance: none;
-  width: 1rem;
-  height: 1rem;
-  border: 2px solid rgba(255, 255, 255, 0.3);
-  border-radius: 50%;
-  background: transparent;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  flex-shrink: 0;
-  margin-top: 0.125rem;
-}
-
-.radio-option input[type="radio"]:checked {
-  border-color: rgba(236, 72, 153, 0.8);
-  background: radial-gradient(circle, rgba(236, 72, 153, 0.8) 30%, transparent 30%);
-}
-
-.radio-content {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.5rem;
-  flex: 1;
-}
-
-.option-icon {
-  width: 1.25rem;
-  height: 1.25rem;
-  color: rgba(236, 72, 153, 0.8);
-  flex-shrink: 0;
-  margin-top: 0.125rem;
-}
-
-.option-text {
-  display: flex;
-  flex-direction: column;
-  gap: 0.125rem;
-}
-
-.option-title {
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.9);
-}
-
-.option-description {
-  font-size: 0.75rem;
-  color: rgba(255, 255, 255, 0.6);
-  line-height: 1.3;
-}
-
-.server-path-settings {
-  margin-top: 0.75rem;
-  padding: 0.75rem;
-  border: 1px solid rgba(236, 72, 153, 0.2);
-  border-radius: 0.375rem;
-  background: linear-gradient(135deg,
-    rgba(236, 72, 153, 0.08) 0%,
-    rgba(236, 72, 153, 0.04) 100%
-  );
-}
-
-.path-input-group {
-  display: flex;
-  gap: 0.5rem;
-  align-items: flex-end;
-}
-
-.path-input-group .form-input {
-  flex: 1;
-}
-
-.save-path-btn {
-  display: flex;
-  align-items: center;
-  gap: 0.375rem;
-  padding: 0.5rem 0.75rem;
-  border: 1px solid rgba(236, 72, 153, 0.3);
-  border-radius: 0.375rem;
-  background: linear-gradient(135deg,
-    rgba(236, 72, 153, 0.2) 0%,
-    rgba(236, 72, 153, 0.1) 100%
-  );
-  color: rgba(236, 72, 153, 0.9);
-  font-size: 0.8rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  white-space: nowrap;
-}
-
-.save-path-btn:hover:not(:disabled) {
-  background: linear-gradient(135deg,
-    rgba(236, 72, 153, 0.3) 0%,
-    rgba(236, 72, 153, 0.15) 100%
-  );
-  border-color: rgba(236, 72, 153, 0.5);
-  transform: translateY(-1px);
-}
-
-.save-path-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-  transform: none;
-}
-
-.form-hint {
-  font-size: 0.75rem;
-  color: rgba(255, 255, 255, 0.5);
-  margin-top: 0.5rem;
-  margin-bottom: 0;
-}
-
-.saving-indicator {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.75rem 1rem;
-  border-radius: 0.5rem;
-  background: linear-gradient(135deg,
-    rgba(34, 197, 94, 0.15) 0%,
-    rgba(34, 197, 94, 0.08) 100%
-  );
-  color: rgba(34, 197, 94, 0.9);
-  font-size: 0.875rem;
-  border: 1px solid rgba(34, 197, 94, 0.3);
-}
-
-/* Cookie设置样式 */
-.cookie-settings {
-  display: flex;
-  flex-direction: column;
-  gap: 2rem;
-}
-
-.cookie-group {
-  padding: 1.5rem;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 0.75rem;
-  background: linear-gradient(135deg,
-    rgba(255, 255, 255, 0.02) 0%,
-    rgba(255, 255, 255, 0.01) 100%
-  );
-  transition: all 0.3s ease;
-}
-
-.cookie-group:hover {
-  border-color: rgba(255, 255, 255, 0.2);
-  background: linear-gradient(135deg,
-    rgba(255, 255, 255, 0.04) 0%,
-    rgba(255, 255, 255, 0.02) 100%
-  );
-}
-
-.cookie-header {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  margin-bottom: 1rem;
-}
-
-.platform-icon {
-  width: 1.5rem;
-  height: 1.5rem;
-  flex-shrink: 0;
-}
-
-.bilibili-icon {
-  color: #00a1d6;
-}
-
-.youtube-icon {
-  color: #ff0000;
-}
-
-.cookie-title {
-  font-size: 1.1rem;
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.9);
-  margin: 0;
-}
-
-.cookie-textarea {
-  width: 100%;
-  min-height: 80px;
-  padding: 0.75rem;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 0.5rem;
-  background: rgba(0, 0, 0, 0.2);
-  color: rgba(255, 255, 255, 0.9);
-  font-size: 0.875rem;
-  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
-  resize: vertical;
-  transition: all 0.3s ease;
-}
-
-.cookie-textarea:focus {
-  outline: none;
-  border-color: rgba(59, 130, 246, 0.5);
-  background: rgba(0, 0, 0, 0.3);
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-}
-
-.cookie-textarea:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.cookie-textarea::placeholder {
-  color: rgba(255, 255, 255, 0.4);
-}
-
-.cookie-actions {
-  display: flex;
-  justify-content: center;
-  margin-top: 1.5rem;
-}
-
-.save-cookie-btn {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.875rem 1.5rem;
-  border: none;
-  border-radius: 0.5rem;
-  background: linear-gradient(135deg,
-    rgba(59, 130, 246, 0.2) 0%,
-    rgba(59, 130, 246, 0.1) 100%
-  );
-  color: rgba(59, 130, 246, 0.9);
-  font-size: 0.875rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  border: 1px solid rgba(59, 130, 246, 0.3);
-}
-
-.save-cookie-btn:hover:not(:disabled) {
-  background: linear-gradient(135deg,
-    rgba(59, 130, 246, 0.3) 0%,
-    rgba(59, 130, 246, 0.15) 100%
-  );
-  border-color: rgba(59, 130, 246, 0.5);
-  transform: translateY(-1px);
-}
-
-.save-cookie-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-  transform: none;
-}
-
-/* 服务器设置样式 */
-.server-form {
-  background: rgba(255, 255, 255, 0.02);
-  border-radius: 0.75rem;
-  padding: 1.5rem;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.form-grid {
-  display: grid;
-  grid-template-columns: 1.2fr 1fr;
-  gap: 2.5rem;
-  margin-top: 1rem;
-}
-
-@media (max-width: 1024px) {
-  .form-grid {
-    grid-template-columns: 1fr;
-    gap: 1.5rem;
-  }
-}
-
-.form-section {
-  background: rgba(255, 255, 255, 0.02);
-  border-radius: 0.375rem;
-  padding: 1rem;
-  border: 1px solid rgba(255, 255, 255, 0.05);
-}
-
-.section-title {
-  font-size: 1rem;
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.9);
-  margin: 0 0 1rem 0;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.form-row {
-  display: grid;
-  grid-template-columns: 2fr 1fr;
-  gap: 0.75rem;
-}
-
-@media (max-width: 640px) {
-  .form-row {
-    grid-template-columns: 1fr;
-  }
-}
-
-.form-textarea {
-  width: 100%;
-  padding: 0.5rem 0.75rem;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 0.375rem;
-  background: rgba(255, 255, 255, 0.05);
-  color: rgba(255, 255, 255, 0.9);
-  font-size: 0.8rem;
-  resize: vertical;
-  min-height: 60px;
-  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
-}
-
-.form-textarea:focus {
-  outline: none;
-  border-color: rgba(59, 130, 246, 0.5);
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-}
-
-.form-textarea::placeholder {
-  color: rgba(255, 255, 255, 0.4);
-}
-
-.auth-type-selector {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.5rem;
-  margin-bottom: 0.75rem;
-}
-
-.auth-fields {
-  margin-top: 0.75rem;
-}
-
-.form-actions {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-top: 1.5rem;
-  padding-top: 1rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.action-left,
-.action-right {
-  display: flex;
-  gap: 0.5rem;
-}
-
-.test-btn {
-  display: flex;
-  align-items: center;
-  gap: 0.375rem;
-  padding: 0.5rem 1rem;
-  border: 1px solid rgba(34, 197, 94, 0.3);
-  border-radius: 0.375rem;
-  background: rgba(34, 197, 94, 0.1);
-  color: rgba(34, 197, 94, 0.9);
-  font-size: 0.8rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.test-btn:hover:not(:disabled) {
-  background: rgba(34, 197, 94, 0.2);
-  border-color: rgba(34, 197, 94, 0.5);
-  transform: translateY(-1px);
-}
-
-.test-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-  transform: none;
-}
-
-.server-list {
-  margin-top: 1rem;
-}
-
-/* 服务器容器和分组样式 */
-.servers-container {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-}
-
-.server-group {
-  background: rgba(255, 255, 255, 0.01);
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  border-radius: 0.5rem;
-  padding: 1rem;
-}
-
-.group-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 1rem;
-  padding-bottom: 0.75rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.group-info {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.group-icon {
-  font-size: 1.25rem;
-  color: rgba(168, 85, 247, 0.8);
-}
-
-.group-name {
-  font-size: 1rem;
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.9);
-  margin: 0;
-}
-
-.group-count {
-  font-size: 0.875rem;
-  color: rgba(255, 255, 255, 0.6);
-  background: rgba(255, 255, 255, 0.1);
-  padding: 0.125rem 0.5rem;
-  border-radius: 0.75rem;
-}
-
-.servers-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: 1rem;
-  max-width: none;
-}
-
-.server-card {
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 0.5rem;
-  padding: 1rem;
-  transition: all 0.3s ease;
-  position: relative;
-  min-height: 100px;
-}
-
-.server-card:hover {
-  background: rgba(255, 255, 255, 0.04);
-  border-color: rgba(255, 255, 255, 0.2);
-  transform: translateY(-2px);
-}
-
-/* 拖拽相关样式 */
-.drag-handle {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.5rem;
-  height: 1.5rem;
-  color: rgba(255, 255, 255, 0.4);
-  cursor: grab;
-  border-radius: 0.25rem;
-  transition: all 0.3s ease;
-}
-
-.drag-handle:hover {
-  color: rgba(255, 255, 255, 0.7);
-  background: rgba(255, 255, 255, 0.1);
-}
-
-.drag-handle:active {
-  cursor: grabbing;
-}
-
-/* 拖拽状态样式 */
-.ghost {
-  opacity: 0.5;
-  background: rgba(59, 130, 246, 0.1);
-  border: 2px dashed rgba(59, 130, 246, 0.3);
-}
-
-.chosen {
-  transform: rotate(5deg);
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
-}
-
-.drag {
-  transform: rotate(5deg);
-  opacity: 0.8;
-}
-
-.server-card.is-default {
-  border-color: rgba(59, 130, 246, 0.4);
-  background: rgba(59, 130, 246, 0.05);
-}
-
-.server-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 0.5rem;
-}
-
-.server-info {
-  flex: 1;
-}
-
-.server-name {
-  font-size: 0.9rem;
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.9);
-  margin: 0 0 0.125rem 0;
-}
-
-.server-address {
-  font-size: 0.8rem;
-  color: rgba(255, 255, 255, 0.6);
-  margin: 0;
-  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
-}
-
-.server-badges {
-  display: flex;
-  flex-direction: column;
-  gap: 0.125rem;
-  align-items: flex-end;
-}
-
-.default-badge {
-  padding: 0.125rem 0.375rem;
-  border-radius: 0.25rem;
-  background: rgba(59, 130, 246, 0.2);
-  color: rgba(59, 130, 246, 0.9);
-  font-size: 0.7rem;
-  font-weight: 500;
-}
-
-.auth-badge {
-  display: flex;
-  align-items: center;
-  gap: 0.125rem;
-  padding: 0.125rem 0.375rem;
-  border-radius: 0.25rem;
-  font-size: 0.7rem;
-  font-weight: 500;
-}
-
-.auth-badge.password {
-  background: rgba(34, 197, 94, 0.2);
-  color: rgba(34, 197, 94, 0.9);
-}
-
-.auth-badge.publickey {
-  background: rgba(168, 85, 247, 0.2);
-  color: rgba(168, 85, 247, 0.9);
-}
-
-.group-badge {
-  display: flex;
-  align-items: center;
-  gap: 0.125rem;
-  padding: 0.125rem 0.375rem;
-  background: rgba(168, 85, 247, 0.2);
-  color: rgba(168, 85, 247, 0.9);
-  border-radius: 0.25rem;
-  font-size: 0.7rem;
-  font-weight: 500;
-}
-
-.server-description {
-  font-size: 0.8rem;
-  color: rgba(255, 255, 255, 0.7);
-  margin-bottom: 0.75rem;
-  line-height: 1.3;
-}
-
-.server-actions {
-  display: flex;
-  gap: 0.375rem;
-  justify-content: flex-end;
-}
-
-.server-actions button {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.75rem;
-  height: 1.75rem;
-  border: none;
-  border-radius: 0.25rem;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  font-size: 0.8rem;
-}
-
-.set-default-btn {
-  background: rgba(255, 193, 7, 0.1);
-  color: rgba(255, 193, 7, 0.8);
-  border: 1px solid rgba(255, 193, 7, 0.2);
-}
-
-.set-default-btn:hover {
-  background: rgba(255, 193, 7, 0.2);
-  border-color: rgba(255, 193, 7, 0.4);
-}
-
-.edit-btn {
-  background: rgba(59, 130, 246, 0.1);
-  color: rgba(59, 130, 246, 0.8);
-  border: 1px solid rgba(59, 130, 246, 0.2);
-}
-
-.edit-btn:hover {
-  background: rgba(59, 130, 246, 0.2);
-  border-color: rgba(59, 130, 246, 0.4);
-}
-
-.delete-btn {
-  background: rgba(239, 68, 68, 0.1);
-  color: rgba(239, 68, 68, 0.8);
-  border: 1px solid rgba(239, 68, 68, 0.2);
-}
-
-.delete-btn:hover:not(:disabled) {
-  background: rgba(239, 68, 68, 0.2);
-  border-color: rgba(239, 68, 68, 0.4);
-}
-
-.delete-btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-.add-server-btn,
-.add-first-btn {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.75rem 1.25rem;
-  border: 1px solid rgba(34, 197, 94, 0.3);
-  border-radius: 0.5rem;
-  background: rgba(34, 197, 94, 0.1);
-  color: rgba(34, 197, 94, 0.9);
-  font-size: 0.875rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.add-server-btn:hover,
-.add-first-btn:hover {
-  background: rgba(34, 197, 94, 0.2);
-  border-color: rgba(34, 197, 94, 0.5);
-  transform: translateY(-1px);
-}
-
-.add-first-btn {
-  margin-top: 1rem;
-}
-
-/* 私钥管理样式 */
-.private-key-selector {
-  margin-bottom: 0.75rem;
-}
-
-.selector-header {
-  display: flex;
-  justify-content: flex-end;
-  margin-bottom: 0.75rem;
-}
-
-.manage-keys-btn {
-  display: flex;
-  align-items: center;
-  gap: 0.375rem;
-  padding: 0.375rem 0.75rem;
-  border: 1px solid rgba(168, 85, 247, 0.3);
-  border-radius: 0.25rem;
-  background: rgba(168, 85, 247, 0.1);
-  color: rgba(168, 85, 247, 0.9);
-  font-size: 0.75rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.manage-keys-btn:hover:not(:disabled) {
-  background: rgba(168, 85, 247, 0.2);
-  border-color: rgba(168, 85, 247, 0.5);
-}
-
-.key-source-options {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.5rem;
-  margin-bottom: 0.75rem;
-}
-
-.form-select {
-  width: 100%;
-  padding: 0.5rem 0.75rem;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 0.375rem;
-  background: rgba(255, 255, 255, 0.05);
-  color: rgba(255, 255, 255, 0.9);
-  font-size: 0.8rem;
-}
-
-.form-select:focus {
-  outline: none;
-  border-color: rgba(59, 130, 246, 0.5);
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-}
-
-.form-select option {
-  background: rgba(30, 30, 30, 0.95);
-  color: rgba(255, 255, 255, 0.9);
-}
-
-/* 自定义下拉选择器样式 */
-.custom-select-wrapper {
-  position: relative;
-}
-
-.custom-select {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  width: 100%;
-  padding: 0.5rem 0.75rem;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 0.375rem;
-  background: rgba(255, 255, 255, 0.05);
-  cursor: pointer;
-  transition: all 0.3s ease;
-  backdrop-filter: blur(10px);
-}
-
-.custom-select:hover:not(.is-disabled) {
-  border-color: rgba(255, 255, 255, 0.3);
-  background: rgba(255, 255, 255, 0.08);
-}
-
-.custom-select.is-open {
-  border-color: rgba(59, 130, 246, 0.5);
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-}
-
-.custom-select.is-disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.select-display {
-  flex: 1;
-  display: flex;
-  align-items: center;
-}
-
-.placeholder {
-  color: rgba(255, 255, 255, 0.4);
-  font-size: 0.8rem;
-}
-
-.selected-value {
-  color: rgba(255, 255, 255, 0.9);
-  font-size: 0.8rem;
-}
-
-.select-arrow {
-  font-size: 1.1rem;
-  color: rgba(255, 255, 255, 0.6);
-  transition: transform 0.3s ease;
-}
-
-.select-arrow.is-open {
-  transform: rotate(180deg);
-}
-
-.select-dropdown {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  right: 0;
-  z-index: 1000;
-  margin-top: 0.25rem;
-}
-
-.dropdown-content {
-  background: rgba(20, 20, 20, 0.95);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 0.5rem;
-  backdrop-filter: blur(20px);
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
-  max-height: 200px;
-  overflow-y: auto;
-}
-
-.dropdown-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0.5rem 0.75rem;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-}
-
-.dropdown-item:last-child {
-  border-bottom: none;
-}
-
-.dropdown-item:hover {
-  background: rgba(255, 255, 255, 0.08);
-}
-
-.dropdown-item.is-selected {
-  background: rgba(59, 130, 246, 0.15);
-  border-color: rgba(59, 130, 246, 0.3);
-}
-
-.item-content {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 0.125rem;
-}
-
-.item-text {
-  color: rgba(255, 255, 255, 0.4);
-  font-size: 0.75rem;
-}
-
-.item-name {
-  color: rgba(255, 255, 255, 0.9);
-  font-size: 0.8rem;
-  font-weight: 500;
-}
-
-.item-description {
-  color: rgba(255, 255, 255, 0.6);
-  font-size: 0.7rem;
-}
-
-.item-type {
-  display: inline-block;
-  padding: 0.0625rem 0.25rem;
-  border-radius: 0.1875rem;
-  background: rgba(168, 85, 247, 0.2);
-  color: rgba(168, 85, 247, 0.9);
-  font-size: 0.6rem;
-  font-weight: 500;
-  margin-top: 0.125rem;
-  width: fit-content;
-}
-
-.check-icon {
-  color: rgba(34, 197, 94, 0.8);
-  font-size: 0.875rem;
-}
-
-/* 下拉动画 */
-.dropdown-enter-active,
-.dropdown-leave-active {
-  transition: all 0.3s ease;
-}
-
-.dropdown-enter-from {
-  opacity: 0;
-  transform: translateY(-10px) scale(0.95);
-}
-
-.dropdown-leave-to {
-  opacity: 0;
-  transform: translateY(-10px) scale(0.95);
-}
-
-/* 私钥管理器模态框 */
-.private-key-manager-modal {
-  background: rgba(20, 20, 20, 0.95);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 1rem;
-  width: 90vw;
-  max-width: 800px;
-  max-height: 90vh;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  backdrop-filter: blur(20px);
-}
-
-.modal-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 1.5rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.modal-title {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 1.25rem;
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.9);
-  margin: 0;
-}
-
-.title-icon {
-  font-size: 1.5rem;
-  color: rgba(168, 85, 247, 0.8);
-}
-
-.modal-close-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 2rem;
-  height: 2rem;
-  border: none;
-  border-radius: 0.375rem;
-  background: rgba(255, 255, 255, 0.1);
-  color: rgba(255, 255, 255, 0.7);
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.modal-close-btn:hover {
-  background: rgba(255, 255, 255, 0.2);
-  color: rgba(255, 255, 255, 0.9);
-}
-
-.modal-content {
-  flex: 1;
-  padding: 1.5rem;
-  overflow-y: auto;
-}
-
-.private-key-form {
-  max-width: 600px;
-  margin: 0 auto;
-}
-
-.list-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 1.5rem;
-}
-
-.list-title {
-  font-size: 1.125rem;
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.9);
-  margin: 0;
-}
-
-.add-key-btn {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.75rem 1.25rem;
-  border: 1px solid rgba(34, 197, 94, 0.3);
-  border-radius: 0.5rem;
-  background: rgba(34, 197, 94, 0.1);
-  color: rgba(34, 197, 94, 0.9);
-  font-size: 0.875rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.add-key-btn:hover {
-  background: rgba(34, 197, 94, 0.2);
-  border-color: rgba(34, 197, 94, 0.5);
-}
-
-.keys-list {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-.key-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 1rem;
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 0.5rem;
-  transition: all 0.3s ease;
-}
-
-.key-item:hover {
-  background: rgba(255, 255, 255, 0.04);
-  border-color: rgba(255, 255, 255, 0.2);
-}
-
-.key-info {
-  flex: 1;
-}
-
-.key-name {
-  font-size: 1rem;
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.9);
-  margin: 0 0 0.25rem 0;
-}
-
-.key-description {
-  font-size: 0.875rem;
-  color: rgba(255, 255, 255, 0.6);
-  margin: 0 0 0.5rem 0;
-}
-
-.key-meta {
-  display: flex;
-  gap: 0.5rem;
-}
-
-.key-type {
-  padding: 0.25rem 0.5rem;
-  border-radius: 0.25rem;
-  background: rgba(168, 85, 247, 0.2);
-  color: rgba(168, 85, 247, 0.9);
-  font-size: 0.75rem;
-  font-weight: 500;
-}
-
-.key-actions {
-  display: flex;
-  gap: 0.375rem;
-}
-
-.key-actions button {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.75rem;
-  height: 1.75rem;
-  border: none;
-  border-radius: 0.25rem;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  font-size: 0.8rem;
-}
-
-.key-actions .edit-btn {
-  background: rgba(59, 130, 246, 0.1);
-  color: rgba(59, 130, 246, 0.8);
-  border: 1px solid rgba(59, 130, 246, 0.2);
-}
-
-.key-actions .edit-btn:hover {
-  background: rgba(59, 130, 246, 0.2);
-  border-color: rgba(59, 130, 246, 0.4);
-}
-
-.key-actions .delete-btn {
-  background: rgba(239, 68, 68, 0.1);
-  color: rgba(239, 68, 68, 0.8);
-  border: 1px solid rgba(239, 68, 68, 0.2);
-}
-
-.key-actions .delete-btn:hover {
-  background: rgba(239, 68, 68, 0.2);
-  border-color: rgba(239, 68, 68, 0.4);
-}
 </style>
