@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.clover.cpanel.dto.ServerRequest;
 import com.clover.cpanel.dto.ServerResponse;
+import com.clover.cpanel.entity.PanelCategory;
 import com.clover.cpanel.entity.Server;
 import com.clover.cpanel.mapper.ServerMapper;
 import com.clover.cpanel.service.PanelCategoryService;
