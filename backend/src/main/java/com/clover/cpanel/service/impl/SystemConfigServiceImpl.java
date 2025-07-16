@@ -96,6 +96,18 @@ public class SystemConfigServiceImpl extends ServiceImpl<SystemConfigMapper, Sys
         return list(queryWrapper);
     }
 
+    @Override
+    public boolean deleteConfigByKey(String configKey) {
+        try {
+            QueryWrapper<SystemConfig> queryWrapper = new QueryWrapper<>();
+            queryWrapper.eq("config_key", configKey);
+            return remove(queryWrapper);
+        } catch (Exception e) {
+            log.error("删除配置失败: {}",e);
+            return false;
+        }
+    }
+
     /**
      * 对密码进行哈希处理
      * @param password 原始密码

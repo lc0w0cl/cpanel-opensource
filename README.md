@@ -104,6 +104,8 @@ echo "部署完成！访问 http://your-server-ip:8081 使用应用"
 | `JWT_SECRET` | JWT 密钥 | - | ✅ |
 | `JWT_EXPIRATION` | JWT 过期时间(ms) | 86400000 | ❌ |
 | `JWT_REFRESH_EXPIRATION` | 刷新令牌过期时间(ms) | 604800000 | ❌ |
+| `ENCRYPTION_ENABLED` | 是否启用数据加密 | true | ❌ |
+| `ENCRYPTION_AES_KEY` | AES加密密钥(Base64) | 自动生成 | 🔒 |
 | `LOG_LEVEL` | 日志级别 | INFO | ❌ |
 
 ### 端口说明
@@ -111,6 +113,56 @@ echo "部署完成！访问 http://your-server-ip:8081 使用应用"
 - **8081**: 应用主端口（Docker 部署）
 - **8080**: 应用主端口（手动部署）
 - **3306**: MySQL 数据库端口
+
+### 🔐 数据加密功能
+
+本应用支持对服务器敏感信息进行AES-256-GCM加密，包括：
+- 服务器登录密码
+- SSH私钥内容
+- 私钥密码
+
+#### 生成加密密钥
+
+**Linux/macOS:**
+```bash
+# 使用提供的脚本生成密钥
+./scripts/generate-encryption-key.sh
+
+# 或手动生成
+openssl rand -base64 32
+```
+
+**Windows:**
+```cmd
+# 使用提供的脚本生成密钥
+scripts\generate-encryption-key.bat
+
+# 或使用PowerShell手动生成
+powershell -Command "[Convert]::ToBase64String((1..32 | ForEach-Object { Get-Random -Maximum 256 }))"
+```
+
+#### 配置加密密钥
+
+1. **通过环境变量（推荐）:**
+```bash
+export ENCRYPTION_AES_KEY="your-generated-base64-key"
+```
+
+2. **通过.env文件:**
+```bash
+echo "ENCRYPTION_AES_KEY=your-generated-base64-key" >> .env
+```
+
+3. **Docker环境:**
+```yaml
+environment:
+  ENCRYPTION_AES_KEY: your-generated-base64-key
+```
+
+⚠️ **重要提醒:**
+- 生产环境必须设置固定密钥，否则重启后无法解密数据
+- 请妥善保管密钥，丢失后将无法恢复加密数据
+- 建议定期备份密钥到安全位置
 
 ### 目录结构
 
@@ -120,6 +172,7 @@ echo "部署完成！访问 http://your-server-ip:8081 使用应用"
 ├── frontend/               # 前端源码
 ├── uploads/                # 文件上传目录
 ├── logs/                   # 日志目录
+├── scripts/                # 工具脚本
 ├── docker-compose.yml      # Docker 编排文件
 ├── Dockerfile             # Docker 镜像构建文件
 └── .env                   # 环境变量配置

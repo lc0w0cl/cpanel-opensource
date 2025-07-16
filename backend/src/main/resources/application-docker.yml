@@ -70,6 +70,15 @@ jwt:
   # 受众
   audience: ${JWT_AUDIENCE:cpanel-users}
 
+# 加密配置
+encryption:
+  # 是否启用加密功能
+  enabled: ${ENCRYPTION_ENABLED:true}
+  # AES加密配置
+  aes:
+    # AES加密密钥（生产环境建议通过环境变量设置）
+    key: ${ENCRYPTION_AES_KEY:}
+
 # 日志配置
 logging:
   level:

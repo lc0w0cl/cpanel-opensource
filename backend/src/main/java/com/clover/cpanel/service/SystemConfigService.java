@@ -62,4 +62,11 @@ public interface SystemConfigService extends IService<SystemConfig> {
      * @return 配置列表
      */
     List<SystemConfig> getConfigsByType(String configType);
+
+    /**
+     * 根据配置键名删除配置
+     * @param configKey 配置键名
+     * @return 是否删除成功
+     */
+    boolean deleteConfigByKey(String configKey);
 }

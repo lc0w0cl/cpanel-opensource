@@ -7,6 +7,7 @@ import com.clover.cpanel.dto.ServerResponse;
 import com.clover.cpanel.entity.Server;
 import com.clover.cpanel.mapper.ServerMapper;
 import com.clover.cpanel.service.PanelCategoryService;
+import com.clover.cpanel.service.ServerEncryptionService;
 import com.clover.cpanel.service.ServerService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
@@ -30,6 +31,9 @@ public class ServerServiceImpl extends ServiceImpl<ServerMapper, Server> impleme
     @Autowired
     private PanelCategoryService panelCategoryService;
 
+    @Autowired
+    private ServerEncryptionService serverEncryptionService;
+
     @Override
     public List<ServerResponse> getAllServers() {
         List<Server> servers = baseMapper.getAllServersOrdered();
@@ -40,7 +44,12 @@ public class ServerServiceImpl extends ServiceImpl<ServerMapper, Server> impleme
 
     @Override
     public Server getServerWithAuthInfo(Integer id) {
-        return getById(id);
+        Server server = getById(id);
+        if (server != null) {
+            // 创建解密副本，不修改原对象
+            return serverEncryptionService.createDecryptedCopy(server);
+        }
+        return null;
     }
 
     @Override
@@ -99,6 +108,9 @@ public class ServerServiceImpl extends ServiceImpl<ServerMapper, Server> impleme
                 baseMapper.clearAllDefaultStatus();
             }
 
+            // 加密敏感信息
+            serverEncryptionService.encryptSensitiveFields(server);
+
             boolean success = save(server);
             if (success) {
                 log.info("服务器配置创建成功: {}", server.getServerName());
@@ -132,6 +144,9 @@ public class ServerServiceImpl extends ServiceImpl<ServerMapper, Server> impleme
             if (Boolean.TRUE.equals(existingServer.getIsDefault())) {
                 baseMapper.clearAllDefaultStatus();
             }
+
+            // 加密敏感信息
+            serverEncryptionService.encryptSensitiveFields(existingServer);
 
             boolean success = updateById(existingServer);
             if (success) {

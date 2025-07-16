@@ -1,6 +1,7 @@
 package com.clover.cpanel.config;
 
 import com.clover.cpanel.service.DatabaseInitService;
+import com.clover.cpanel.service.DataEncryptionMigrationService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
@@ -20,6 +21,12 @@ public class ApplicationStartupListener implements ApplicationListener<Applicati
     @Autowired
     private DatabaseInitService databaseInitService;
 
+    @Autowired
+    private DataEncryptionMigrationService dataEncryptionMigrationService;
+
+    @Autowired
+    private EncryptionConfig encryptionConfig;
+
     @Override
     public void onApplicationEvent(ApplicationReadyEvent event) {
         log.info("=== 应用启动完成，开始执行初始化操作 ===");
@@ -27,9 +34,27 @@ public class ApplicationStartupListener implements ApplicationListener<Applicati
         try {
             long startTime = System.currentTimeMillis();
 
+            // 初始化加密配置
+            log.info("正在初始化加密配置...");
+            encryptionConfig.init();
+
             // 执行数据库初始化
             log.info("正在执行数据库初始化...");
             databaseInitService.initializeTables();
+
+            // 执行数据加密迁移
+            log.info("正在检查数据加密迁移...");
+            if (dataEncryptionMigrationService.needsMigration()) {
+                log.info("正在执行数据加密迁移...");
+                boolean migrationSuccess = dataEncryptionMigrationService.executeMigration();
+                if (migrationSuccess) {
+                    log.info("✅ 数据加密迁移完成");
+                } else {
+                    log.error("❌ 数据加密迁移失败");
+                }
+            } else {
+                log.info("✅ 数据加密迁移检查完成");
+            }
 
             long endTime = System.currentTimeMillis();
             log.info("=== 应用初始化操作完成，耗时: {}ms ===", endTime - startTime);
