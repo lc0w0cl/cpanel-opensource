@@ -11,11 +11,14 @@ const previewBlur = ref(5)
 const previewMask = ref(30)
 const isPreviewMode = ref(false)
 
-// 内容边距设置
-const contentPadding = ref(0)
+// 内容边距设置 - 设置合理的初始值避免布局跳跃
+const contentPadding = ref(16) // 默认16px边距
 
 // 是否已经初始化
 const isInitialized = ref(false)
+
+// 是否正在加载配置
+const isLoading = ref(true)
 
 // 计算背景图片URL
 const backgroundImageUrl = computed(() => {
@@ -61,7 +64,10 @@ const backgroundStyle = computed(() => {
 const loadWallpaperSettings = async () => {
   if (process.client && !isInitialized.value) {
     try {
-      // 首先尝试从后端加载配置
+      // 首先尝试从localStorage快速加载，避免初始闪烁
+      loadFromLocalStorage()
+
+      // 然后从后端加载最新配置
       const config = useRuntimeConfig()
       const API_BASE_URL = `${config.public.apiBaseUrl}/api`
 
@@ -84,14 +90,13 @@ const loadWallpaperSettings = async () => {
         }
         localStorage.setItem('wallpaperBlur', wallpaperBlur.value.toString())
         localStorage.setItem('wallpaperMask', wallpaperMask.value.toString())
-      } else {
-        // 如果后端加载失败，回退到localStorage
-        loadFromLocalStorage()
       }
     } catch (error) {
       console.error('从后端加载壁纸配置失败，使用本地缓存:', error)
-      // 如果后端请求失败，回退到localStorage
-      loadFromLocalStorage()
+      // 如果后端请求失败，确保已经加载了localStorage
+      if (!customWallpaper.value && !localStorage.getItem('customWallpaper')) {
+        loadFromLocalStorage()
+      }
     }
 
     console.log('壁纸设置已更新:', {
@@ -108,6 +113,12 @@ const loadWallpaperSettings = async () => {
 const loadContentPaddingSettings = async () => {
   if (process.client) {
     try {
+      // 首先从localStorage快速加载
+      const savedPadding = localStorage.getItem('contentPadding')
+      if (savedPadding !== null) {
+        contentPadding.value = parseInt(savedPadding)
+      }
+
       const config = useRuntimeConfig()
       const API_BASE_URL = `${config.public.apiBaseUrl}/api`
 
@@ -115,10 +126,17 @@ const loadContentPaddingSettings = async () => {
       const result = await response.json()
 
       if (result.success && result.data) {
-        contentPadding.value = result.data.padding || 0
+        const newPadding = result.data.padding || 0
+        contentPadding.value = newPadding
+        // 缓存到localStorage
+        localStorage.setItem('contentPadding', newPadding.toString())
       }
     } catch (error) {
       console.error('加载内容边距设置失败:', error)
+      // 如果加载失败，确保有默认值
+      if (contentPadding.value === 0) {
+        contentPadding.value = 16 // 使用默认值
+      }
     }
   }
 }
@@ -128,6 +146,7 @@ const loadFromLocalStorage = () => {
   const savedWallpaper = localStorage.getItem('customWallpaper')
   const savedBlur = localStorage.getItem('wallpaperBlur')
   const savedMask = localStorage.getItem('wallpaperMask')
+  const savedPadding = localStorage.getItem('contentPadding')
 
   // 加载自定义壁纸（如果有的话）
   if (savedWallpaper) {
@@ -138,10 +157,16 @@ const loadFromLocalStorage = () => {
   wallpaperBlur.value = savedBlur !== null ? parseInt(savedBlur) : 5
   wallpaperMask.value = savedMask !== null ? parseInt(savedMask) : 30
 
-  console.log('从localStorage加载壁纸设置:', {
+  // 加载内容边距设置
+  if (savedPadding !== null) {
+    contentPadding.value = parseInt(savedPadding)
+  }
+
+  console.log('从localStorage加载设置:', {
     customWallpaper: customWallpaper.value,
     wallpaperBlur: wallpaperBlur.value,
-    wallpaperMask: wallpaperMask.value
+    wallpaperMask: wallpaperMask.value,
+    contentPadding: contentPadding.value
   })
 }
 
@@ -181,20 +206,31 @@ const handleWallpaperPreviewChange = async (event: CustomEvent) => {
 
 // 监听内容边距变更事件
 const handleContentPaddingChanged = (event) => {
-  contentPadding.value = event.detail.padding || 0
+  const newPadding = event.detail.padding || 0
+  contentPadding.value = newPadding
+  // 同步到localStorage
+  localStorage.setItem('contentPadding', newPadding.toString())
 }
 
 // 初始化壁纸系统
 const initializeWallpaper = async () => {
   if (!isInitialized.value) {
-    await loadWallpaperSettings()
-    await loadContentPaddingSettings()
+    isLoading.value = true
 
-    // 监听自定义事件
-    if (process.client) {
-      window.addEventListener('wallpaperChanged', handleWallpaperChange)
-      window.addEventListener('wallpaperPreviewChange', handleWallpaperPreviewChange)
-      window.addEventListener('content-padding-changed', handleContentPaddingChanged)
+    try {
+      await Promise.all([
+        loadWallpaperSettings(),
+        loadContentPaddingSettings()
+      ])
+
+      // 监听自定义事件
+      if (process.client) {
+        window.addEventListener('wallpaperChanged', handleWallpaperChange)
+        window.addEventListener('wallpaperPreviewChange', handleWallpaperPreviewChange)
+        window.addEventListener('content-padding-changed', handleContentPaddingChanged)
+      }
+    } finally {
+      isLoading.value = false
     }
   }
 }
@@ -220,12 +256,13 @@ export const useWallpaper = () => {
     isPreviewMode: readonly(isPreviewMode),
     contentPadding: readonly(contentPadding),
     isInitialized: readonly(isInitialized),
-    
+    isLoading: readonly(isLoading),
+
     // 计算属性
     backgroundImageUrl,
     cssVars,
     backgroundStyle,
-    
+
     // 方法
     initializeWallpaper,
     cleanupWallpaper,

@@ -82,6 +82,20 @@
   body {
     @apply bg-background text-foreground;
   }
+
+  /* 防止布局跳跃的全局样式 */
+  .layout-container {
+    /* 确保容器有最小高度 */
+    min-height: 100vh;
+  }
+
+  /* 为所有可能变化的布局元素添加过渡 */
+  .content-container,
+  .content-wrapper {
+    transition: padding 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+                margin 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+                opacity 0.2s ease-in-out;
+  }
 }
 
 html {

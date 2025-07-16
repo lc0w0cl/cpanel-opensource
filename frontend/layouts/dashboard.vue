@@ -14,6 +14,7 @@ const {
   isPreviewMode,
   contentPadding,
   isInitialized,
+  isLoading,
   initializeWallpaper,
   cleanupWallpaper
 } = useWallpaper()
@@ -32,8 +33,10 @@ const isTerminalPage = computed(() => {
 
 
 onMounted(async () => {
-  // 初始化全局壁纸系统（只在第一次调用时加载）
-  await initializeWallpaper()
+  // 确保壁纸系统已初始化（插件可能已经初始化过了）
+  if (!isInitialized.value) {
+    await initializeWallpaper()
+  }
 })
 
 onUnmounted(() => {
@@ -61,7 +64,7 @@ onUnmounted(() => {
     ></div>
 
     <!-- 主内容区域 -->
-    <div class="content-container">
+    <div class="content-container" :class="{ 'initializing': !isInitialized }">
       <div class="content-glass-panel">
         <div class="glow-border-container">
           <GlowBorder
@@ -69,12 +72,17 @@ onUnmounted(() => {
               :border-radius="10"
           />
         </div>
-        <div class="content-wrapper" :style="{
-          paddingTop: '1rem',
-          paddingBottom: '1rem',
-          paddingLeft: isTerminalPage ? '4px' : `calc(1rem + ${contentPadding}px)`,
-          paddingRight: isTerminalPage ? '4px' : `calc(1rem + ${contentPadding}px)`
-        }">
+        <div
+          class="content-wrapper"
+          :class="{ 'loading': isLoading }"
+          :style="{
+            paddingTop: '1rem',
+            paddingBottom: '1rem',
+            paddingLeft: isTerminalPage ? '4px' : `calc(1rem + ${contentPadding}px)`,
+            paddingRight: isTerminalPage ? '4px' : `calc(1rem + ${contentPadding}px)`,
+            transition: 'padding 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+          }"
+        >
           <slot /> <!-- 渲染页面内容 -->
         </div>
       </div>
@@ -136,6 +144,13 @@ onUnmounted(() => {
   width: 100%;
   max-height: 100vh; /* 限制最大高度为视口高度 */
   display: flex; /* 使子元素能够填充高度 */
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* 初始化状态样式 */
+.content-container.initializing {
+  /* 在初始化期间保持稳定的布局 */
+  opacity: 0.98;
 }
 
 /* 液态玻璃风格滚动条 - content-container */
@@ -222,6 +237,12 @@ onUnmounted(() => {
   height: 100%; /* 填满父容器高度 */
   z-index: 2;
   overflow-y: auto; /* 在内容包装器中处理滚动 */
+  /* 平滑过渡效果已在内联样式中定义 */
+}
+
+/* 加载状态的视觉反馈 */
+.content-wrapper.loading {
+  opacity: 0.95;
 }
 
 /* 液态玻璃风格滚动条 - content-wrapper */
