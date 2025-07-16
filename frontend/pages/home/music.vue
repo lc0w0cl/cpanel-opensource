@@ -1398,6 +1398,174 @@ const cancelAutoMatch = () => {
   showNotification('已取消自动匹配', 'info')
 }
 
+// 计算按钮数量，用于布局优化
+const getButtonCount = (result: MusicSearchResult) => {
+  let count = 2 // 播放和查看按钮总是存在
+
+  // 下载按钮（总是显示）
+  count += 1
+
+  // 匹配按钮（只在歌单模式下且歌曲未匹配时显示）
+  if (playlistInfo.value && !isMatchedOrDownloadable(result) && matchingProgress.value[result.id] === undefined) {
+    count += 1
+  }
+
+  // 匹配中按钮（只在匹配进行中时显示）
+  if (playlistInfo.value && matchingProgress.value[result.id] !== undefined && matchingProgress.value[result.id] < 100) {
+    count += 1
+  }
+
+  return count
+}
+
+// 单独匹配单首歌曲
+const matchSingleSong = async (song: MusicSearchResult) => {
+  // 检查是否已经匹配过
+  if (isMatchedOrDownloadable(song)) {
+    showNotification('该歌曲已经匹配过或可直接下载', 'info')
+    return
+  }
+
+  // 检查是否正在进行批量匹配
+  if (isAutoMatching.value) {
+    showNotification('正在进行批量匹配，请等待完成后再进行单独匹配', 'warning')
+    return
+  }
+
+  // 设置匹配进度
+  matchingProgress.value[song.id] = 0
+
+  try {
+    console.log(`开始单独匹配: ${song.title} - ${song.artist}`)
+    showNotification(`开始匹配: ${song.title}`, 'info')
+
+    // 构建多个搜索关键词，提高匹配成功率
+    const title = song.title.replace(/[()（）]/g, '')
+    const searchKeywords = [
+      `${song.artist} ${title}`,  // 歌手 + 歌曲名
+      `${title} ${song.artist}`,  // 歌曲名 + 歌手
+      title,                      // 仅歌曲名
+      `${title} 音乐`,            // 歌曲名 + 音乐
+      `${song.artist} ${song.title} 官方` // 歌手 + 歌曲名 + 官方
+    ]
+
+    let bestResult = null
+    let allResults: any[] = []
+
+    // 尝试多个搜索关键词
+    for (const keyword of searchKeywords) {
+      try {
+        const searchRequest = {
+          query: keyword.trim(),
+          searchType: 'keyword' as const,
+          platform: 'bilibili' as const,
+          page: 1,
+          pageSize: 5
+        }
+
+        const searchResults = await searchMusic(searchRequest)
+        // 为搜索结果添加歌单名称
+        const resultsWithPlaylistName = searchResults.map(result => ({
+          ...result,
+          playlistName: song.playlistName
+        }))
+        allResults.push(...resultsWithPlaylistName)
+
+        if (searchResults.length > 0) {
+          console.log(`关键词 "${keyword}" 找到 ${searchResults.length} 个结果`)
+          break // 找到结果就停止搜索
+        }
+      } catch (error) {
+        console.log(`关键词 "${keyword}" 搜索失败:`, error)
+        continue
+      }
+    }
+
+    // 搜索完成，更新进度
+    updateMatchingProgress(song.id, 50)
+
+    if (allResults.length === 0) {
+      console.warn(`未找到匹配结果: ${song.title} - ${song.artist}`)
+      showNotification(`未找到匹配结果: ${song.title}`, 'warning')
+      updateMatchingProgress(song.id, 100)
+      setTimeout(() => {
+        delete matchingProgress.value[song.id]
+      }, 1000)
+      return
+    }
+
+    // 开始处理结果，更新进度
+    updateMatchingProgress(song.id, 70)
+
+    // 去重并选择播放量最多的结果
+    const uniqueResults = allResults.filter((result, index, self) =>
+      index === self.findIndex(r => r.id === result.id)
+    )
+
+    bestResult = uniqueResults.reduce((best, current) => {
+      // 获取音质优先级
+      const bestQualityPriority = getAudioQualityPriority(best.title || '')
+      const currentQualityPriority = getAudioQualityPriority(current.title || '')
+
+      // 如果音质优先级不同，选择优先级更高的
+      if (currentQualityPriority !== bestQualityPriority) {
+        return currentQualityPriority > bestQualityPriority ? current : best
+      }
+
+      // 如果音质优先级相同，则按播放量比较
+      const bestPlayCount = parsePlayCount(best.playCount || '0')
+      const currentPlayCount = parsePlayCount(current.playCount || '0')
+      return currentPlayCount > bestPlayCount ? current : best
+    })
+
+    console.log(`匹配成功: ${song.title} -> ${bestResult.title} (播放量: ${bestResult.playCount})`)
+
+    // 开始更新结果，更新进度
+    updateMatchingProgress(song.id, 90)
+
+    // 更新当前搜索结果中的信息
+    const originalIndex = currentSearchResults.value.findIndex(r => r.id === song.id)
+    if (originalIndex !== -1) {
+      // 创建新的搜索结果数组，保留原始的一些信息，但更新关键信息
+      const updatedResults = [...currentSearchResults.value]
+      updatedResults[originalIndex] = {
+        ...updatedResults[originalIndex],
+        duration: bestResult.duration,
+        url: bestResult.url,
+        thumbnail: bestResult.thumbnail,
+        playCount: bestResult.playCount,
+        publishTime: bestResult.publishTime,
+        description: `${updatedResults[originalIndex].description || ''} (已匹配B站: ${bestResult.title})`.trim()
+      }
+
+      // 使用当前搜索结果更新方法
+      updateCurrentSearchResults(updatedResults)
+    }
+
+    // 匹配成功，设置为100%并在1秒后清除loading状态
+    updateMatchingProgress(song.id, 100)
+    setTimeout(() => {
+      if (matchingProgress.value[song.id] === 100) {
+        delete matchingProgress.value[song.id]
+      }
+    }, 1000)
+
+    showNotification(`匹配成功: ${song.title} -> ${bestResult.title}`, 'success')
+
+  } catch (error: any) {
+    console.error(`单独匹配失败: ${song.title} - ${song.artist}`, error)
+    showNotification(`匹配失败: ${song.title} - ${error.message}`, 'error')
+
+    // 匹配失败，设置为100%并在1秒后清除loading状态
+    updateMatchingProgress(song.id, 100)
+    setTimeout(() => {
+      if (matchingProgress.value[song.id] === 100) {
+        delete matchingProgress.value[song.id]
+      }
+    }, 1000)
+  }
+}
+
 // 更新当前搜索内容
 const updateCurrentSearchQuery = (value: string) => {
   switch (searchType.value) {
@@ -2043,7 +2211,7 @@ const startBatchDownload = async () => {
                   </div>
 
                   <!-- 操作按钮 - 固定在底部 -->
-                  <div class="result-actions">
+                  <div class="result-actions" :class="{ 'four-buttons': getButtonCount(result) >= 4 }">
                     <button
                       @click="playMusic(result)"
                       class="play-btn"
@@ -2076,6 +2244,30 @@ const startBatchDownload = async () => {
                       />
                       {{ currentPlaying?.id === result.id && isPlaying ? '暂停' : '播放' }}
                     </button>
+
+                    <!-- 单独匹配按钮 - 只在歌单模式下且歌曲未匹配时显示 -->
+                    <button
+                      v-if="playlistInfo && !isMatchedOrDownloadable(result) && matchingProgress[result.id] === undefined"
+                      @click="matchSingleSong(result)"
+                      class="match-btn"
+                      :disabled="isAutoMatching"
+                      title="为这首歌曲单独匹配B站资源"
+                    >
+                      <Icon icon="mdi:auto-fix" />
+                      匹配
+                    </button>
+
+                    <!-- 匹配中状态按钮 -->
+                    <button
+                      v-if="playlistInfo && matchingProgress[result.id] !== undefined && matchingProgress[result.id] < 100"
+                      class="matching-btn"
+                      disabled
+                      title="正在匹配中..."
+                    >
+                      <Icon icon="mdi:loading" class="spin" />
+                      匹配中
+                    </button>
+
                     <button
                       @click="showFormatSelection(result)"
                       class="download-btn"
