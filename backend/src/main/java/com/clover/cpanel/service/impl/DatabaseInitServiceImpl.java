@@ -44,6 +44,18 @@ public class DatabaseInitServiceImpl implements DatabaseInitService {
                 log.info("TODO表已存在");
             }
 
+            // 检查并创建2FA表
+            if (!checkTwoFactorAuthTableExists()) {
+                log.info("2FA表不存在，开始创建...");
+                if (createTwoFactorAuthTable()) {
+                    log.info("2FA表创建成功");
+                } else {
+                    log.error("2FA表创建失败");
+                }
+            } else {
+                log.info("2FA表已存在");
+            }
+
             // 检查并更新表结构
             checkAndUpdateTableStructure();
 
@@ -87,12 +99,59 @@ public class DatabaseInitServiceImpl implements DatabaseInitService {
                   INDEX idx_created_at (created_at)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='TODO任务表'
                 """;
-            
+
             jdbcTemplate.execute(sql);
             log.info("TODO表创建SQL执行成功");
             return true;
         } catch (Exception e) {
             log.error("创建TODO表失败", e);
+            return false;
+        }
+    }
+
+    @Override
+    public boolean checkTwoFactorAuthTableExists() {
+        try {
+            String sql = """
+                SELECT COUNT(*)
+                FROM information_schema.tables
+                WHERE table_schema = DATABASE()
+                AND table_name = 'panel_two_factor_auth'
+                """;
+
+            Integer count = jdbcTemplate.queryForObject(sql, Integer.class);
+            return count != null && count > 0;
+        } catch (Exception e) {
+            log.error("检查2FA表是否存在时发生错误", e);
+            return false;
+        }
+    }
+
+    @Override
+    public boolean createTwoFactorAuthTable() {
+        try {
+            String sql = """
+                CREATE TABLE IF NOT EXISTS panel_two_factor_auth (
+                  id INT AUTO_INCREMENT PRIMARY KEY COMMENT '配置ID，自增主键',
+                  user_id VARCHAR(100) NOT NULL COMMENT '用户标识（对应JWT中的subject）',
+                  secret_key VARCHAR(255) NOT NULL COMMENT '2FA密钥（Base32编码）',
+                  enabled BOOLEAN NOT NULL DEFAULT FALSE COMMENT '是否启用2FA',
+                  backup_codes TEXT COMMENT '备用恢复码（JSON数组格式）',
+                  last_used_code VARCHAR(10) COMMENT '最后使用的验证码（防止重复使用）',
+                  last_used_time BIGINT COMMENT '最后使用验证码的时间戳',
+                  created_at VARCHAR(19) COMMENT '创建时间，格式：yyyy-MM-dd HH:mm:ss',
+                  updated_at VARCHAR(19) COMMENT '更新时间，格式：yyyy-MM-dd HH:mm:ss',
+                  UNIQUE KEY uk_user_id (user_id),
+                  INDEX idx_enabled (enabled),
+                  INDEX idx_created_at (created_at)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='2FA认证配置表'
+                """;
+
+            jdbcTemplate.execute(sql);
+            log.info("2FA表创建SQL执行成功");
+            return true;
+        } catch (Exception e) {
+            log.error("创建2FA表失败", e);
             return false;
         }
     }

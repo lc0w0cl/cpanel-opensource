@@ -24,6 +24,18 @@ public interface DatabaseInitService {
     boolean createTodoTable();
 
     /**
+     * 检查2FA表是否存在
+     * @return 是否存在
+     */
+    boolean checkTwoFactorAuthTableExists();
+
+    /**
+     * 创建2FA表
+     * @return 是否创建成功
+     */
+    boolean createTwoFactorAuthTable();
+
+    /**
      * 检查表结构版本并进行必要的更新
      */
     void checkAndUpdateTableStructure();

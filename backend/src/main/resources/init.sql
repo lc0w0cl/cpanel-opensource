@@ -114,3 +114,19 @@ CREATE TABLE IF NOT EXISTS panel_todos (
   INDEX idx_completed (completed),
   INDEX idx_created_at (created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='TODO任务表';
+
+-- 创建2FA认证配置表
+CREATE TABLE IF NOT EXISTS panel_two_factor_auth (
+  id INT AUTO_INCREMENT PRIMARY KEY COMMENT '配置ID，自增主键',
+  user_id VARCHAR(100) NOT NULL COMMENT '用户标识（对应JWT中的subject）',
+  secret_key VARCHAR(255) NOT NULL COMMENT '2FA密钥（Base32编码）',
+  enabled BOOLEAN NOT NULL DEFAULT FALSE COMMENT '是否启用2FA',
+  backup_codes TEXT COMMENT '备用恢复码（JSON数组格式）',
+  last_used_code VARCHAR(10) COMMENT '最后使用的验证码（防止重复使用）',
+  last_used_time BIGINT COMMENT '最后使用验证码的时间戳',
+  created_at VARCHAR(19) COMMENT '创建时间，格式：yyyy-MM-dd HH:mm:ss',
+  updated_at VARCHAR(19) COMMENT '更新时间，格式：yyyy-MM-dd HH:mm:ss',
+  UNIQUE KEY uk_user_id (user_id),
+  INDEX idx_enabled (enabled),
+  INDEX idx_created_at (created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='2FA认证配置表';

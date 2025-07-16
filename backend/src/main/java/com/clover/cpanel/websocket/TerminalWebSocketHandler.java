@@ -1,6 +1,7 @@
 package com.clover.cpanel.websocket;
 
 import com.clover.cpanel.service.SshService;
+import com.clover.cpanel.service.TwoFactorAuthService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
@@ -24,6 +25,9 @@ public class TerminalWebSocketHandler implements WebSocketHandler {
 
     @Autowired
     private SshService sshService;
+
+    @Autowired
+    private TwoFactorAuthService twoFactorAuthService;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final Map<String, WebSocketSession> webSocketSessions = new ConcurrentHashMap<>();
@@ -61,6 +65,9 @@ public class TerminalWebSocketHandler implements WebSocketHandler {
             switch (type) {
                 case "connect":
                     handleConnect(session, data);
+                    break;
+                case "verify2fa":
+                    handleVerify2FA(session, data);
                     break;
                 case "command":
                     handleCommand(session, data);
@@ -101,6 +108,45 @@ public class TerminalWebSocketHandler implements WebSocketHandler {
     }
 
     /**
+     * 处理2FA验证
+     */
+    private void handleVerify2FA(WebSocketSession session, JsonNode data) {
+        try {
+            String userId = "admin"; // 默认用户，可以从JWT token中获取
+
+            // 检查是否启用了2FA
+            boolean twoFactorEnabled = twoFactorAuthService.isTwoFactorEnabled(userId);
+
+            if (!twoFactorEnabled) {
+                sendMessage(session, "2fa_not_required", "2FA未启用");
+                return;
+            }
+
+            String verificationCode = data.has("verificationCode") ? data.get("verificationCode").asText() : null;
+            String backupCode = data.has("backupCode") ? data.get("backupCode").asText() : null;
+
+            boolean verified = false;
+            if (verificationCode != null && !verificationCode.trim().isEmpty()) {
+                verified = twoFactorAuthService.verifyTwoFactorCode(userId, verificationCode);
+            } else if (backupCode != null && !backupCode.trim().isEmpty()) {
+                verified = twoFactorAuthService.verifyBackupCode(userId, backupCode);
+            }
+
+            if (verified) {
+                sendMessage(session, "2fa_verified", "2FA验证成功");
+                log.info("用户 {} 2FA验证成功，WebSocket会话: {}", userId, session.getId());
+            } else {
+                sendMessage(session, "2fa_failed", "2FA验证失败");
+                log.warn("用户 {} 2FA验证失败，WebSocket会话: {}", userId, session.getId());
+            }
+
+        } catch (Exception e) {
+            log.error("处理2FA验证失败", e);
+            sendMessage(session, "error", "2FA验证失败: " + e.getMessage());
+        }
+    }
+
+    /**
      * 处理SSH连接请求
      */
     private void handleConnect(WebSocketSession session, JsonNode data) {
@@ -110,6 +156,22 @@ public class TerminalWebSocketHandler implements WebSocketHandler {
         String sshSessionId = data.has("sessionId") ? data.get("sessionId").asText() : webSocketSessionId;
 
         try {
+            String userId = "admin"; // 默认用户，可以从JWT token中获取
+
+            // 检查是否启用了2FA
+            boolean twoFactorEnabled = twoFactorAuthService.isTwoFactorEnabled(userId);
+
+            if (twoFactorEnabled) {
+                // 需要2FA验证
+                boolean verified = data.has("2faVerified") && data.get("2faVerified").asBoolean();
+
+                if (!verified) {
+                    sendMessage(session, "2fa_required", "需要2FA验证");
+                    return;
+                }
+
+                log.info("用户 {} 已通过2FA验证，继续SSH连接", userId);
+            }
             // 验证必需字段
             if (!data.has("host") || data.get("host").isNull()) {
                 sendMessage(session, "error", "缺少主机地址");

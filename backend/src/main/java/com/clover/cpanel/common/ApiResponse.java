@@ -101,4 +101,14 @@ public class ApiResponse<T> {
     public static <T> ApiResponse<T> error(Integer code, String message) {
         return new ApiResponse<>(code, message, null, false);
     }
+
+    /**
+     * 失败响应（自定义消息和数据）
+     * @param message 错误消息
+     * @param data 响应数据
+     * @return ApiResponse
+     */
+    public static <T> ApiResponse<T> error(String message, T data) {
+        return new ApiResponse<>(500, message, data, false);
+    }
 }

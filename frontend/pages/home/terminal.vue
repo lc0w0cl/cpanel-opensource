@@ -4,6 +4,8 @@ import { Icon } from '@iconify/vue'
 import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import { useTerminal, type ServerConnection } from '~/composables/useTerminal'
+import { useTwoFactorAuth } from '~/composables/useTwoFactorAuth'
+import TwoFactorModal from '~/components/TwoFactorModal.vue'
 import '@xterm/xterm/css/xterm.css'
 import './terminal.css'
 
@@ -40,6 +42,13 @@ const {
   removePageReference
 } = useTerminal()
 
+// 使用2FA认证composable
+const {
+  twoFactorStatus,
+  checkTwoFactorRequired,
+  verifyTwoFactorCode
+} = useTwoFactorAuth()
+
 // 终端相关状态
 const terminalContainers = ref<Map<string, HTMLElement>>(new Map())
 const terminals = ref<Map<string, Terminal>>(new Map())
@@ -48,6 +57,12 @@ const showTerminal = ref(true) // 默认显示终端
 const currentCommand = ref('')
 const isInServerSelection = ref(true) // 是否在服务器选择模式
 const showGrouped = ref(true) // 是否显示分组
+
+// 2FA相关状态
+const show2FAModal = ref(false)
+const pendingServer = ref<ServerConnection | null>(null)
+const isVerifying2FA = ref(false)
+const twoFactorError = ref('')
 const expandedGroups = ref<Set<number>>(new Set()) // 展开的分组（使用分类ID）
 
 // 初始化指定会话的xterm.js终端
@@ -271,10 +286,35 @@ const connectToServerByIndex = async (index: number) => {
   if (index >= 0 && index < servers.value.length) {
     const server = servers.value[index]
 
-    // 创建新的终端会话
-    const sessionId = await connectToServer(server.id)
+    // 检查是否需要2FA验证
+    let twoFactorRequired = false
+    try {
+      twoFactorRequired = await checkTwoFactorRequired()
+    } catch (error) {
+      console.warn('检查2FA状态失败，跳过2FA验证:', error)
+      // 如果2FA检查失败，继续正常连接流程
+      twoFactorRequired = false
+    }
 
-    if (sessionId) {
+    if (twoFactorRequired) {
+      // 需要2FA验证，显示验证模态框
+      pendingServer.value = server
+      show2FAModal.value = true
+      twoFactorError.value = ''
+      return
+    }
+
+    // 不需要2FA验证，直接连接
+    await performServerConnection(server)
+  }
+}
+
+// 执行服务器连接
+const performServerConnection = async (server: ServerConnection) => {
+  // 创建新的终端会话
+  const sessionId = await connectToServer(server.id)
+
+  if (sessionId) {
       // 连接成功，创建新的终端实例
       await nextTick()
       const containerElement = terminalContainers.value.get(sessionId)
@@ -294,20 +334,55 @@ const connectToServerByIndex = async (index: number) => {
         }
       }
 
-      isInServerSelection.value = false
-      // 连接成功后，终端内容完全由服务器控制
-    } else {
-      // 连接失败，在当前活动终端显示错误
-      const activeSession = getActiveSession()
-      if (activeSession) {
-        const terminal = terminals.value.get(activeSession.id)
-        if (terminal) {
-          terminal.writeln(`✗ 连接失败: ${connectionError.value}`)
-          terminal.writeln('')
-          terminal.writeln('请检查服务器配置或网络连接，然后重试。')
-        }
+    isInServerSelection.value = false
+    // 连接成功后，终端内容完全由服务器控制
+  } else {
+    // 连接失败，在当前活动终端显示错误
+    const activeSession = getActiveSession()
+    if (activeSession) {
+      const terminal = terminals.value.get(activeSession.id)
+      if (terminal) {
+        terminal.writeln(`✗ 连接失败: ${connectionError.value}`)
+        terminal.writeln('')
+        terminal.writeln('请检查服务器配置或网络连接，然后重试。')
       }
     }
+  }
+}
+
+// 处理2FA验证
+const handle2FAVerification = async (data: { verificationCode?: string; backupCode?: string }) => {
+  if (!pendingServer.value) return
+
+  isVerifying2FA.value = true
+  twoFactorError.value = ''
+
+  try {
+    const result = await verifyTwoFactorCode(data.verificationCode, data.backupCode)
+
+    if (result.success) {
+      // 验证成功，关闭模态框并连接服务器
+      show2FAModal.value = false
+      await performServerConnection(pendingServer.value)
+      pendingServer.value = null
+    } else {
+      // 验证失败，显示错误信息
+      twoFactorError.value = result.message || '验证失败，请重试'
+    }
+  } catch (error) {
+    twoFactorError.value = '验证过程中发生错误，请重试'
+    console.error('2FA验证失败:', error)
+  } finally {
+    isVerifying2FA.value = false
+  }
+}
+
+// 关闭2FA模态框
+const close2FAModal = () => {
+  if (!isVerifying2FA.value) {
+    show2FAModal.value = false
+    pendingServer.value = null
+    twoFactorError.value = ''
   }
 }
 
@@ -943,6 +1018,15 @@ const setTerminalContainer = (sessionId: string, element: HTMLElement | null) =>
         </div>
       </div>
     </div>
+
+    <!-- 2FA验证模态框 -->
+    <TwoFactorModal
+      :show="show2FAModal"
+      :is-verifying="isVerifying2FA"
+      :error="twoFactorError"
+      @verify="handle2FAVerification"
+      @close="close2FAModal"
+    />
 
     <!-- 右键菜单 -->
     <div

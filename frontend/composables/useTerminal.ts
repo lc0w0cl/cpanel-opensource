@@ -406,7 +406,8 @@ export const useTerminal = () => {
           authType: serverConfig.authType,
           password: serverConfig.password || null,
           privateKey: serverConfig.privateKey || null,
-          privateKeyPassword: serverConfig.privateKeyPassword || null
+          privateKeyPassword: serverConfig.privateKeyPassword || null,
+          '2faVerified': true // 如果到达这里，说明2FA验证已通过或未启用
         }
       }
 

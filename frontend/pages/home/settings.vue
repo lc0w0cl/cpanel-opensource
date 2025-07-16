@@ -2,6 +2,7 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 import { VueDraggable } from 'vue-draggable-plus'
 import { Icon } from '@iconify/vue'
+import { useTwoFactorAuth } from '~/composables/useTwoFactorAuth'
 import './settings.css'
 // 子页面不需要定义 layout 和 middleware，由父页面处理
 
@@ -73,6 +74,7 @@ const deleteServerCategoryLoading = ref(false)
 const isNavigationGroupManagementCollapsed = ref(true)
 const isServerGroupManagementCollapsed = ref(true)
 const isPasswordSettingsCollapsed = ref(true)
+const isTwoFactorAuthCollapsed = ref(true)
 const isSystemConfigCollapsed = ref(true)
 const isThemeSettingsCollapsed = ref(true)
 const isMusicSettingsCollapsed = ref(true)
@@ -93,6 +95,11 @@ const passwordForm = ref({
 })
 const passwordLoading = ref(false)
 const showPasswordForm = ref(false)
+
+// 2FA设置相关
+const { getTwoFactorStatus } = useTwoFactorAuth()
+const twoFactorEnabled = ref(false)
+const twoFactorLoading = ref(false)
 
 // 壁纸设置相关
 const currentWallpaper = ref('')
@@ -723,11 +730,25 @@ const cancelPasswordChange = () => {
   showPasswordForm.value = false
 }
 
+// 加载2FA状态
+const loadTwoFactorStatus = async () => {
+  twoFactorLoading.value = true
+  try {
+    const status = await getTwoFactorStatus()
+    twoFactorEnabled.value = status.enabled
+  } catch (error) {
+    console.error('获取2FA状态失败:', error)
+  } finally {
+    twoFactorLoading.value = false
+  }
+}
+
 // 全部展开/收起功能
 const toggleAllSections = () => {
   const allCollapsed = isNavigationGroupManagementCollapsed.value &&
                       isServerGroupManagementCollapsed.value &&
                       isPasswordSettingsCollapsed.value &&
+                      isTwoFactorAuthCollapsed.value &&
                       isSystemConfigCollapsed.value &&
                       isThemeSettingsCollapsed.value &&
                       isMusicSettingsCollapsed.value &&
@@ -740,6 +761,7 @@ const toggleAllSections = () => {
   isNavigationGroupManagementCollapsed.value = newState
   isServerGroupManagementCollapsed.value = newState
   isPasswordSettingsCollapsed.value = newState
+  isTwoFactorAuthCollapsed.value = newState
   isSystemConfigCollapsed.value = newState
   isThemeSettingsCollapsed.value = newState
   isMusicSettingsCollapsed.value = newState
@@ -753,6 +775,7 @@ const allSectionsCollapsed = computed(() => {
   return isNavigationGroupManagementCollapsed.value &&
          isServerGroupManagementCollapsed.value &&
          isPasswordSettingsCollapsed.value &&
+         isTwoFactorAuthCollapsed.value &&
          isSystemConfigCollapsed.value &&
          isThemeSettingsCollapsed.value &&
          isMusicSettingsCollapsed.value &&
@@ -1573,6 +1596,7 @@ onMounted(async () => {
   await loadCookieConfig()
   await loadServerConfigs()
   await loadPrivateKeys()
+  await loadTwoFactorStatus()
 
   // 添加点击外部关闭下拉框的事件监听
   document.addEventListener('click', handleClickOutside)
@@ -2097,7 +2121,100 @@ onUnmounted(() => {
           </ClientOnly>
         </div>
 
+        <!-- 双因素认证设置 -->
+        <div class="settings-item two-factor-auth-item">
+          <ClientOnly>
+            <div class="settings-wrapper">
+              <div class="item-header" @click="isTwoFactorAuthCollapsed = !isTwoFactorAuthCollapsed">
+                <div class="header-content">
+                  <Icon icon="mdi:shield-key" class="header-icon" />
+                  <div>
+                    <h2 class="item-title">双因素认证 (2FA)</h2>
+                    <p class="item-description">为您的账户添加额外的安全保护</p>
+                  </div>
+                </div>
+                <div class="header-actions">
+                  <div class="status-indicator" :class="{ enabled: twoFactorEnabled }">
+                    <Icon :icon="twoFactorEnabled ? 'mdi:check-circle' : 'mdi:circle-outline'" />
+                    <span>{{ twoFactorEnabled ? '已启用' : '未启用' }}</span>
+                  </div>
+                  <button class="collapse-btn" :class="{ collapsed: isTwoFactorAuthCollapsed }">
+                    <Icon icon="mdi:chevron-down" class="collapse-icon" />
+                  </button>
+                </div>
+              </div>
 
+              <Transition
+                name="expand"
+                mode="out-in"
+                @enter="onEnter"
+                @after-enter="onAfterEnter"
+                @leave="onLeave"
+                @after-leave="onAfterLeave"
+              >
+                <div v-if="!isTwoFactorAuthCollapsed" class="item-content">
+                  <div class="two-factor-section">
+                    <div class="section-header">
+                      <Icon icon="mdi:shield-account" class="section-icon" />
+                      <h3 class="section-title">安全设置</h3>
+                    </div>
+
+                    <div v-if="twoFactorLoading" class="loading-state">
+                      <Icon icon="mdi:loading" class="loading-icon spin" />
+                      <p>加载中...</p>
+                    </div>
+
+                    <div v-else class="two-factor-content">
+                      <div class="two-factor-status">
+                        <div class="status-card" :class="{ enabled: twoFactorEnabled }">
+                          <div class="status-icon">
+                            <Icon :icon="twoFactorEnabled ? 'mdi:shield-check' : 'mdi:shield-off'" />
+                          </div>
+                          <div class="status-info">
+                            <h4>{{ twoFactorEnabled ? '2FA已启用' : '2FA未启用' }}</h4>
+                            <p>{{ twoFactorEnabled ? '您的账户受到双因素认证保护' : '启用2FA以增强账户安全性' }}</p>
+                          </div>
+                          <div class="status-action">
+                            <NuxtLink to="/settings/2fa" class="config-btn">
+                              <Icon icon="mdi:cog" />
+                              配置2FA
+                            </NuxtLink>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div class="two-factor-info">
+                        <div class="info-card">
+                          <Icon icon="mdi:information" class="info-icon" />
+                          <div class="info-content">
+                            <h4>什么是双因素认证？</h4>
+                            <p>双因素认证（2FA）为您的账户提供额外的安全层。除了密码外，您还需要提供来自认证器应用的验证码才能登录。</p>
+                          </div>
+                        </div>
+
+                        <div class="info-card">
+                          <Icon icon="mdi:cellphone-key" class="info-icon" />
+                          <div class="info-content">
+                            <h4>支持的认证器应用</h4>
+                            <p>Google Authenticator、Authy、Microsoft Authenticator 等支持 TOTP 标准的认证器应用。</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </Transition>
+
+              <BorderBeam
+                v-if="!isTwoFactorAuthCollapsed"
+                :size="250"
+                :duration="12"
+                :delay="9"
+                :border-width="2"
+              />
+            </div>
+          </ClientOnly>
+        </div>
 
         <!-- 系统配置 -->
         <div class="settings-item system-config-item">
