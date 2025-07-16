@@ -105,7 +105,6 @@ public class ServerEncryptionService {
             decryptedServer.setDescription(server.getDescription());
             decryptedServer.setIcon(server.getIcon());
             decryptedServer.setCategoryId(server.getCategoryId());
-            decryptedServer.setGroupName(server.getGroupName());
             decryptedServer.setIsDefault(server.getIsDefault());
             decryptedServer.setStatus(server.getStatus());
             decryptedServer.setSortOrder(server.getSortOrder());
