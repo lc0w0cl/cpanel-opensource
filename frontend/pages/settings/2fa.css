@@ -118,23 +118,59 @@
 
 /* 备用恢复码卡片 */
 .backup-codes-card {
-  background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 1rem;
-  padding: 2rem;
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 1.5rem;
+  padding: 2.5rem;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
 }
 
-.backup-codes-card h3 {
+.backup-codes-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1.5rem;
+  gap: 2rem;
+}
+
+.backup-codes-info h3 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.95);
+  margin-bottom: 0.75rem;
+  letter-spacing: -0.025em;
+}
+
+.backup-codes-info p {
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 1rem;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.backup-codes-actions {
+  display: flex;
+  gap: 1rem;
+  flex-shrink: 0;
+}
+
+.backup-codes-warning {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem;
+  background: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  border-radius: 0.75rem;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 0.9rem;
+}
+
+.backup-codes-warning svg {
+  color: #3b82f6;
+  flex-shrink: 0;
   font-size: 1.25rem;
-  font-weight: 600;
-  color: white;
-  margin-bottom: 0.5rem;
-}
-
-.backup-codes-card p {
-  color: rgba(255, 255, 255, 0.7);
-  margin-bottom: 1rem;
 }
 
 /* 按钮样式 */
@@ -396,6 +432,25 @@
   font-size: 0.9rem;
 }
 
+/* 成功消息 */
+.success-message {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 1rem;
+  background: #d1fae5;
+  border: 1px solid #10b981;
+  border-radius: 0.5rem;
+  color: #065f46;
+  font-size: 0.9rem;
+  margin-bottom: 1rem;
+}
+
+.success-message svg {
+  color: #10b981;
+  flex-shrink: 0;
+}
+
 /* 加载动画 */
 .spin {
   animation: spin 1s linear infinite;
@@ -428,5 +483,21 @@
   
   .modal-content {
     margin: 1rem;
+  }
+
+  /* 备用恢复码响应式 */
+  .backup-codes-header {
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+
+  .backup-codes-actions {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .backup-codes-actions button {
+    width: 100%;
+    justify-content: center;
   }
 }
