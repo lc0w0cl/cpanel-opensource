@@ -9,10 +9,11 @@
         </div>
         <!-- Logo加载完成后显示 -->
         <template v-else>
-          <LiquidLogo
+          <img
             v-if="currentLogo && !logoError"
-            :image-url="getLogoUrl(currentLogo)"
-            :show-processing="false"
+            :src="getLogoUrl(currentLogo)"
+            alt="Logo"
+            class="logo-image"
             @error="logoError = true"
           />
           <div v-else class="default-logo">
@@ -66,7 +67,6 @@
 <script setup>
 import { ref, onMounted, onUnmounted, nextTick } from 'vue'
 import { Icon } from '@iconify/vue'
-import LiquidLogo from "~/components/inspira/liquid_logo/LiquidLogo.vue";
 
 const isLoggingOut = ref(false)
 const currentLogo = ref('')

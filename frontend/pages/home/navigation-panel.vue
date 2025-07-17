@@ -13,6 +13,7 @@ import './navigation-panel.css'
 interface Category {
   id: number
   name: string
+  type: string
   order: number
   createdAt?: string
   updatedAt?: string
@@ -109,7 +110,7 @@ const isIconifyIcon = (logo: string): boolean => {
 const api = {
   // 分类相关API
   async getCategories(): Promise<Category[]> {
-    const response = await apiRequest(`${API_BASE_URL}/categories`)
+    const response = await apiRequest(`${API_BASE_URL}/categories/type/navigation`)
     const result: ApiResponse<Category[]> = await response.json()
     if (result.success) {
       return result.data
