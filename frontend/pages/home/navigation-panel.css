@@ -7,6 +7,17 @@
   /* min-height: calc(100vh - 80px); */
 }
 
+/* 防止布局跳跃的特定样式 */
+.navigation-panel * {
+  box-sizing: border-box;
+}
+
+/* 确保搜索区域在页面加载时就有正确的布局 */
+.navigation-panel .search-section {
+  opacity: 1;
+  visibility: visible;
+}
+
 .navigation-content {
   max-width: 100%;
   padding: 0 1rem;
@@ -24,6 +35,8 @@
   display: flex;
   align-items: center;
   gap: 1rem;
+  /* 确保容器高度一致 */
+  min-height: 3.7rem;
 }
 
 .search-input-wrapper {
@@ -31,24 +44,33 @@
   display: flex;
   align-items: center;
   flex: 1;
+  /* 确保包装器高度与按钮一致 */
+  height: 3.7rem;
 }
 
 .search-input {
-  width: 100%;
-  padding: 1rem 1rem 1rem 3rem;
-  border: 2px solid rgba(255, 255, 255, 0.2);
-  border-radius: 1rem;
+  width: 100% !important;
+  height: 100% !important;
+  padding: 1rem 1rem 1rem 3rem !important;
+  border: 2px solid rgba(255, 255, 255, 0.2) !important;
+  border-radius: 1rem !important;
   background: linear-gradient(135deg,
     rgba(255, 255, 255, 0.1) 0%,
     rgba(255, 255, 255, 0.05) 100%
-  );
-  color: rgba(255, 255, 255, 0.9);
-  font-size: 1rem;
-  font-weight: 500;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  outline: none;
+  ) !important;
+  color: rgba(255, 255, 255, 0.9) !important;
+  font-size: 1rem !important;
+  font-weight: 500 !important;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
+  outline: none !important;
+  /* 确保输入框不会被其他元素覆盖 */
+  position: relative !important;
+  z-index: 1 !important;
+  /* 防止被Tailwind或其他全局样式覆盖 */
+  box-sizing: border-box !important;
+  margin: 0 !important;
 }
 
 .search-input:focus {
@@ -64,24 +86,29 @@
 }
 
 .search-input::placeholder {
-  color: rgba(255, 255, 255, 0.4);
-  font-weight: 400;
+  color: rgba(255, 255, 255, 0.4) !important;
+  font-weight: 400 !important;
 }
 
 .search-icon {
   position: absolute;
   left: 1rem;
+  top: 50%;
+  transform: translateY(-50%);
   width: 1.25rem;
   height: 1.25rem;
   color: rgba(255, 255, 255, 0.5);
   stroke-width: 2;
   pointer-events: none;
-  z-index: 1;
+  /* 提高z-index确保图标在输入框之上 */
+  z-index: 10;
 }
 
 .clear-search-btn {
   position: absolute;
   right: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
   width: 2rem;
   height: 2rem;
   border: none;
@@ -98,6 +125,8 @@
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
+  /* 确保清除按钮在输入框之上 */
+  z-index: 10;
 }
 
 .clear-search-btn:hover {
@@ -694,6 +723,14 @@
     padding: 0;
   }
 
+  .search-container {
+    min-height: 2.25rem;
+  }
+
+  .search-input-wrapper {
+    height: 2.25rem;
+  }
+
   .search-input {
     padding: 0.875rem 0.875rem 0.875rem 2.75rem;
     font-size: 0.9rem;
@@ -762,6 +799,14 @@
 }
 
 @media (max-width: 480px) {
+  .search-container {
+    min-height: 2rem;
+  }
+
+  .search-input-wrapper {
+    height: 2rem;
+  }
+
   .search-input {
     padding: 0.75rem 0.75rem 0.75rem 2.5rem;
     font-size: 0.875rem;
@@ -1387,6 +1432,11 @@
 @media (max-width: 768px) {
   .search-container {
     gap: 0.75rem;
+    min-height: 2.25rem;
+  }
+
+  .search-input-wrapper {
+    height: 2.25rem;
   }
 
   .network-switch-btn,
