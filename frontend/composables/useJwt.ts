@@ -274,3 +274,22 @@ export const apiRequest = async (url: string, options: RequestInit = {}): Promis
 
   return response
 }
+
+/**
+ * 检查用户认证状态
+ */
+export const checkAuthStatus = async (): Promise<boolean> => {
+  const accessToken = getAccessToken()
+  if (!accessToken) {
+    return false
+  }
+
+  // 检查token是否有效
+  if (isTokenExpired(accessToken)) {
+    // 尝试刷新token
+    const refreshSuccess = await refreshAccessToken()
+    return refreshSuccess
+  }
+
+  return true
+}
