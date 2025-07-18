@@ -118,6 +118,9 @@ const downloadControllers = ref(new Map()) // 存储下载控制器
 const isParsingPlaylist = ref(false)
 const playlistError = ref('')
 
+// 歌单过滤状态
+const playlistFilter = ref('')
+
 // 自动匹配相关状态
 const isAutoMatching = ref(false)
 const matchingProgress = ref<Record<string, number>>({})
@@ -188,6 +191,27 @@ const currentSearchError = computed(() => {
   }
 })
 
+// 计算属性：过滤后的歌单结果
+const filteredPlaylistResults = computed(() => {
+  const results = currentSearchResults.value
+  if (!playlistFilter.value.trim() || searchType.value !== 'playlist') {
+    return results
+  }
+
+  const keywords = playlistFilter.value.trim().toLowerCase().split(/\s+/)
+
+  return results.filter(song => {
+    const searchText = [
+      song.title,
+      song.artist,
+      song.album || '',
+      song.description || ''
+    ].join(' ').toLowerCase()
+
+    return keywords.every(keyword => searchText.includes(keyword))
+  })
+})
+
 // 计算属性：是否有搜索结果
 const currentHasResults = computed(() => {
   return currentSearchResults.value.length > 0
@@ -195,7 +219,7 @@ const currentHasResults = computed(() => {
 
 // 计算属性：当前搜索结果是否全选
 const isCurrentAllSelected = computed(() => {
-  const currentResults = currentSearchResults.value
+  const currentResults = searchType.value === 'playlist' ? filteredPlaylistResults.value : currentSearchResults.value
   if (currentResults.length === 0) return false
 
   return currentResults.every(item => selectedResults.value.has(item.id))
@@ -1631,10 +1655,11 @@ const clearCurrentSearchResults = () => {
   updateCurrentSearchResults([])
   updateCurrentSearchError('')
 
-  // 如果是歌单模式，清空歌单信息
+  // 如果是歌单模式，清空歌单信息和过滤器
   if (searchType.value === 'playlist') {
     setPlaylistInfo(null)
     playlistError.value = ''
+    playlistFilter.value = ''
   }
 
   // 清空选中状态 - 使用提供的方法
@@ -1725,7 +1750,7 @@ const getAudioQualityPriority = (title: string): number => {
 
 // 当前搜索结果的全选/取消全选
 const toggleCurrentSelectAll = () => {
-  const currentResults = currentSearchResults.value
+  const currentResults = searchType.value === 'playlist' ? filteredPlaylistResults.value : currentSearchResults.value
   const currentSelectedCount = currentResults.filter(item => selectedResults.value.has(item.id)).length
 
   if (currentSelectedCount === currentResults.length) {
@@ -1752,9 +1777,15 @@ const handleSearchTypeChange = (type: 'keyword' | 'url' | 'playlist') => {
     isAutoMatching.value = false
     matchingProgress.value = {}
     matchingError.value = ''
+    playlistFilter.value = '' // 清空过滤器
     // 注意：不清空歌单信息，让用户可以在不同搜索模式间切换
     // setPlaylistInfo(null)  // 已注释掉
     // playlistError.value = ''  // 已注释掉
+  }
+
+  // 如果切换到歌单模式，清空过滤器
+  if (type === 'playlist') {
+    playlistFilter.value = ''
   }
 
   // 清空选中的结果（因为不同搜索类型的结果不同）
@@ -1992,7 +2023,7 @@ const startBatchDownload = async () => {
             <Icon icon="mdi:playlist-music" class="card-icon" />
             <div class="card-title-section">
               <h3 class="card-title">{{ playlistInfo ? '歌单歌曲' : '搜索结果' }}</h3>
-              <p class="card-subtitle">{{ playlistInfo ? `共 ${currentSearchResults.length} 首歌曲` : `找到 ${currentSearchResults.length} 个结果` }}</p>
+              <p class="card-subtitle">{{ playlistInfo ? `共 ${filteredPlaylistResults.length} 首歌曲${playlistFilter ? ` (过滤自 ${currentSearchResults.length} 首)` : ''}` : `找到 ${currentSearchResults.length} 个结果` }}</p>
             </div>
 
             <!-- 歌单信息 - 显示在标题右边 -->
@@ -2017,6 +2048,27 @@ const startBatchDownload = async () => {
                     <Icon icon="mdi:web" class="meta-icon" />
                     {{ playlistInfo.source === 'qq' ? 'QQ音乐' : '网易云音乐' }}
                   </span>
+                </div>
+              </div>
+
+              <!-- 歌单过滤输入框 -->
+              <div class="playlist-filter-container">
+                <div class="filter-input-wrapper">
+                  <Icon icon="mdi:magnify" class="filter-icon" />
+                  <input
+                    v-model="playlistFilter"
+                    type="text"
+                    placeholder="过滤歌曲..."
+                    class="filter-input"
+                  />
+                  <button
+                    v-if="playlistFilter"
+                    @click="playlistFilter = ''"
+                    class="filter-clear-btn"
+                    title="清除过滤"
+                  >
+                    <Icon icon="mdi:close" class="clear-icon" />
+                  </button>
                 </div>
               </div>
             </div>
@@ -2082,7 +2134,7 @@ const startBatchDownload = async () => {
           <div class="card-content">
             <div class="results-grid">
               <div
-                v-for="result in currentSearchResults"
+                v-for="result in (searchType === 'playlist' ? filteredPlaylistResults : currentSearchResults)"
                 :key="result.id"
                 class="result-card"
                 :class="{
