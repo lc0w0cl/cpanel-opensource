@@ -1839,7 +1839,16 @@ const startBatchDownload = async () => {
             <Icon icon="mdi:music-note-plus" class="card-icon" />
             <div class="card-title-section" style="flex:1">
               <h3 class="card-title">搜索音乐</h3>
-              <p class="card-subtitle">支持关键词搜索和直链下载</p>
+              <p class="card-subtitle flex items-center">
+                <span>支持关键词搜索和直链下载</span>
+                <span  v-if="searchType === 'playlist'" class="playlist-hint ml-2">
+                   <Icon icon="mdi:information" class="hint-icon" />
+                  <span>支持QQ音乐和网易云音乐歌单链接</span>
+                </span>
+              </p>
+              <!-- 歌单解析提示 -->
+
+
             </div>
 
             <!-- 搜索类型选择和操作按钮 -->
@@ -1951,11 +1960,6 @@ const startBatchDownload = async () => {
                 <span>{{ getUrlHintText() }}</span>
               </div>
 
-              <!-- 歌单解析提示 -->
-              <div v-if="searchType === 'playlist'" class="playlist-hint">
-                <Icon icon="mdi:information" class="hint-icon" />
-                <span>支持QQ音乐和网易云音乐歌单链接</span>
-              </div>
 
               <!-- 搜索错误提示 -->
               <div v-if="searchError" class="search-error">

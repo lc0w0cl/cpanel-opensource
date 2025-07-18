@@ -2494,7 +2494,6 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  margin-top: 0.5rem;
   padding: 0.5rem;
   background: linear-gradient(135deg,
     rgba(59, 130, 246, 0.1) 0%,
