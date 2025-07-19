@@ -2203,12 +2203,12 @@ onUnmounted(() => {
           <div class="card-header">
             <Icon icon="mdi:playlist-music" class="card-icon" />
             <div class="card-title-section">
-              <h3 class="card-title">{{ playlistInfo ? '歌单歌曲' : '搜索结果' }}</h3>
-              <p class="card-subtitle">{{ playlistInfo ? `共 ${filteredPlaylistResults.length} 首歌曲${playlistFilter ? ` (过滤自 ${currentSearchResults.length} 首)` : ''}` : `找到 ${currentSearchResults.length} 个结果` }}</p>
+              <h3 class="card-title">{{ searchType === 'playlist' && playlistInfo ? '歌单歌曲' : '搜索结果' }}</h3>
+              <p class="card-subtitle">{{ searchType === 'playlist' && playlistInfo ? `共 ${filteredPlaylistResults.length} 首歌曲${playlistFilter ? ` (过滤自 ${currentSearchResults.length} 首)` : ''}` : `找到 ${currentSearchResults.length} 个结果` }}</p>
             </div>
 
-            <!-- 歌单信息 - 显示在标题右边 -->
-            <div v-if="playlistInfo" class="playlist-info-inline">
+            <!-- 歌单信息 - 只在歌单解析模式下显示 -->
+            <div v-if="playlistInfo && searchType === 'playlist'" class="playlist-info-inline">
               <div class="playlist-cover-small">
                 <img :src="processImageUrl(playlistInfo.cover)" :alt="playlistInfo.title" class="cover-img-small" />
                 <div class="platform-badge-small" :class="playlistInfo.source">
