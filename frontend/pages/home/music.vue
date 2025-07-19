@@ -1938,12 +1938,15 @@ const startBatchDownload = async () => {
   }
 }
 
-// 点击外部关闭历史记录下拉菜单
+// 点击外部关闭历史记录展示区域
 const handleClickOutside = (event: Event) => {
   const target = event.target as HTMLElement
-  const historyContainer = document.querySelector('.playlist-history-container')
+  const historySection = document.querySelector('.playlist-history-section')
+  const historyBtn = document.querySelector('.history-btn-inline')
 
-  if (historyContainer && !historyContainer.contains(target)) {
+  if (historySection && historyBtn &&
+      !historySection.contains(target) &&
+      !historyBtn.contains(target)) {
     showPlaylistHistory.value = false
   }
 }
