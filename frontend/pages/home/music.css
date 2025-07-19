@@ -3071,3 +3071,317 @@
 .history-remove-btn:hover .remove-icon {
   color: rgba(255, 255, 255, 0.8);
 }
+
+/* 内联历史记录按钮样式 */
+.history-btn-inline {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 0.5rem;
+  padding: 0.875rem 1rem;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: relative;
+  min-width: 3rem;
+}
+
+.history-btn-inline:hover,
+.history-btn-inline.active {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.3);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.history-btn-inline .history-icon {
+  width: 1.125rem;
+  height: 1.125rem;
+}
+
+.history-btn-inline .history-count {
+  position: absolute;
+  top: -0.25rem;
+  right: -0.25rem;
+  background: #ff6b6b;
+  color: white;
+  font-size: 0.625rem;
+  font-weight: 600;
+  border-radius: 50%;
+  padding: 0.125rem 0.25rem;
+  min-width: 1rem;
+  text-align: center;
+  line-height: 1;
+}
+
+/* 歌单历史记录展示区域样式 */
+.playlist-history-section {
+  margin-top: 1rem;
+  padding: 1rem;
+  background: linear-gradient(135deg,
+    rgba(255, 255, 255, 0.08) 0%,
+    rgba(255, 255, 255, 0.04) 100%
+  );
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0.75rem;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  animation: slideDown 0.3s ease-out;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+    max-height: 0;
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    max-height: 500px;
+  }
+}
+
+.history-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.history-section-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.history-section-icon {
+  width: 1rem;
+  height: 1rem;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.clear-all-btn-inline {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  background: none;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 0.375rem;
+  padding: 0.375rem 0.75rem;
+  color: rgba(239, 68, 68, 0.8);
+  font-size: 0.75rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.clear-all-btn-inline:hover {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.5);
+  color: rgba(239, 68, 68, 1);
+}
+
+.clear-all-btn-inline .clear-all-icon {
+  width: 0.875rem;
+  height: 0.875rem;
+}
+
+.history-empty-inline {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.875rem;
+}
+
+.history-empty-inline .empty-icon {
+  width: 2rem;
+  height: 2rem;
+  margin-bottom: 0.5rem;
+  opacity: 0.5;
+}
+
+.history-list-inline {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 0.75rem;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.history-item-inline {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0.5rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.history-item-inline:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.2);
+  transform: translateY(-1px);
+}
+
+.history-item-cover-inline {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.history-cover-img-inline {
+  width: 40px;
+  height: 40px;
+  border-radius: 0.375rem;
+  object-fit: cover;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.history-platform-badge-inline {
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(4px);
+}
+
+.history-platform-badge-inline.qq {
+  background: #31c27c;
+}
+
+.history-platform-badge-inline.netease {
+  background: #c20c0c;
+}
+
+.history-platform-icon-inline {
+  width: 6px;
+  height: 6px;
+  color: white;
+}
+
+.history-item-info-inline {
+  flex: 1;
+  min-width: 0;
+}
+
+.history-item-title-inline {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+  margin: 0 0 0.25rem 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.history-item-meta-inline {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.6);
+  flex-wrap: wrap;
+}
+
+.history-creator-inline,
+.history-count-inline,
+.history-time-inline {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.history-creator-inline {
+  max-width: 80px;
+}
+
+.history-remove-btn-inline {
+  background: none;
+  border: none;
+  padding: 0.25rem;
+  border-radius: 0.25rem;
+  cursor: pointer;
+  color: rgba(255, 255, 255, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+  opacity: 0;
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+}
+
+.history-item-inline:hover .history-remove-btn-inline {
+  opacity: 1;
+}
+
+.history-remove-btn-inline:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.history-remove-btn-inline .remove-icon {
+  width: 0.875rem;
+  height: 0.875rem;
+}
+
+/* 响应式样式 - 移动设备 */
+@media (max-width: 768px) {
+  .search-input-wrapper {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .history-btn-inline {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .playlist-history-section {
+    margin-top: 0.75rem;
+    padding: 0.75rem;
+  }
+
+  .history-list-inline {
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+  }
+
+  .history-item-inline {
+    padding: 0.5rem;
+  }
+
+  .history-section-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+
+  .clear-all-btn-inline {
+    align-self: flex-end;
+  }
+}

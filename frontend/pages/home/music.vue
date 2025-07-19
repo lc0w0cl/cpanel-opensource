@@ -2091,6 +2091,18 @@ onUnmounted(() => {
                   <Icon v-else icon="mdi:magnify" class="btn-icon" />
                   {{ getSearchButtonText() }}
                 </button>
+
+                <!-- 歌单历史记录按钮 - 只在歌单模式下显示 -->
+                <button
+                  v-if="searchType === 'playlist'"
+                  @click="togglePlaylistHistory"
+                  class="history-btn-inline"
+                  title="歌单历史记录"
+                  :class="{ active: showPlaylistHistory }"
+                >
+                  <Icon icon="mdi:history" class="history-icon" />
+                  <span v-if="playlistHistory.length > 0" class="history-count">{{ playlistHistory.length }}</span>
+                </button>
               </div>
 
               <!-- URL验证提示 -->
@@ -2116,6 +2128,64 @@ onUnmounted(() => {
               <div v-if="matchingError && playlistInfo" class="search-error">
                 <Icon icon="mdi:alert-circle" class="error-icon" />
                 <span>{{ matchingError }}</span>
+              </div>
+
+              <!-- 歌单历史记录展示区域 -->
+              <div v-if="showPlaylistHistory && searchType === 'playlist'" class="playlist-history-section">
+                <div class="history-section-header">
+                  <div class="history-section-title">
+                    <Icon icon="mdi:history" class="history-section-icon" />
+                    <span>歌单历史记录</span>
+                  </div>
+                  <button
+                    v-if="playlistHistory.length > 0"
+                    @click="clearAllPlaylistHistory"
+                    class="clear-all-btn-inline"
+                    title="清空所有历史记录"
+                  >
+                    <Icon icon="mdi:delete-sweep" class="clear-all-icon" />
+                    清空全部
+                  </button>
+                </div>
+
+                <div v-if="playlistHistory.length === 0" class="history-empty-inline">
+                  <Icon icon="mdi:playlist-remove" class="empty-icon" />
+                  <span>暂无歌单历史记录</span>
+                </div>
+
+                <div v-else class="history-list-inline">
+                  <div
+                    v-for="playlist in playlistHistory"
+                    :key="playlist.url"
+                    class="history-item-inline"
+                    @click="selectPlaylistFromHistory(playlist)"
+                  >
+                    <div class="history-item-cover-inline">
+                      <img :src="processImageUrl(playlist.cover)" :alt="playlist.title" class="history-cover-img-inline" />
+                      <div class="history-platform-badge-inline" :class="playlist.source">
+                        <Icon
+                          :icon="playlist.source === 'qq' ? 'simple-icons:qqmusic' : 'simple-icons:netease'"
+                          class="history-platform-icon-inline"
+                        />
+                      </div>
+                    </div>
+                    <div class="history-item-info-inline">
+                      <h5 class="history-item-title-inline">{{ playlist.title }}</h5>
+                      <div class="history-item-meta-inline">
+                        <span class="history-creator-inline">{{ playlist.creator }}</span>
+                        <span class="history-count-inline">{{ playlist.songCount }}首</span>
+                        <span class="history-time-inline">{{ formatPlaylistTime(playlist.parsedAt || '') }}</span>
+                      </div>
+                    </div>
+                    <button
+                      @click="removePlaylistFromHistory(playlist.url, $event)"
+                      class="history-remove-btn-inline"
+                      title="从历史记录中移除"
+                    >
+                      <Icon icon="mdi:close" class="remove-icon" />
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -2180,72 +2250,7 @@ onUnmounted(() => {
                 </div>
               </div>
 
-              <!-- 歌单历史记录按钮 -->
-              <div class="playlist-history-container">
-                <button
-                  @click="togglePlaylistHistory"
-                  class="history-btn"
-                  title="歌单历史记录"
-                  :class="{ active: showPlaylistHistory }"
-                >
-                  <Icon icon="mdi:history" class="history-icon" />
-                  <span class="history-count" v-if="playlistHistory.length > 0">{{ playlistHistory.length }}</span>
-                </button>
 
-                <!-- 历史记录下拉菜单 -->
-                <div v-if="showPlaylistHistory" class="history-dropdown">
-                  <div class="history-header">
-                    <span class="history-title">歌单历史记录</span>
-                    <button
-                      v-if="playlistHistory.length > 0"
-                      @click="clearAllPlaylistHistory"
-                      class="clear-all-btn"
-                      title="清空所有历史记录"
-                    >
-                      <Icon icon="mdi:delete-sweep" class="clear-all-icon" />
-                    </button>
-                  </div>
-
-                  <div v-if="playlistHistory.length === 0" class="history-empty">
-                    <Icon icon="mdi:playlist-remove" class="empty-icon" />
-                    <span>暂无歌单历史记录</span>
-                  </div>
-
-                  <div v-else class="history-list">
-                    <div
-                      v-for="playlist in playlistHistory"
-                      :key="playlist.url"
-                      class="history-item"
-                      @click="selectPlaylistFromHistory(playlist)"
-                    >
-                      <div class="history-item-cover">
-                        <img :src="processImageUrl(playlist.cover)" :alt="playlist.title" class="history-cover-img" />
-                        <div class="history-platform-badge" :class="playlist.source">
-                          <Icon
-                            :icon="playlist.source === 'qq' ? 'simple-icons:qqmusic' : 'simple-icons:netease'"
-                            class="history-platform-icon"
-                          />
-                        </div>
-                      </div>
-                      <div class="history-item-info">
-                        <h5 class="history-item-title">{{ playlist.title }}</h5>
-                        <div class="history-item-meta">
-                          <span class="history-creator">{{ playlist.creator }}</span>
-                          <span class="history-count">{{ playlist.songCount }}首</span>
-                          <span class="history-time">{{ formatPlaylistTime(playlist.parsedAt || '') }}</span>
-                        </div>
-                      </div>
-                      <button
-                        @click="removePlaylistFromHistory(playlist.url, $event)"
-                        class="history-remove-btn"
-                        title="从历史记录中移除"
-                      >
-                        <Icon icon="mdi:close" class="remove-icon" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
             </div>
 
             <div class="header-actions">
