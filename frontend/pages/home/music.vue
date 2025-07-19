@@ -75,7 +75,13 @@ const {
   // 歌单信息
   playlistInfo,
   setPlaylistInfo,
-  clearPlaylistInfo
+  clearPlaylistInfo,
+
+  // 歌单历史记录
+  playlistHistory,
+  removeFromPlaylistHistory,
+  clearPlaylistHistory,
+  switchToPlaylistFromHistory
 } = useMusicState()
 
 // 获取独立搜索状态
@@ -120,6 +126,9 @@ const playlistError = ref('')
 
 // 歌单过滤状态
 const playlistFilter = ref('')
+
+// 歌单历史记录UI状态
+const showPlaylistHistory = ref(false)
 
 // 自动匹配相关状态
 const isAutoMatching = ref(false)
@@ -1674,6 +1683,85 @@ const clearCurrentSearchResults = () => {
   }
 }
 
+// 歌单历史记录相关方法
+const togglePlaylistHistory = () => {
+  showPlaylistHistory.value = !showPlaylistHistory.value
+}
+
+const selectPlaylistFromHistory = async (playlist: any) => {
+  try {
+    // 切换到历史记录中的歌单
+    switchToPlaylistFromHistory(playlist)
+
+    // 将歌单中的歌曲转换为搜索结果格式
+    const results = playlist.songs.map((song: any, index: number) => ({
+      id: `${playlist.source}_${song.sourceId}_${index}`,
+      title: song.title,
+      artist: song.artist,
+      duration: song.duration || '未知',
+      platform: playlist.source,
+      thumbnail: song.cover || playlist.cover,
+      url: song.url,
+      quality: '音频',
+      playCount: '',
+      publishTime: '',
+      description: `来自歌单: ${playlist.title}`,
+      tags: [],
+      playlistName: playlist.title,
+      vip: song.vip || false
+    }))
+
+    updateCurrentSearchResults(results)
+    updateCurrentSearchError('')
+
+    // 清空过滤器
+    playlistFilter.value = ''
+
+    // 关闭历史记录下拉菜单
+    showPlaylistHistory.value = false
+
+    showNotification(`已切换到歌单: ${playlist.title}`, 'success')
+
+  } catch (error: any) {
+    console.error('切换歌单失败:', error)
+    showNotification('切换歌单失败', 'error')
+  }
+}
+
+const removePlaylistFromHistory = (url: string, event: Event) => {
+  event.stopPropagation() // 阻止事件冒泡
+  removeFromPlaylistHistory(url)
+  showNotification('已从历史记录中移除', 'success')
+}
+
+const clearAllPlaylistHistory = () => {
+  clearPlaylistHistory()
+  showPlaylistHistory.value = false
+  showNotification('已清空歌单历史记录', 'success')
+}
+
+// 格式化时间显示
+const formatPlaylistTime = (dateString: string) => {
+  const date = new Date(dateString)
+  const now = new Date()
+  const diffMs = now.getTime() - date.getTime()
+  const diffMins = Math.floor(diffMs / (1000 * 60))
+  const diffHours = Math.floor(diffMs / (1000 * 60 * 60))
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
+
+  if (diffMins < 1) return '刚刚'
+  if (diffMins < 60) return `${diffMins}分钟前`
+  if (diffHours < 24) return `${diffHours}小时前`
+  if (diffDays < 7) return `${diffDays}天前`
+
+  return date.toLocaleDateString('zh-CN', {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  })
+}
+
 // 解析播放量字符串为数字
 const parsePlayCount = (playCountStr: string): number => {
   if (!playCountStr || playCountStr === '0') return 0
@@ -1849,6 +1937,26 @@ const startBatchDownload = async () => {
     }
   }
 }
+
+// 点击外部关闭历史记录下拉菜单
+const handleClickOutside = (event: Event) => {
+  const target = event.target as HTMLElement
+  const historyContainer = document.querySelector('.playlist-history-container')
+
+  if (historyContainer && !historyContainer.contains(target)) {
+    showPlaylistHistory.value = false
+  }
+}
+
+// 组件挂载时添加事件监听器
+onMounted(() => {
+  document.addEventListener('click', handleClickOutside)
+})
+
+// 组件卸载时移除事件监听器
+onUnmounted(() => {
+  document.removeEventListener('click', handleClickOutside)
+})
 </script>
 
 <template>
@@ -2069,6 +2177,73 @@ const startBatchDownload = async () => {
                   >
                     <Icon icon="mdi:close" class="clear-icon" />
                   </button>
+                </div>
+              </div>
+
+              <!-- 歌单历史记录按钮 -->
+              <div class="playlist-history-container">
+                <button
+                  @click="togglePlaylistHistory"
+                  class="history-btn"
+                  title="歌单历史记录"
+                  :class="{ active: showPlaylistHistory }"
+                >
+                  <Icon icon="mdi:history" class="history-icon" />
+                  <span class="history-count" v-if="playlistHistory.length > 0">{{ playlistHistory.length }}</span>
+                </button>
+
+                <!-- 历史记录下拉菜单 -->
+                <div v-if="showPlaylistHistory" class="history-dropdown">
+                  <div class="history-header">
+                    <span class="history-title">歌单历史记录</span>
+                    <button
+                      v-if="playlistHistory.length > 0"
+                      @click="clearAllPlaylistHistory"
+                      class="clear-all-btn"
+                      title="清空所有历史记录"
+                    >
+                      <Icon icon="mdi:delete-sweep" class="clear-all-icon" />
+                    </button>
+                  </div>
+
+                  <div v-if="playlistHistory.length === 0" class="history-empty">
+                    <Icon icon="mdi:playlist-remove" class="empty-icon" />
+                    <span>暂无歌单历史记录</span>
+                  </div>
+
+                  <div v-else class="history-list">
+                    <div
+                      v-for="playlist in playlistHistory"
+                      :key="playlist.url"
+                      class="history-item"
+                      @click="selectPlaylistFromHistory(playlist)"
+                    >
+                      <div class="history-item-cover">
+                        <img :src="processImageUrl(playlist.cover)" :alt="playlist.title" class="history-cover-img" />
+                        <div class="history-platform-badge" :class="playlist.source">
+                          <Icon
+                            :icon="playlist.source === 'qq' ? 'simple-icons:qqmusic' : 'simple-icons:netease'"
+                            class="history-platform-icon"
+                          />
+                        </div>
+                      </div>
+                      <div class="history-item-info">
+                        <h5 class="history-item-title">{{ playlist.title }}</h5>
+                        <div class="history-item-meta">
+                          <span class="history-creator">{{ playlist.creator }}</span>
+                          <span class="history-count">{{ playlist.songCount }}首</span>
+                          <span class="history-time">{{ formatPlaylistTime(playlist.parsedAt || '') }}</span>
+                        </div>
+                      </div>
+                      <button
+                        @click="removePlaylistFromHistory(playlist.url, $event)"
+                        class="history-remove-btn"
+                        title="从历史记录中移除"
+                      >
+                        <Icon icon="mdi:close" class="remove-icon" />
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>

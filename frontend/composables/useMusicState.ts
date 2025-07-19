@@ -58,6 +58,9 @@ const playlistSearchError = ref('')
 // 歌单信息状态
 const playlistInfo = ref<PlaylistInfo | null>(null)
 
+// 歌单历史记录
+const playlistHistory = ref<PlaylistInfo[]>([])
+
 // 状态持久化键名
 const STORAGE_KEYS = {
   SEARCH_RESULTS: 'music_search_results',
@@ -85,7 +88,10 @@ const STORAGE_KEYS = {
   PLAYLIST_SEARCH_ERROR: 'music_playlist_search_error',
 
   // 歌单信息
-  PLAYLIST_INFO: 'music_playlist_info'
+  PLAYLIST_INFO: 'music_playlist_info',
+
+  // 歌单历史记录
+  PLAYLIST_HISTORY: 'music_playlist_history'
 }
 
 // 从 localStorage 恢复状态
@@ -193,6 +199,12 @@ const restoreState = () => {
       playlistInfo.value = JSON.parse(savedPlaylistInfo)
     }
 
+    // 恢复歌单历史记录
+    const savedPlaylistHistory = localStorage.getItem(STORAGE_KEYS.PLAYLIST_HISTORY)
+    if (savedPlaylistHistory) {
+      playlistHistory.value = JSON.parse(savedPlaylistHistory)
+    }
+
   } catch (error) {
     console.error('恢复音乐状态失败:', error)
   }
@@ -237,6 +249,9 @@ const saveState = () => {
     } else {
       localStorage.removeItem(STORAGE_KEYS.CURRENT_PLAYING)
     }
+
+    // 保存歌单历史记录
+    localStorage.setItem(STORAGE_KEYS.PLAYLIST_HISTORY, JSON.stringify(playlistHistory.value))
   } catch (error) {
     console.error('保存音乐状态失败:', error)
   }
@@ -579,11 +594,61 @@ export const useMusicState = () => {
   // 歌单信息管理
   const setPlaylistInfo = (info: PlaylistInfo | null) => {
     playlistInfo.value = info
+
+    // 如果设置了新的歌单信息，添加到历史记录
+    if (info) {
+      addToPlaylistHistory(info)
+    }
+
     saveState()
   }
 
   const clearPlaylistInfo = () => {
     playlistInfo.value = null
+    saveState()
+  }
+
+  // 歌单历史记录管理
+  const addToPlaylistHistory = (playlist: PlaylistInfo) => {
+    // 检查是否已存在相同的歌单（基于URL）
+    const existingIndex = playlistHistory.value.findIndex(item => item.url === playlist.url)
+
+    if (existingIndex !== -1) {
+      // 如果已存在，移除旧的记录
+      playlistHistory.value.splice(existingIndex, 1)
+    }
+
+    // 添加到历史记录开头
+    playlistHistory.value.unshift({
+      ...playlist,
+      // 添加时间戳用于排序和显示
+      parsedAt: new Date().toISOString()
+    } as PlaylistInfo & { parsedAt: string })
+
+    // 限制历史记录数量（最多保留20个）
+    if (playlistHistory.value.length > 20) {
+      playlistHistory.value = playlistHistory.value.slice(0, 20)
+    }
+
+    saveState()
+  }
+
+  const removeFromPlaylistHistory = (url: string) => {
+    const index = playlistHistory.value.findIndex(item => item.url === url)
+    if (index !== -1) {
+      playlistHistory.value.splice(index, 1)
+      saveState()
+    }
+  }
+
+  const clearPlaylistHistory = () => {
+    playlistHistory.value = []
+    saveState()
+  }
+
+  const switchToPlaylistFromHistory = (playlist: PlaylistInfo) => {
+    // 直接设置歌单信息，不重新添加到历史记录
+    playlistInfo.value = playlist
     saveState()
   }
 
@@ -627,6 +692,9 @@ export const useMusicState = () => {
 
     // 歌单信息
     playlistInfo: readonly(playlistInfo),
+
+    // 歌单历史记录
+    playlistHistory: readonly(playlistHistory),
 
     // 计算属性
     hasResults,
@@ -682,6 +750,12 @@ export const useMusicState = () => {
 
     // 歌单信息管理方法
     setPlaylistInfo,
-    clearPlaylistInfo
+    clearPlaylistInfo,
+
+    // 歌单历史记录管理方法
+    addToPlaylistHistory,
+    removeFromPlaylistHistory,
+    clearPlaylistHistory,
+    switchToPlaylistFromHistory
   }
 }
