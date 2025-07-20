@@ -4089,10 +4089,6 @@ onUnmounted(() => {
             </div>
 
             <div class="confirm-body">
-              <div class="warning-section">
-                <Icon icon="mdi:alert" class="warning-icon" />
-                <p>禁用双因素认证将降低您账户的安全性。请输入验证码以确认操作。</p>
-              </div>
 
               <div class="verify-input">
                 <label>验证码：</label>
