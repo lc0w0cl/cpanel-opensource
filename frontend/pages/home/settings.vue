@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted, nextTick } from 'vue'
 import { VueDraggable } from 'vue-draggable-plus'
 import { Icon } from '@iconify/vue'
 import { useTwoFactorAuth } from '~/composables/useTwoFactorAuth'
+import { apiRequest, getAccessToken } from '~/composables/useJwt'
 import './settings.css'
 // 子页面不需要定义 layout 和 middleware，由父页面处理
 
@@ -97,9 +98,41 @@ const passwordLoading = ref(false)
 const showPasswordForm = ref(false)
 
 // 2FA设置相关
-const { getTwoFactorStatus } = useTwoFactorAuth()
+const {
+  twoFactorStatus,
+  isLoading: twoFactorLoading,
+  error: twoFactorError,
+  getTwoFactorStatus,
+  generateTwoFactorAuth,
+  enableTwoFactorAuth,
+  disableTwoFactorAuth,
+  regenerateBackupCodes
+} = useTwoFactorAuth()
+
 const twoFactorEnabled = ref(false)
-const twoFactorLoading = ref(false)
+
+// 2FA 弹窗状态
+const showTwoFactorModal = ref(false)
+const twoFactorModalStep = ref('status') // 'status', 'setup', 'backup-codes'
+const qrCodeData = ref('')
+const secretKey = ref('')
+const backupCodes = ref<string[]>([])
+const backupCodesStatus = ref({ hasBackupCodes: false, backupCodesCount: 0 })
+const isProcessing = ref(false)
+
+// 设置向导状态
+const verificationCode = ref('')
+const verificationError = ref('')
+
+// 禁用相关
+const showDisableConfirm = ref(false)
+const disableVerificationCode = ref('')
+const disableError = ref('')
+
+// 备用代码相关
+const showRegenerateConfirm = ref(false)
+const regenerateVerificationCode = ref('')
+const regenerateError = ref('')
 
 // 壁纸设置相关
 const currentWallpaper = ref('')
@@ -732,15 +765,284 @@ const cancelPasswordChange = () => {
 
 // 加载2FA状态
 const loadTwoFactorStatus = async () => {
-  twoFactorLoading.value = true
   try {
     const status = await getTwoFactorStatus()
     twoFactorEnabled.value = status.enabled
   } catch (error) {
     console.error('获取2FA状态失败:', error)
-  } finally {
-    twoFactorLoading.value = false
   }
+}
+
+// 打开2FA管理弹窗
+const openTwoFactorModal = async () => {
+  showTwoFactorModal.value = true
+  twoFactorModalStep.value = 'status'
+  await loadTwoFactorStatus()
+  // 移除自动加载备用代码，只在需要时加载状态
+  if (twoFactorEnabled.value) {
+    await loadBackupCodesStatus()
+  }
+}
+
+// 关闭2FA弹窗
+const closeTwoFactorModal = () => {
+  showTwoFactorModal.value = false
+  twoFactorModalStep.value = 'status'
+  resetTwoFactorForm()
+}
+
+// 重置2FA表单
+const resetTwoFactorForm = () => {
+  verificationCode.value = ''
+  verificationError.value = ''
+  disableVerificationCode.value = ''
+  disableError.value = ''
+  regenerateVerificationCode.value = ''
+  regenerateError.value = ''
+  qrCodeData.value = ''
+  secretKey.value = ''
+  showDisableConfirm.value = false
+  showRegenerateConfirm.value = false
+}
+
+// 开始设置2FA
+const startTwoFactorSetup = async () => {
+  try {
+    isProcessing.value = true
+
+    // 先切换到设置页面
+    twoFactorModalStep.value = 'setup'
+
+    // 等待DOM更新
+    await nextTick()
+
+    // 先设置一个测试QR码，看看显示是否正常
+    const testQR = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='
+    qrCodeData.value = testQR
+    secretKey.value = 'TEST_SECRET_KEY'
+    console.log('设置测试数据完成，QR码数据:', qrCodeData.value)
+
+    // 等待一下再获取真实数据
+    setTimeout(async () => {
+      try {
+        const result = await generateTwoFactorAuth()
+
+        if (result.success && result.data) {
+          // 确保QR码数据包含正确的data URL前缀
+          const qrImageData = result.data.qrCodeImage
+          if (qrImageData && !qrImageData.startsWith('data:')) {
+            qrCodeData.value = `data:image/png;base64,${qrImageData}`
+          } else {
+            qrCodeData.value = qrImageData
+          }
+          secretKey.value = result.data.secretKey
+          console.log('真实QR码数据已设置:', qrCodeData.value ? '有数据' : '无数据')
+          console.log('QR码数据前缀:', qrCodeData.value ? qrCodeData.value.substring(0, 50) : '无数据')
+          console.log('密钥:', secretKey.value)
+        } else {
+          console.error('生成2FA配置失败:', result.message)
+        }
+      } catch (err) {
+        console.error('获取真实2FA数据失败:', err)
+      }
+    }, 1000)
+
+  } catch (err) {
+    console.error('启动2FA设置失败:', err)
+  } finally {
+    isProcessing.value = false
+  }
+}
+
+// 验证并启用2FA
+const verifyAndEnableTwoFactor = async () => {
+  if (!verificationCode.value || verificationCode.value.length !== 6) {
+    verificationError.value = '请输入6位验证码'
+    return
+  }
+
+  try {
+    isProcessing.value = true
+    verificationError.value = ''
+
+    const result = await enableTwoFactorAuth(verificationCode.value)
+
+    if (result.success) {
+      await loadTwoFactorStatus()
+
+      // 从启用响应中获取备用代码
+      if (result.data && result.data.backupCodes) {
+        backupCodes.value = result.data.backupCodes
+        console.log('从启用响应中获取到备用代码，数量:', result.data.backupCodes.length)
+      }
+
+      twoFactorModalStep.value = 'backup-codes'
+      verificationCode.value = ''
+    } else {
+      verificationError.value = result.message || '验证失败，请检查验证码'
+    }
+  } catch (err) {
+    verificationError.value = '验证失败，请重试'
+    console.error('启用2FA失败:', err)
+  } finally {
+    isProcessing.value = false
+  }
+}
+
+// 禁用2FA
+const disableTwoFactor = async () => {
+  if (!disableVerificationCode.value || disableVerificationCode.value.length !== 6) {
+    disableError.value = '请输入6位验证码'
+    return
+  }
+
+  try {
+    isProcessing.value = true
+    disableError.value = ''
+
+    const result = await disableTwoFactorAuth(disableVerificationCode.value)
+
+    if (result.success) {
+      await loadTwoFactorStatus()
+      showDisableConfirm.value = false
+      disableVerificationCode.value = ''
+      twoFactorModalStep.value = 'status'
+    } else {
+      disableError.value = result.message || '禁用失败，请检查验证码'
+    }
+  } catch (err) {
+    disableError.value = '禁用失败，请重试'
+    console.error('禁用2FA失败:', err)
+  } finally {
+    isProcessing.value = false
+  }
+}
+
+// 重新生成备用代码
+const regenerateBackupCodesAction = async () => {
+  if (!regenerateVerificationCode.value || regenerateVerificationCode.value.length !== 6) {
+    regenerateError.value = '请输入6位验证码'
+    return
+  }
+
+  try {
+    isProcessing.value = true
+    regenerateError.value = ''
+
+    const result = await regenerateBackupCodes(regenerateVerificationCode.value)
+
+    if (result.success && result.data) {
+      backupCodes.value = result.data
+      showRegenerateConfirm.value = false
+      regenerateVerificationCode.value = ''
+      console.log('重新生成备用代码成功，数量:', result.data.length)
+    } else {
+      regenerateError.value = result.message || '重新生成失败，请检查验证码'
+    }
+  } catch (err) {
+    regenerateError.value = '重新生成失败，请重试'
+    console.error('重新生成备用代码失败:', err)
+  } finally {
+    isProcessing.value = false
+  }
+}
+
+// 获取备用代码状态（不获取实际代码）
+const loadBackupCodesStatus = async () => {
+  try {
+    console.log('开始获取备用代码状态...')
+    const response = await apiRequest(`${API_BASE_URL}/2fa/backup-codes`)
+    console.log('备用代码状态请求响应状态:', response.status)
+
+    if (response.ok) {
+      const result = await response.json()
+      console.log('备用代码状态响应数据:', result)
+      if (result.success && result.data) {
+        // 只保存状态信息，不保存实际代码
+        backupCodesStatus.value = {
+          hasBackupCodes: result.data.hasBackupCodes,
+          backupCodesCount: result.data.backupCodesCount
+        }
+        console.log('备用代码状态设置成功:', backupCodesStatus.value)
+      } else {
+        console.log('备用代码状态响应失败:', result.message)
+      }
+    } else {
+      const errorText = await response.text()
+      console.error('备用代码状态请求失败:', response.status, errorText)
+    }
+  } catch (err) {
+    console.error('获取备用代码状态失败:', err)
+  }
+}
+
+// 复制密钥
+const copySecretKey = async () => {
+  try {
+    await navigator.clipboard.writeText(secretKey.value)
+    console.log('密钥已复制到剪贴板')
+  } catch (err) {
+    console.error('复制失败:', err)
+  }
+}
+
+// 下载备用代码
+const downloadBackupCodes = () => {
+  const content = backupCodes.value.join('\n')
+  const blob = new Blob([content], { type: 'text/plain' })
+  const url = URL.createObjectURL(blob)
+
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `backup-codes-${new Date().toISOString().split('T')[0]}.txt`
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+
+  URL.revokeObjectURL(url)
+}
+
+// 复制备用代码
+const copyBackupCodes = async () => {
+  try {
+    const content = backupCodes.value.join('\n')
+    await navigator.clipboard.writeText(content)
+    console.log('备用代码已复制到剪贴板')
+  } catch (err) {
+    console.error('复制失败:', err)
+  }
+}
+
+// 格式化验证码输入
+const formatVerificationCode = (event: Event) => {
+  const target = event.target as HTMLInputElement
+  const value = target.value.replace(/\D/g, '').slice(0, 6)
+
+  if (target === document.querySelector('.verification-input')) {
+    verificationCode.value = value
+    verificationError.value = ''
+  } else if (target === document.querySelector('.disable-input')) {
+    disableVerificationCode.value = value
+    disableError.value = ''
+  } else if (target === document.querySelector('.regenerate-input')) {
+    regenerateVerificationCode.value = value
+    regenerateError.value = ''
+  }
+}
+
+// 显示备用代码信息
+const showBackupCodesInfo = () => {
+  // 清空之前的备用代码（安全考虑）
+  backupCodes.value = []
+  twoFactorModalStep.value = 'backup-codes'
+}
+
+// 测试QR码显示
+const testQRCode = () => {
+  // 一个简单的测试QR码 (1x1像素的透明PNG)
+  const testImage = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='
+  qrCodeData.value = testImage
+  console.log('设置测试QR码:', testImage)
 }
 
 // 全部展开/收起功能
@@ -2175,10 +2477,10 @@ onUnmounted(() => {
                             <p>{{ twoFactorEnabled ? '您的账户受到双因素认证保护' : '启用2FA以增强账户安全性' }}</p>
                           </div>
                           <div class="status-action">
-                            <NuxtLink to="/settings/2fa" class="config-btn">
+                            <button @click="openTwoFactorModal" class="config-btn">
                               <Icon icon="mdi:cog" />
                               配置2FA
-                            </NuxtLink>
+                            </button>
                           </div>
                         </div>
                       </div>
@@ -3527,6 +3829,347 @@ onUnmounted(() => {
             <Icon v-else icon="mdi:delete" class="btn-icon" />
             {{ deletePrivateKeyLoading ? '删除中...' : '确认删除' }}
           </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2FA 管理弹窗 -->
+    <div v-if="showTwoFactorModal" class="modal-overlay" @click="closeTwoFactorModal">
+      <div class="two-factor-modal" @click.stop>
+        <!-- 状态页面 -->
+        <div v-if="twoFactorModalStep === 'status'" class="modal-content">
+          <div class="modal-header">
+            <h3>双因素认证管理</h3>
+            <button @click="closeTwoFactorModal" class="modal-close">
+              <Icon icon="mdi:close" />
+            </button>
+          </div>
+
+          <div class="modal-body">
+            <div class="two-factor-status-modal">
+              <div class="status-card-modal" :class="{ enabled: twoFactorEnabled }">
+                <div class="status-icon-modal">
+                  <Icon :icon="twoFactorEnabled ? 'mdi:shield-check' : 'mdi:shield-off'" />
+                </div>
+                <div class="status-info-modal">
+                  <h4>{{ twoFactorEnabled ? '2FA 已启用' : '2FA 未启用' }}</h4>
+                  <p>{{ twoFactorEnabled ? '您的账户受到双因素认证保护' : '启用双因素认证以增强账户安全性' }}</p>
+                </div>
+              </div>
+
+              <div class="action-buttons">
+                <button
+                  v-if="!twoFactorEnabled"
+                  @click="startTwoFactorSetup"
+                  class="btn-primary"
+                  :disabled="isProcessing"
+                >
+                  <Icon v-if="isProcessing" icon="mdi:loading" class="spin" />
+                  启用 2FA
+                </button>
+
+                <template v-if="twoFactorEnabled">
+                  <button @click="showBackupCodesInfo" class="btn-secondary">
+                    <Icon icon="mdi:key" />
+                    备用代码管理
+                  </button>
+                  <button @click="showDisableConfirm = true" class="btn-danger">
+                    <Icon icon="mdi:shield-off" />
+                    禁用 2FA
+                  </button>
+                </template>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 设置向导页面 -->
+        <div v-if="twoFactorModalStep === 'setup'" class="modal-content setup-modal">
+          <div class="modal-header">
+            <h3>设置双因素认证</h3>
+            <button @click="closeTwoFactorModal" class="modal-close">
+              <Icon icon="mdi:close" />
+            </button>
+          </div>
+
+          <div class="modal-body">
+            <div class="setup-steps">
+              <div class="setup-step">
+                <div class="step-number">1</div>
+                <div class="step-content">
+                  <h4>下载认证器应用</h4>
+                  <p>在您的手机上下载以下任一认证器应用：</p>
+                  <div class="app-list">
+                    <div class="app-item">
+                      <Icon icon="mdi:google" />
+                      <span>Google Authenticator</span>
+                    </div>
+                    <div class="app-item">
+                      <Icon icon="mdi:microsoft" />
+                      <span>Microsoft Authenticator</span>
+                    </div>
+                    <div class="app-item">
+                      <Icon icon="mdi:shield-key" />
+                      <span>Authy</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="setup-step">
+                <div class="step-number">2</div>
+                <div class="step-content">
+                  <h4>扫描二维码</h4>
+                  <p>使用认证器应用扫描下方的二维码：</p>
+
+                  <div class="qr-section">
+                    <!-- 强制显示QR码区域，用于调试 -->
+                    <div class="qr-code">
+                      <div v-if="qrCodeData">
+                        <img
+                          :src="qrCodeData"
+                          alt="2FA QR Code"
+                          @error="(e) => { console.error('QR码加载失败:', e); console.error('图片源:', qrCodeData); }"
+                          @load="() => console.log('QR码加载成功')"
+                          style="border: 1px solid red; max-width: 200px; height: auto;"
+                        />
+                      </div>
+                      <div v-else style="padding: 2rem; background: #f0f0f0; border: 1px dashed #ccc;">
+                        <Icon icon="mdi:loading" class="spin" />
+                        <span>正在生成二维码...</span>
+                      </div>
+                    </div>
+
+                    <div class="manual-entry">
+                      <details>
+                        <summary>无法扫描？手动输入密钥</summary>
+                        <div class="secret-key">
+                          <label>密钥：</label>
+                          <div class="key-display">
+                            <code>{{ secretKey }}</code>
+                            <button @click="copySecretKey" class="copy-btn" title="复制密钥">
+                              <Icon icon="mdi:content-copy" />
+                            </button>
+                          </div>
+                        </div>
+                      </details>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="setup-step">
+                <div class="step-number">3</div>
+                <div class="step-content">
+                  <h4>验证设置</h4>
+                  <p>输入认证器应用显示的6位数字代码以完成设置：</p>
+
+                  <div class="verification-section">
+                    <div class="verification-input-group">
+                      <input
+                        v-model="verificationCode"
+                        type="text"
+                        placeholder="000000"
+                        maxlength="6"
+                        class="verification-input"
+                        @input="formatVerificationCode"
+                        @keyup.enter="verifyAndEnableTwoFactor"
+                        :disabled="isProcessing"
+                      />
+                      <button
+                        @click="verifyAndEnableTwoFactor"
+                        class="verify-btn"
+                        :disabled="verificationCode.length !== 6 || isProcessing"
+                      >
+                        <Icon v-if="isProcessing" icon="mdi:loading" class="spin" />
+                        验证并启用
+                      </button>
+                    </div>
+
+                    <div v-if="verificationError" class="error-message">
+                      {{ verificationError }}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 备用代码管理页面 -->
+        <div v-if="twoFactorModalStep === 'backup-codes'" class="modal-content backup-codes-modal">
+          <div class="modal-header">
+            <h3>备用恢复代码</h3>
+            <button @click="closeTwoFactorModal" class="modal-close">
+              <Icon icon="mdi:close" />
+            </button>
+          </div>
+
+          <div class="modal-body">
+            <div class="backup-codes-section">
+              <p class="backup-description">
+                当您无法使用认证器应用时，可以使用这些备用代码登录。每个代码只能使用一次。
+              </p>
+
+              <!-- 如果有实际的备用代码（刚生成的），则显示 -->
+              <div v-if="backupCodes.length > 0" class="codes-grid">
+                <div
+                  v-for="(code, index) in backupCodes"
+                  :key="index"
+                  class="code-item"
+                >
+                  <code>{{ code }}</code>
+                </div>
+              </div>
+
+              <!-- 如果没有实际代码，显示安全提示 -->
+              <div v-else class="security-notice">
+                <Icon icon="mdi:shield-lock" class="security-icon" />
+                <div class="security-content">
+                  <h4>备用代码已安全存储</h4>
+                  <p>出于安全考虑，备用代码不会在此处显示。</p>
+                  <p>如果您需要新的备用代码，请点击下方的"重新生成"按钮。</p>
+                  <div v-if="backupCodesStatus.hasBackupCodes" class="codes-status">
+                    <Icon icon="mdi:check-circle" />
+                    <span>您有 {{ backupCodesStatus.backupCodesCount }} 个可用的备用代码</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="codes-actions">
+                <!-- 只有在有实际代码时才显示下载和复制按钮 -->
+                <template v-if="backupCodes.length > 0">
+                  <button @click="downloadBackupCodes" class="btn-action">
+                    <Icon icon="mdi:download" />
+                    下载代码
+                  </button>
+                  <button @click="copyBackupCodes" class="btn-action">
+                    <Icon icon="mdi:content-copy" />
+                    复制代码
+                  </button>
+                </template>
+
+                <!-- 重新生成按钮始终可用 -->
+                <button @click="showRegenerateConfirm = true" class="btn-action">
+                  <Icon icon="mdi:refresh" />
+                  重新生成备用代码
+                </button>
+              </div>
+
+              <div class="warning-section">
+                <Icon icon="mdi:alert" class="warning-icon" />
+                <div class="warning-content">
+                  <h4>重要提醒</h4>
+                  <ul>
+                    <li>请将这些代码保存在安全的地方</li>
+                    <li>每个代码只能使用一次</li>
+                    <li>建议下载保存，不要截图</li>
+                    <li>如果代码用完或丢失，请重新生成</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="modal-footer">
+            <button @click="twoFactorModalStep = 'status'" class="btn-secondary">
+              返回
+            </button>
+          </div>
+        </div>
+
+        <!-- 禁用确认对话框 -->
+        <div v-if="showDisableConfirm" class="confirm-overlay">
+          <div class="confirm-dialog">
+            <div class="confirm-header">
+              <h4>禁用双因素认证</h4>
+              <button @click="showDisableConfirm = false" class="confirm-close">
+                <Icon icon="mdi:close" />
+              </button>
+            </div>
+
+            <div class="confirm-body">
+              <div class="warning-section">
+                <Icon icon="mdi:alert" class="warning-icon" />
+                <p>禁用双因素认证将降低您账户的安全性。请输入验证码以确认操作。</p>
+              </div>
+
+              <div class="verify-input">
+                <label>验证码：</label>
+                <input
+                  v-model="disableVerificationCode"
+                  type="text"
+                  placeholder="请输入6位验证码"
+                  maxlength="6"
+                  class="disable-input"
+                  @input="formatVerificationCode"
+                  @keyup.enter="disableTwoFactor"
+                  :disabled="isProcessing"
+                />
+              </div>
+
+              <div v-if="disableError" class="error-message">
+                {{ disableError }}
+              </div>
+            </div>
+
+            <div class="confirm-actions">
+              <button @click="showDisableConfirm = false" class="btn-secondary" :disabled="isProcessing">
+                取消
+              </button>
+              <button @click="disableTwoFactor" class="btn-danger" :disabled="!disableVerificationCode || isProcessing">
+                <Icon v-if="isProcessing" icon="mdi:loading" class="spin" />
+                确认禁用
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 重新生成确认对话框 -->
+        <div v-if="showRegenerateConfirm" class="confirm-overlay">
+          <div class="confirm-dialog">
+            <div class="confirm-header">
+              <h4>重新生成备用代码</h4>
+              <button @click="showRegenerateConfirm = false" class="confirm-close">
+                <Icon icon="mdi:close" />
+              </button>
+            </div>
+
+            <div class="confirm-body">
+              <div class="warning-section">
+                <Icon icon="mdi:alert" class="warning-icon" />
+                <p>重新生成将使所有现有的备用代码失效。请输入验证码以确认操作。</p>
+              </div>
+
+              <div class="verify-input">
+                <label>验证码：</label>
+                <input
+                  v-model="regenerateVerificationCode"
+                  type="text"
+                  placeholder="请输入6位验证码"
+                  maxlength="6"
+                  class="regenerate-input"
+                  @input="formatVerificationCode"
+                  @keyup.enter="regenerateBackupCodesAction"
+                  :disabled="isProcessing"
+                />
+              </div>
+
+              <div v-if="regenerateError" class="error-message">
+                {{ regenerateError }}
+              </div>
+            </div>
+
+            <div class="confirm-actions">
+              <button @click="showRegenerateConfirm = false" class="btn-secondary" :disabled="isProcessing">
+                取消
+              </button>
+              <button @click="regenerateBackupCodesAction" class="btn-primary" :disabled="!regenerateVerificationCode || isProcessing">
+                <Icon v-if="isProcessing" icon="mdi:loading" class="spin" />
+                确认重新生成
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>

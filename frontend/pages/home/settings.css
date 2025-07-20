@@ -3151,3 +3151,640 @@
   line-height: 1.5;
   font-size: 0.9rem;
 }
+
+/* 2FA 弹窗样式 */
+.two-factor-modal {
+  background: rgba(15, 23, 42, 0.95);
+  backdrop-filter: blur(20px);
+  border-radius: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  width: 90%;
+  max-width: 600px;
+  max-height: 90vh;
+  overflow-y: auto;
+  position: relative;
+}
+
+.modal-content {
+  padding: 0;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.modal-header h3 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+  margin: 0;
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.5rem;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 1.25rem;
+  border-radius: 0.25rem;
+  transition: all 0.2s;
+}
+
+.modal-close:hover {
+  color: rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.modal-body {
+  padding: 1.5rem;
+}
+
+.modal-footer {
+  padding: 1rem 1.5rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* 状态页面样式 */
+.two-factor-status-modal {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.status-card-modal {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.5rem;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.status-card-modal.enabled {
+  background: rgba(34, 197, 94, 0.1);
+  border-color: rgba(34, 197, 94, 0.3);
+}
+
+.status-icon-modal {
+  font-size: 2rem;
+  color: rgba(239, 68, 68, 0.8);
+}
+
+.status-card-modal.enabled .status-icon-modal {
+  color: rgba(34, 197, 94, 0.8);
+}
+
+.status-info-modal h4 {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+  margin: 0 0 0.25rem 0;
+}
+
+.status-info-modal p {
+  color: rgba(255, 255, 255, 0.6);
+  margin: 0;
+  line-height: 1.4;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+/* 设置向导样式 */
+.setup-modal {
+  max-width: 700px;
+}
+
+.setup-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.setup-step {
+  display: flex;
+  gap: 1rem;
+}
+
+.step-number {
+  width: 2rem;
+  height: 2rem;
+  background: rgba(59, 130, 246, 0.8);
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.step-content h4 {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+  margin: 0 0 0.5rem 0;
+}
+
+.step-content p {
+  color: rgba(255, 255, 255, 0.6);
+  margin: 0 0 1rem 0;
+  line-height: 1.5;
+}
+
+.app-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.app-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 0.25rem;
+  font-size: 0.875rem;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.qr-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+.qr-code {
+  padding: 1rem;
+  background: white;
+  border-radius: 0.5rem;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  border: 2px solid #007bff; /* 添加边框便于调试 */
+}
+
+.qr-code img {
+  display: block !important;
+  max-width: 200px;
+  min-width: 100px; /* 确保最小宽度 */
+  min-height: 100px; /* 确保最小高度 */
+  height: auto;
+  background: #f0f0f0; /* 添加背景色便于调试 */
+  border: 1px solid #ccc; /* 添加边框便于调试 */
+}
+
+.qr-loading {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 2rem;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.manual-entry {
+  width: 100%;
+  max-width: 400px;
+}
+
+.manual-entry summary {
+  cursor: pointer;
+  color: rgba(59, 130, 246, 0.8);
+  font-size: 0.875rem;
+  padding: 0.5rem;
+  text-align: center;
+}
+
+.manual-entry summary:hover {
+  text-decoration: underline;
+}
+
+.secret-key {
+  margin-top: 1rem;
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 0.25rem;
+}
+
+.secret-key label {
+  display: block;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.8);
+  margin-bottom: 0.5rem;
+}
+
+.key-display {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.key-display code {
+  flex: 1;
+  padding: 0.5rem;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0.25rem;
+  font-family: 'Courier New', monospace;
+  font-size: 0.875rem;
+  word-break: break-all;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.copy-btn {
+  padding: 0.5rem;
+  background: rgba(59, 130, 246, 0.8);
+  color: white;
+  border: none;
+  border-radius: 0.25rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s;
+}
+
+.copy-btn:hover {
+  background: rgba(59, 130, 246, 1);
+}
+
+.verification-section {
+  max-width: 400px;
+}
+
+.verification-input-group {
+  display: flex;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.verification-input {
+  flex: 1;
+  padding: 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 0.25rem;
+  font-size: 1.125rem;
+  text-align: center;
+  letter-spacing: 0.25rem;
+  font-family: 'Courier New', monospace;
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.verification-input:focus {
+  outline: none;
+  border-color: rgba(59, 130, 246, 0.8);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.25);
+}
+
+.verify-btn {
+  padding: 0.75rem 1rem;
+  background: rgba(34, 197, 94, 0.8);
+  color: white;
+  border: none;
+  border-radius: 0.25rem;
+  cursor: pointer;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  white-space: nowrap;
+  transition: background-color 0.2s;
+}
+
+.verify-btn:hover:not(:disabled) {
+  background: rgba(34, 197, 94, 1);
+}
+
+.verify-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* 备用代码页面样式 */
+.backup-codes-modal {
+  max-width: 600px;
+}
+
+.backup-codes-section {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.backup-description {
+  color: rgba(255, 255, 255, 0.6);
+  line-height: 1.5;
+  margin: 0;
+}
+
+.codes-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.75rem;
+}
+
+.code-item {
+  padding: 0.75rem;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0.25rem;
+  text-align: center;
+}
+
+.code-item code {
+  font-family: 'Courier New', monospace;
+  font-size: 1rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+  letter-spacing: 0.1rem;
+}
+
+.no-codes {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 2rem;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 0.25rem;
+  color: rgba(255, 255, 255, 0.6);
+  justify-content: center;
+}
+
+.security-notice {
+  display: flex;
+  gap: 1rem;
+  padding: 1.5rem;
+  background: rgba(59, 130, 246, 0.1);
+  border-radius: 0.5rem;
+  border-left: 3px solid rgba(59, 130, 246, 0.8);
+}
+
+.security-icon {
+  color: rgba(59, 130, 246, 0.8);
+  font-size: 1.5rem;
+  flex-shrink: 0;
+  margin-top: 0.125rem;
+}
+
+.security-content h4 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: rgba(59, 130, 246, 0.9);
+  margin: 0 0 0.5rem 0;
+}
+
+.security-content p {
+  color: rgba(59, 130, 246, 0.8);
+  margin: 0 0 0.5rem 0;
+  line-height: 1.5;
+}
+
+.security-content p:last-of-type {
+  margin-bottom: 1rem;
+}
+
+.codes-status {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  background: rgba(34, 197, 94, 0.1);
+  border-radius: 0.25rem;
+  color: rgba(34, 197, 94, 0.9);
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.codes-actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.btn-action {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: rgba(107, 114, 128, 0.8);
+  color: white;
+  border: none;
+  border-radius: 0.25rem;
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: background-color 0.2s;
+}
+
+.btn-action:hover {
+  background: rgba(107, 114, 128, 1);
+}
+
+.warning-section {
+  display: flex;
+  gap: 1rem;
+  padding: 1rem;
+  background: rgba(245, 158, 11, 0.1);
+  border-radius: 0.25rem;
+  border-left: 3px solid rgba(245, 158, 11, 0.8);
+}
+
+.warning-icon {
+  color: rgba(245, 158, 11, 0.8);
+  font-size: 1.25rem;
+  flex-shrink: 0;
+  margin-top: 0.125rem;
+}
+
+.warning-content h4 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: rgba(245, 158, 11, 0.9);
+  margin: 0 0 0.5rem 0;
+}
+
+.warning-content ul {
+  color: rgba(245, 158, 11, 0.8);
+  margin: 0;
+  padding-left: 1.25rem;
+  line-height: 1.5;
+}
+
+.warning-content li {
+  margin-bottom: 0.25rem;
+}
+
+/* 确认对话框样式 */
+.confirm-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 1rem;
+}
+
+.confirm-dialog {
+  background: rgba(15, 23, 42, 0.95);
+  backdrop-filter: blur(20px);
+  border-radius: 0.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+  width: 90%;
+  max-width: 400px;
+}
+
+.confirm-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.confirm-header h4 {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+  margin: 0;
+}
+
+.confirm-close {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.25rem;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 1.125rem;
+  border-radius: 0.25rem;
+  transition: all 0.2s;
+}
+
+.confirm-close:hover {
+  color: rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.confirm-body {
+  padding: 1.5rem;
+}
+
+.verify-input {
+  margin-bottom: 1rem;
+}
+
+.verify-input label {
+  display: block;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.8);
+  margin-bottom: 0.5rem;
+}
+
+.verify-input input {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 0.25rem;
+  font-size: 1rem;
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.9);
+  text-align: center;
+  letter-spacing: 0.1rem;
+  font-family: 'Courier New', monospace;
+}
+
+.verify-input input:focus {
+  outline: none;
+  border-color: rgba(59, 130, 246, 0.8);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.25);
+}
+
+.confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  padding: 1rem 1.5rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* 按钮样式 */
+.btn-primary,
+.btn-secondary,
+.btn-danger {
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 0.25rem;
+  cursor: pointer;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: all 0.2s;
+  font-size: 0.875rem;
+}
+
+.btn-primary {
+  background: rgba(59, 130, 246, 0.8);
+  color: white;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: rgba(59, 130, 246, 1);
+}
+
+.btn-secondary {
+  background: rgba(107, 114, 128, 0.8);
+  color: white;
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: rgba(107, 114, 128, 1);
+}
+
+.btn-danger {
+  background: rgba(239, 68, 68, 0.8);
+  color: white;
+}
+
+.btn-danger:hover:not(:disabled) {
+  background: rgba(239, 68, 68, 1);
+}
+
+.btn-primary:disabled,
+.btn-secondary:disabled,
+.btn-danger:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.error-message {
+  color: rgba(239, 68, 68, 0.9);
+  font-size: 0.875rem;
+  margin-top: 0.5rem;
+}
+
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}

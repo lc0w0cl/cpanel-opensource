@@ -86,15 +86,28 @@ export const useTwoFactorAuth = () => {
       const result = await response.json()
       console.log('生成2FA配置响应数据:', result)
 
-      if (result.success) {
-        return result.data
-      } else {
-        throw new Error(result.message || '生成2FA配置失败')
+      // 处理QR码数据格式
+      if (result.success && result.data && result.data.qrCodeImage) {
+        const qrImageData = result.data.qrCodeImage
+        if (!qrImageData.startsWith('data:')) {
+          result.data.qrCodeImage = `data:image/png;base64,${qrImageData}`
+        }
+      }
+
+      return {
+        success: result.success,
+        message: result.message || (result.success ? '生成成功' : '生成失败'),
+        data: result.data
       }
     } catch (err) {
-      error.value = err instanceof Error ? err.message : '生成2FA配置失败'
+      const message = err instanceof Error ? err.message : '生成2FA配置失败'
+      error.value = message
       console.error('生成2FA配置失败:', err)
-      throw err
+      return {
+        success: false,
+        message,
+        data: null
+      }
     } finally {
       isLoading.value = false
     }
@@ -103,7 +116,7 @@ export const useTwoFactorAuth = () => {
   /**
    * 启用2FA
    */
-  const enableTwoFactorAuth = async (verificationCode: string): Promise<boolean> => {
+  const enableTwoFactorAuth = async (verificationCode: string) => {
     try {
       isLoading.value = true
       const API_BASE_URL = getApiBaseUrl()
@@ -115,18 +128,23 @@ export const useTwoFactorAuth = () => {
         body: JSON.stringify({ verificationCode })
       })
       const result = await response.json()
-      
+
       if (result.success) {
         await getTwoFactorStatus() // 刷新状态
-        return true
-      } else {
-        error.value = result.message || '启用2FA失败'
-        return false
+      }
+
+      return {
+        success: result.success,
+        message: result.message || (result.success ? '启用成功' : '启用失败')
       }
     } catch (err) {
-      error.value = err instanceof Error ? err.message : '启用2FA失败'
+      const message = err instanceof Error ? err.message : '启用2FA失败'
+      error.value = message
       console.error('启用2FA失败:', err)
-      return false
+      return {
+        success: false,
+        message
+      }
     } finally {
       isLoading.value = false
     }
@@ -135,7 +153,7 @@ export const useTwoFactorAuth = () => {
   /**
    * 禁用2FA
    */
-  const disableTwoFactorAuth = async (verificationCode: string): Promise<boolean> => {
+  const disableTwoFactorAuth = async (verificationCode: string) => {
     try {
       isLoading.value = true
       const API_BASE_URL = getApiBaseUrl()
@@ -147,18 +165,23 @@ export const useTwoFactorAuth = () => {
         body: JSON.stringify({ verificationCode })
       })
       const result = await response.json()
-      
+
       if (result.success) {
         await getTwoFactorStatus() // 刷新状态
-        return true
-      } else {
-        error.value = result.message || '禁用2FA失败'
-        return false
+      }
+
+      return {
+        success: result.success,
+        message: result.message || (result.success ? '禁用成功' : '禁用失败')
       }
     } catch (err) {
-      error.value = err instanceof Error ? err.message : '禁用2FA失败'
+      const message = err instanceof Error ? err.message : '禁用2FA失败'
+      error.value = message
       console.error('禁用2FA失败:', err)
-      return false
+      return {
+        success: false,
+        message
+      }
     } finally {
       isLoading.value = false
     }
@@ -211,7 +234,7 @@ export const useTwoFactorAuth = () => {
   /**
    * 重新生成备用恢复码
    */
-  const regenerateBackupCodes = async (verificationCode: string): Promise<string[] | null> => {
+  const regenerateBackupCodes = async (verificationCode: string) => {
     try {
       isLoading.value = true
       const API_BASE_URL = getApiBaseUrl()
@@ -223,17 +246,21 @@ export const useTwoFactorAuth = () => {
         body: JSON.stringify({ verificationCode })
       })
       const result = await response.json()
-      
-      if (result.success) {
-        return result.data
-      } else {
-        error.value = result.message || '重新生成恢复码失败'
-        return null
+
+      return {
+        success: result.success,
+        message: result.message || (result.success ? '重新生成成功' : '重新生成失败'),
+        data: result.success ? result.data : null
       }
     } catch (err) {
-      error.value = err instanceof Error ? err.message : '重新生成恢复码失败'
+      const message = err instanceof Error ? err.message : '重新生成恢复码失败'
+      error.value = message
       console.error('重新生成恢复码失败:', err)
-      return null
+      return {
+        success: false,
+        message,
+        data: null
+      }
     } finally {
       isLoading.value = false
     }

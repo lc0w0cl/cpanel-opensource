@@ -81,7 +81,7 @@ public class TwoFactorAuthController {
      * 启用2FA
      */
     @PostMapping("/enable")
-    public ApiResponse<String> enable(
+    public ApiResponse<Map<String, Object>> enable(
             @RequestBody Map<String, String> request,
             HttpServletRequest httpRequest) {
         try {
@@ -97,7 +97,23 @@ public class TwoFactorAuthController {
 
             boolean success = twoFactorAuthService.enableTwoFactorAuth(userId, verificationCode);
             if (success) {
-                return ApiResponse.success("2FA启用成功");
+                // 启用成功后，返回备用代码
+                TwoFactorAuth twoFactorAuth = twoFactorAuthService.getTwoFactorAuth(userId);
+                Map<String, Object> result = new HashMap<>();
+                result.put("message", "2FA启用成功");
+
+                try {
+                    String backupCodesJson = twoFactorAuth.getBackupCodes();
+                    if (backupCodesJson != null && !backupCodesJson.trim().isEmpty()) {
+                        com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+                        String[] backupCodes = mapper.readValue(backupCodesJson, String[].class);
+                        result.put("backupCodes", backupCodes);
+                    }
+                } catch (Exception e) {
+                    log.error("解析备用代码失败", e);
+                }
+
+                return ApiResponse.success(result);
             } else {
                 return ApiResponse.error("验证码错误或2FA启用失败");
             }
@@ -168,6 +184,48 @@ public class TwoFactorAuthController {
         } catch (Exception e) {
             log.error("验证2FA失败", e);
             return ApiResponse.error("验证2FA失败");
+        }
+    }
+
+    /**
+     * 获取备用恢复码状态（不返回实际代码，只返回是否存在）
+     */
+    @GetMapping("/backup-codes")
+    public ApiResponse<Map<String, Object>> getBackupCodesStatus(HttpServletRequest request) {
+        try {
+            String userId = (String) request.getAttribute("currentUser");
+            if (userId == null) {
+                userId = "admin"; // 默认用户
+            }
+
+            TwoFactorAuth twoFactorAuth = twoFactorAuthService.getTwoFactorAuth(userId);
+            if (twoFactorAuth == null || !twoFactorAuth.getEnabled()) {
+                return ApiResponse.error("2FA未启用");
+            }
+
+            // 只返回备用代码的状态信息，不返回实际代码
+            Map<String, Object> status = new HashMap<>();
+            try {
+                String backupCodesJson = twoFactorAuth.getBackupCodes();
+                if (backupCodesJson != null && !backupCodesJson.trim().isEmpty()) {
+                    com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+                    String[] backupCodes = mapper.readValue(backupCodesJson, String[].class);
+                    status.put("hasBackupCodes", true);
+                    status.put("backupCodesCount", backupCodes.length);
+                } else {
+                    status.put("hasBackupCodes", false);
+                    status.put("backupCodesCount", 0);
+                }
+            } catch (Exception e) {
+                log.error("解析备用代码失败", e);
+                status.put("hasBackupCodes", false);
+                status.put("backupCodesCount", 0);
+            }
+
+            return ApiResponse.success(status);
+        } catch (Exception e) {
+            log.error("获取备用恢复码状态失败", e);
+            return ApiResponse.error("获取备用恢复码状态失败");
         }
     }
 
