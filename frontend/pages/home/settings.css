@@ -1,9 +1,14 @@
+/* 设置页面样式作用域 - 防止与其他页面样式冲突 */
 .settings-container {
     min-height: 100vh;
     padding: 2rem;
     max-width: 100%;
     /* 优化渲染性能 */
     contain: layout style paint;
+
+    /* 确保设置页面的样式优先级 */
+    position: relative;
+    z-index: 1;
 }
 
 /* 页面标题 */
@@ -131,7 +136,8 @@
     overflow: hidden;
 }
 
-.section-header {
+/* 分组管理区域的section-header样式 */
+.settings-container .group-section .section-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -141,11 +147,12 @@
     border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
 
-.section-header:hover {
+.settings-container .group-section .section-header:hover {
     background: rgba(255, 255, 255, 0.02);
 }
 
-.section-title {
+/* 设置页面专用的section-title样式，提高优先级 */
+.settings-container .section-title {
     font-size: 1rem;
     font-weight: 600;
     color: rgba(255, 255, 255, 0.9);
@@ -1558,7 +1565,8 @@
     margin-bottom: 2rem;
 }
 
-.section-header {
+/* 配置区域的section-header样式 */
+.settings-container .config-section .section-header {
     display: flex;
     align-items: center;
     gap: 0.75rem;
@@ -1573,7 +1581,8 @@
     color: rgba(59, 130, 246, 0.8);
 }
 
-.section-title {
+/* 配置区域的section-title样式 */
+.settings-container .section-title {
     font-size: 1rem;
     font-weight: 600;
     color: rgba(255, 255, 255, 0.9);
@@ -2216,7 +2225,8 @@
     border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
-.section-title {
+/* 服务器表单的section-title样式 */
+.settings-container .section-title {
     font-size: 1rem;
     font-weight: 600;
     color: rgba(255, 255, 255, 0.9);
