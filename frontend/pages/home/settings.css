@@ -3037,14 +3037,14 @@
 .two-factor-content {
   display: flex;
   flex-direction: column;
-  gap: 2rem;
+  gap: 1.5rem;
 }
 
 .two-factor-status .status-card {
   display: flex;
   align-items: center;
-  gap: 1.5rem;
-  padding: 2rem;
+  gap: 1rem;
+  padding: 1.5rem;
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 1rem;
@@ -3057,15 +3057,15 @@
 }
 
 .two-factor-status .status-icon {
-  width: 4rem;
-  height: 4rem;
+  width: 3rem;
+  height: 3rem;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   background: rgba(255, 255, 255, 0.1);
   color: rgba(255, 255, 255, 0.6);
-  font-size: 2rem;
+  font-size: 1.5rem;
   flex-shrink: 0;
 }
 
@@ -3079,7 +3079,7 @@
 }
 
 .two-factor-status .status-info h4 {
-  font-size: 1.25rem;
+  font-size: 1.1rem;
   font-weight: 600;
   color: rgba(255, 255, 255, 0.9);
   margin: 0 0 0.5rem 0;
@@ -3089,6 +3089,7 @@
   color: rgba(255, 255, 255, 0.6);
   margin: 0;
   line-height: 1.5;
+  font-size: 0.8rem;
 }
 
 .two-factor-status .status-action .config-btn {
@@ -3119,27 +3120,27 @@
 .two-factor-info .info-card {
   display: flex;
   gap: 1rem;
-  padding: 1.5rem;
+  padding: 1rem;
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 0.75rem;
 }
 
 .two-factor-info .info-icon {
-  width: 2.5rem;
-  height: 2.5rem;
+  width: 2rem;
+  height: 2rem;
   border-radius: 0.5rem;
   background: rgba(59, 130, 246, 0.1);
   color: #3b82f6;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.25rem;
+  font-size: 1rem;
   flex-shrink: 0;
 }
 
 .two-factor-info .info-content h4 {
-  font-size: 1rem;
+  font-size: 0.9rem;
   font-weight: 600;
   color: rgba(255, 255, 255, 0.9);
   margin: 0 0 0.5rem 0;
@@ -3149,7 +3150,7 @@
   color: rgba(255, 255, 255, 0.6);
   margin: 0;
   line-height: 1.5;
-  font-size: 0.9rem;
+  font-size: 0.8rem;
 }
 
 /* 2FA 弹窗样式 */
@@ -3179,7 +3180,7 @@
 }
 
 .modal-header h3 {
-  font-size: 1.25rem;
+  font-size: 1.1rem;
   font-weight: 600;
   color: rgba(255, 255, 255, 0.9);
   margin: 0;
@@ -3244,7 +3245,7 @@
 }
 
 .status-info-modal h4 {
-  font-size: 1.125rem;
+  font-size: 1rem;
   font-weight: 600;
   color: rgba(255, 255, 255, 0.9);
   margin: 0 0 0.25rem 0;
@@ -3254,6 +3255,7 @@
   color: rgba(255, 255, 255, 0.6);
   margin: 0;
   line-height: 1.4;
+  font-size: 0.8rem;
 }
 
 .action-buttons {
@@ -3292,7 +3294,7 @@
 }
 
 .step-content h4 {
-  font-size: 1.125rem;
+  font-size: 1rem;
   font-weight: 600;
   color: rgba(255, 255, 255, 0.9);
   margin: 0 0 0.5rem 0;
@@ -3302,6 +3304,7 @@
   color: rgba(255, 255, 255, 0.6);
   margin: 0 0 1rem 0;
   line-height: 1.5;
+  font-size: 0.8rem;
 }
 
 .app-list {
@@ -3435,7 +3438,7 @@
   padding: 0.75rem;
   border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 0.25rem;
-  font-size: 1.125rem;
+  font-size: 1rem;
   text-align: center;
   letter-spacing: 0.25rem;
   font-family: 'Courier New', monospace;
