@@ -1018,13 +1018,13 @@ const formatVerificationCode = (event: Event) => {
   const target = event.target as HTMLInputElement
   const value = target.value.replace(/\D/g, '').slice(0, 6)
 
-  if (target === document.querySelector('.verification-input')) {
+  if (target.id === 'verification-code' || target.classList.contains('verification-input')) {
     verificationCode.value = value
     verificationError.value = ''
-  } else if (target === document.querySelector('.disable-input')) {
+  } else if (target.id === 'disable-verification-code' || target.classList.contains('disable-input')) {
     disableVerificationCode.value = value
     disableError.value = ''
-  } else if (target === document.querySelector('.regenerate-input')) {
+  } else if (target.id === 'regenerate-verification-code' || target.classList.contains('regenerate-input')) {
     regenerateVerificationCode.value = value
     regenerateError.value = ''
   }
@@ -3968,10 +3968,14 @@ onUnmounted(() => {
                     <div class="verification-input-group">
                       <input
                         v-model="verificationCode"
-                        type="text"
+                        type="tel"
+                        inputmode="numeric"
+                        autocomplete="one-time-code"
                         placeholder="000000"
                         maxlength="6"
                         class="verification-input"
+                        name="verification-code"
+                        id="verification-code"
                         @input="formatVerificationCode"
                         @keyup.enter="verifyAndEnableTwoFactor"
                         :disabled="isProcessing"
@@ -4094,10 +4098,14 @@ onUnmounted(() => {
                 <label>验证码：</label>
                 <input
                   v-model="disableVerificationCode"
-                  type="text"
+                  type="tel"
+                  inputmode="numeric"
+                  autocomplete="one-time-code"
                   placeholder="请输入6位验证码"
                   maxlength="6"
                   class="disable-input"
+                  name="disable-verification-code"
+                  id="disable-verification-code"
                   @input="formatVerificationCode"
                   @keyup.enter="disableTwoFactor"
                   :disabled="isProcessing"
@@ -4141,10 +4149,14 @@ onUnmounted(() => {
                 <label>验证码：</label>
                 <input
                   v-model="regenerateVerificationCode"
-                  type="text"
+                  type="tel"
+                  inputmode="numeric"
+                  autocomplete="one-time-code"
                   placeholder="请输入6位验证码"
                   maxlength="6"
                   class="regenerate-input"
+                  name="regenerate-verification-code"
+                  id="regenerate-verification-code"
                   @input="formatVerificationCode"
                   @keyup.enter="regenerateBackupCodesAction"
                   :disabled="isProcessing"
