@@ -23,7 +23,6 @@ const newTodoText = ref('')
 const currentFilter = ref<FilterType>('all')
 const editingId = ref<number | null>(null)
 const editingText = ref('')
-const draggableTodos = ref<Todo[]>([])
 
 // 计算属性
 const sortedTodos = computed(() => {
@@ -38,23 +37,25 @@ const sortedTodos = computed(() => {
   })
 })
 
+// 分别获取待办和已完成的任务
+const activeTodos = computed(() => {
+  return sortedTodos.value.filter(todo => !todo.completed)
+})
+
+const completedTodos = computed(() => {
+  return sortedTodos.value.filter(todo => todo.completed)
+})
+
 const filteredTodos = computed(() => {
   const sorted = sortedTodos.value
-  const filtered = (() => {
-    switch (currentFilter.value) {
-      case 'active':
-        return sorted.filter(todo => !todo.completed)
-      case 'completed':
-        return sorted.filter(todo => todo.completed)
-      default:
-        return sorted
-    }
-  })()
-
-  // 更新拖拽数组
-  draggableTodos.value = [...filtered]
-
-  return filtered
+  switch (currentFilter.value) {
+    case 'active':
+      return sorted.filter(todo => !todo.completed)
+    case 'completed':
+      return sorted.filter(todo => todo.completed)
+    default:
+      return sorted
+  }
 })
 
 const todoStats = computed(() => {
@@ -195,13 +196,13 @@ const clearCompleted = async () => {
 // 拖拽排序结束处理
 const onDragEnd = async () => {
   const currentTime = new Date().toISOString()
-  const todoIds = draggableTodos.value.map(todo => todo.id)
+  const todoIds = activeTodos.value.map(todo => todo.id)
 
   try {
     const success = await todoApi.updateTodosSortOrder(todoIds)
     if (success) {
       // 更新本地排序号
-      draggableTodos.value.forEach((todo, index) => {
+      activeTodos.value.forEach((todo, index) => {
         const originalTodo = todos.value.find(t => t.id === todo.id)
         if (originalTodo) {
           originalTodo.sortOrder = index + 1
@@ -248,7 +249,7 @@ onMounted(async () => {
 
 <template>
   <NuxtLayout>
-    <div class="todo-dashboard">
+    <div class="todo-dashboard !mx-0">
       <!-- 页面标题 -->
       <div class="dashboard-header">
         <h1 class="dashboard-title">待办事项</h1>
@@ -271,219 +272,228 @@ onMounted(async () => {
         </div>
       </div>
 
-      <!-- 主要内容区域 -->
-      <div class="todo-content">
-        <!-- 添加任务卡片 -->
-        <Motion
-          :initial="{ opacity: 0, y: 20 }"
-          :animate="{ opacity: 1, y: 0 }"
-          :transition="{ duration: 0.5, delay: 0.1 }"
-        >
-          <div class="todo-card add-todo-card">
-            <div class="card-header">
-              <div class="card-icon add-icon">
-                <Icon icon="material-symbols:add" />
-              </div>
-              <div class="card-title-section">
-                <h3 class="card-title">添加新任务</h3>
-                <p class="card-subtitle">输入任务内容并按回车键添加</p>
-              </div>
-            </div>
-            <div class="card-content">
-              <div class="add-todo-form">
-                <input
-                  v-model="newTodoText"
-                  @keyup="handleKeyup"
-                  type="text"
-                  placeholder="输入新任务..."
-                  class="todo-input"
-                  maxlength="200"
-                />
-                <button
-                  @click="addTodo"
-                  :disabled="!newTodoText.trim()"
-                  class="add-btn"
-                  title="添加任务"
-                >
-                  <Icon icon="material-symbols:add" class="add-btn-icon" />
-                </button>
-              </div>
-            </div>
+      <!-- 添加任务区域 -->
+      <Motion
+        :initial="{ opacity: 0, y: 20 }"
+        :animate="{ opacity: 1, y: 0 }"
+        :transition="{ duration: 0.5, delay: 0.1 }"
+      >
+        <div class="add-todo-section">
+          <div class="add-todo-form">
+            <input
+              v-model="newTodoText"
+              @keyup="handleKeyup"
+              type="text"
+              placeholder="输入新任务..."
+              class="todo-input"
+              maxlength="200"
+            />
+            <button
+              @click="addTodo"
+              :disabled="!newTodoText.trim()"
+              class="add-btn"
+              title="添加任务"
+            >
+              <Icon icon="material-symbols:add" class="add-btn-icon" />
+            </button>
           </div>
-        </Motion>
-
-        <!-- 筛选和批量操作卡片 -->
-        <Motion
-          :initial="{ opacity: 0, y: 20 }"
-          :animate="{ opacity: 1, y: 0 }"
-          :transition="{ duration: 0.5, delay: 0.2 }"
-        >
-          <div class="todo-card filter-card">
-            <div class="card-content">
-              <div class="filter-controls">
-                <!-- 筛选按钮 -->
-                <div class="filter-buttons">
-                  <button
-                    @click="currentFilter = 'all'"
-                    :class="['filter-btn', { active: currentFilter === 'all' }]"
-                  >
-                    <Icon icon="material-symbols:list" />
-                    全部
-                  </button>
-                  <button
-                    @click="currentFilter = 'active'"
-                    :class="['filter-btn', { active: currentFilter === 'active' }]"
-                  >
-                    <Icon icon="material-symbols:radio-button-unchecked" />
-                    待完成
-                  </button>
-                  <button
-                    @click="currentFilter = 'completed'"
-                    :class="['filter-btn', { active: currentFilter === 'completed' }]"
-                  >
-                    <Icon icon="material-symbols:check-circle" />
-                    已完成
-                  </button>
-                </div>
-
-                <!-- 批量操作按钮 -->
-                <div class="bulk-actions" v-if="todos.length > 0">
-                    <button
-                      @click="toggleAll"
-                      class="bulk-btn"
-                      :title="allCompleted ? '全部标记为未完成' : '全部标记为完成'"
-                    >
-                      <Icon :icon="allCompleted ? 'material-symbols:check-box' : 'material-symbols:check-box-outline-blank'" />
-                      {{ allCompleted ? '全部标记为未完成' : '全部标记为完成' }}
-                    </button>
-                    <button
-                      @click="clearCompleted"
-                      :disabled="todoStats.completed === 0"
-                      class="bulk-btn clear-btn"
-                      title="清除已完成任务"
-                    >
-                      <Icon icon="material-symbols:delete-sweep" />
-                      清除已完成
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-        </Motion>
-
-        <!-- 拖拽提示 -->
-        <div v-if="currentFilter !== 'all' && todos.length > 0" class="drag-hint-card">
-          <Icon icon="material-symbols:info" class="hint-icon" />
-          <span class="hint-text">在"全部"筛选下可拖拽调整任务顺序</span>
         </div>
+      </Motion>
 
-        <!-- 任务列表 -->
-        <div class="todo-list">
-          <!-- 空状态 -->
+      <!-- 主要内容区域 - 两列布局 -->
+      <div class="todo-content">
+        <!-- 黄金比例容器 -->
+        <div class="golden-ratio-container">
+
+          <!-- 左列：待办事项 -->
           <Motion
-            v-if="filteredTodos.length === 0"
-            :initial="{ opacity: 0, y: 20 }"
-            :animate="{ opacity: 1, y: 0 }"
-            :transition="{ duration: 0.5, delay: 0.3 }"
+            :initial="{ opacity: 0, x: -20 }"
+            :animate="{ opacity: 1, x: 0 }"
+            :transition="{ duration: 0.5, delay: 0.2 }"
           >
-            <div class="empty-state">
-              <div class="empty-icon">
-                <Icon
-                  :icon="currentFilter === 'all' ? 'material-symbols:task-alt' :
-                         currentFilter === 'active' ? 'material-symbols:radio-button-unchecked' :
-                         'material-symbols:check-circle'"
-                />
+            <div class="todo-column active-column">
+              <div class="column-header">
+                <div class="column-title">
+                  <Icon icon="material-symbols:radio-button-unchecked" class="column-icon" />
+                  <h3>待办事项</h3>
+                  <span class="count-badge">{{ activeTodos.length }}</span>
+                </div>
+                <div class="column-actions" v-if="activeTodos.length > 0">
+                  <button
+                    @click="toggleAll"
+                    class="action-btn"
+                    :title="allCompleted ? '全部标记为未完成' : '全部标记为完成'"
+                  >
+                    <Icon icon="material-symbols:check-box-outline-blank" />
+                  </button>
+                </div>
               </div>
-              <h3 class="empty-title">
-                {{ currentFilter === 'all' ? '暂无任务' :
-                   currentFilter === 'active' ? '没有待完成的任务' :
-                   '没有已完成的任务' }}
-              </h3>
-              <p class="empty-subtitle">
-                {{ currentFilter === 'all' ? '添加一个新任务开始吧！' :
-                   currentFilter === 'active' ? '所有任务都已完成！' :
-                   '还没有完成任何任务' }}
-              </p>
+
+              <div class="column-content">
+                <!-- 待办任务列表 -->
+                <VueDraggable
+                  v-model="activeTodos"
+                  @end="onDragEnd"
+                  handle=".drag-handle"
+                  ghost-class="ghost-item"
+                  chosen-class="chosen-item"
+                  drag-class="drag-item"
+                  :animation="200"
+                  class="todo-list"
+                >
+                  <div
+                    v-for="todo in activeTodos"
+                    :key="todo.id"
+                    class="todo-item active-item"
+                  >
+                    <!-- 拖拽手柄 -->
+                    <div class="drag-handle" title="拖拽排序">
+                      <Icon icon="material-symbols:drag-indicator" class="drag-icon" />
+                    </div>
+
+                    <!-- 完成状态切换 -->
+                    <button
+                      @click="toggleTodo(todo.id)"
+                      class="todo-checkbox"
+                      title="标记为完成"
+                    >
+                      <Icon icon="material-symbols:radio-button-unchecked" class="checkbox-icon" />
+                    </button>
+
+                    <!-- 任务内容 -->
+                    <div class="todo-content-area" @dblclick="startEdit(todo)">
+                      <textarea
+                        v-if="editingId === todo.id"
+                        v-model="editingText"
+                        @keyup="handleKeyup"
+                        @blur="saveEdit"
+                        class="todo-edit-input"
+                        maxlength="200"
+                        rows="2"
+                      ></textarea>
+                      <span v-else class="todo-text">{{ todo.text }}</span>
+                    </div>
+
+                    <!-- 操作按钮 -->
+                    <div class="todo-actions">
+                      <button
+                        v-if="editingId !== todo.id"
+                        @click="startEdit(todo)"
+                        class="action-btn edit-btn"
+                        title="编辑任务"
+                      >
+                        <Icon icon="material-symbols:edit" />
+                      </button>
+                      <button
+                        @click="deleteTodo(todo.id)"
+                        class="action-btn delete-btn"
+                        title="删除任务"
+                      >
+                        <Icon icon="material-symbols:delete" />
+                      </button>
+                    </div>
+                  </div>
+                </VueDraggable>
+
+                <!-- 空状态 -->
+                <div v-if="activeTodos.length === 0" class="empty-state">
+                  <div class="empty-icon">
+                    <Icon icon="material-symbols:radio-button-unchecked" />
+                  </div>
+                  <h4 class="empty-title">没有待办事项</h4>
+                  <p class="empty-subtitle">添加一个新任务开始吧！</p>
+                </div>
+              </div>
             </div>
           </Motion>
 
-          <!-- 任务项 - 支持拖拽排序 -->
-          <VueDraggable
-            v-model="draggableTodos"
-            @end="onDragEnd"
-            :disabled="currentFilter !== 'all'"
-            handle=".drag-handle"
-            ghost-class="ghost-item"
-            chosen-class="chosen-item"
-            drag-class="drag-item"
-            :animation="200"
+          <!-- 右列：已完成事项 -->
+          <Motion
+            :initial="{ opacity: 0, x: 20 }"
+            :animate="{ opacity: 1, x: 0 }"
+            :transition="{ duration: 0.5, delay: 0.3 }"
           >
-            <Motion
-              v-for="(todo, index) in draggableTodos"
-              :key="todo.id"
-              :initial="{ opacity: 0, y: 20 }"
-              :animate="{ opacity: 1, y: 0 }"
-              :transition="{ duration: 0.5, delay: 0.3 + index * 0.05 }"
-            >
-              <div :class="['todo-item', { completed: todo.completed, draggable: currentFilter === 'all' }]">
-                <!-- 拖拽手柄 -->
-                <div
-                  v-if="currentFilter === 'all'"
-                  class="drag-handle"
-                  title="拖拽排序"
-                >
-                  <Icon icon="material-symbols:drag-indicator" class="drag-icon" />
+            <div class="todo-column completed-column">
+              <div class="column-header">
+                <div class="column-title">
+                  <Icon icon="material-symbols:check-circle" class="column-icon completed" />
+                  <h3>已完成</h3>
+                  <span class="count-badge completed">{{ completedTodos.length }}</span>
                 </div>
-
-                <!-- 完成状态切换 -->
-                <button
-                  @click="toggleTodo(todo.id)"
-                  class="todo-checkbox"
-                  :title="todo.completed ? '标记为未完成' : '标记为完成'"
-                >
-                  <Icon
-                    :icon="todo.completed ? 'material-symbols:check-circle' : 'material-symbols:radio-button-unchecked'"
-                    :class="['checkbox-icon', { completed: todo.completed }]"
-                  />
-                </button>
-
-                <!-- 任务内容 -->
-                <div class="todo-content-area" @dblclick="startEdit(todo)">
-                  <input
-                    v-if="editingId === todo.id"
-                    v-model="editingText"
-                    @keyup="handleKeyup"
-                    @blur="saveEdit"
-                    class="todo-edit-input"
-                    ref="editInput"
-                    maxlength="200"
-                  />
-                  <span v-else :class="['todo-text', { completed: todo.completed }]">
-                    {{ todo.text }}
-                  </span>
-                </div>
-
-                <!-- 操作按钮 -->
-                <div class="todo-actions">
+                <div class="column-actions" v-if="completedTodos.length > 0">
                   <button
-                    v-if="editingId !== todo.id"
-                    @click="startEdit(todo)"
-                    class="action-btn edit-btn"
-                    title="编辑任务"
+                    @click="clearCompleted"
+                    class="action-btn clear-btn"
+                    title="清除已完成任务"
                   >
-                    <Icon icon="material-symbols:edit" />
-                  </button>
-                  <button
-                    @click="deleteTodo(todo.id)"
-                    class="action-btn delete-btn"
-                    title="删除任务"
-                  >
-                    <Icon icon="material-symbols:delete" />
+                    <Icon icon="material-symbols:delete-sweep" />
                   </button>
                 </div>
               </div>
-            </Motion>
-          </VueDraggable>
+
+              <div class="column-content">
+                <!-- 已完成任务列表 -->
+                <div class="todo-list">
+                  <div
+                    v-for="todo in completedTodos"
+                    :key="todo.id"
+                    class="todo-item completed-item"
+                  >
+                    <!-- 完成状态切换 -->
+                    <button
+                      @click="toggleTodo(todo.id)"
+                      class="todo-checkbox"
+                      title="标记为未完成"
+                    >
+                      <Icon icon="material-symbols:check-circle" class="checkbox-icon completed" />
+                    </button>
+
+                    <!-- 任务内容 -->
+                    <div class="todo-content-area" @dblclick="startEdit(todo)">
+                      <textarea
+                        v-if="editingId === todo.id"
+                        v-model="editingText"
+                        @keyup="handleKeyup"
+                        @blur="saveEdit"
+                        class="todo-edit-input"
+                        maxlength="200"
+                        rows="2"
+                      ></textarea>
+                      <span v-else class="todo-text completed">{{ todo.text }}</span>
+                    </div>
+
+                    <!-- 操作按钮 -->
+                    <div class="todo-actions">
+                      <button
+                        v-if="editingId !== todo.id"
+                        @click="startEdit(todo)"
+                        class="action-btn edit-btn"
+                        title="编辑任务"
+                      >
+                        <Icon icon="material-symbols:edit" />
+                      </button>
+                      <button
+                        @click="deleteTodo(todo.id)"
+                        class="action-btn delete-btn"
+                        title="删除任务"
+                      >
+                        <Icon icon="material-symbols:delete" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- 空状态 -->
+                <div v-if="completedTodos.length === 0" class="empty-state">
+                  <div class="empty-icon">
+                    <Icon icon="material-symbols:check-circle" />
+                  </div>
+                  <h4 class="empty-title">没有已完成的任务</h4>
+                  <p class="empty-subtitle">完成一些任务来看看效果吧！</p>
+                </div>
+              </div>
+            </div>
+          </Motion>
         </div>
       </div>
     </div>
@@ -494,7 +504,7 @@ onMounted(async () => {
 /* Todo应用样式 */
 .todo-dashboard {
   padding: 2rem;
-  max-width: 1200px;
+  max-width: 1400px;
   margin: 0 auto;
   min-height: 100vh;
 }
@@ -567,70 +577,128 @@ onMounted(async () => {
   font-weight: 500;
 }
 
-/* 主要内容区域 */
+/* 添加任务区域 */
+.add-todo-section {
+  margin-bottom: 2rem;
+  padding: 1.5rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: linear-gradient(135deg,
+    rgba(255, 255, 255, 0.08) 0%,
+    rgba(255, 255, 255, 0.04) 100%
+  );
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+/* 主要内容区域 - 两列布局 */
 .todo-content {
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
 }
 
-/* Todo卡片基础样式 */
-.todo-card {
+.golden-ratio-container {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+  min-height: 600px;
+}
+
+/* 列样式 */
+.todo-column {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
   border-radius: 0.75rem;
   border: 1px solid rgba(255, 255, 255, 0.1);
+  background: linear-gradient(135deg,
+    rgba(255, 255, 255, 0.05) 0%,
+    rgba(255, 255, 255, 0.02) 100%
+  );
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   overflow: hidden;
   transition: border-color 0.3s ease, transform 0.2s ease;
 }
 
-.todo-card:hover {
+.todo-column:hover {
   border-color: rgba(255, 255, 255, 0.2);
 }
 
-/* 卡片头部 */
-.card-header {
+.active-column {
+  border-color: rgba(59, 130, 246, 0.2);
+}
+
+.completed-column {
+  border-color: rgba(34, 197, 94, 0.2);
+}
+
+/* 列头部 */
+.column-header {
   display: flex;
   align-items: center;
-  gap: 1rem;
-  padding: 1rem 1.5rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  justify-content: space-between;
+  padding: 1.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  background: linear-gradient(135deg,
+    rgba(255, 255, 255, 0.08) 0%,
+    rgba(255, 255, 255, 0.04) 100%
+  );
 }
 
-.card-icon {
-  width: 1.5rem;
-  height: 1.5rem;
+.column-title {
   display: flex;
   align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  color: rgba(59, 130, 246, 0.8);
+  gap: 0.75rem;
 }
 
-.card-icon svg {
-  width: 1.5rem;
-  height: 1.5rem;
-}
-
-.card-title-section {
-  flex: 1;
-  min-width: 0;
-}
-
-.card-title {
+.column-title h3 {
   font-size: 1.1rem;
   font-weight: 600;
   color: rgba(255, 255, 255, 0.9);
-  margin: 0 0 0.25rem 0;
-}
-
-.card-subtitle {
-  font-size: 0.8rem;
-  color: rgba(255, 255, 255, 0.6);
   margin: 0;
 }
 
-/* 卡片内容 */
-.card-content {
-  padding: 1.5rem;
+.column-icon {
+  width: 1.25rem;
+  height: 1.25rem;
+  color: rgba(59, 130, 246, 0.8);
+}
+
+.column-icon.completed {
+  color: rgba(34, 197, 94, 0.8);
+}
+
+.count-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.5rem;
+  height: 1.5rem;
+  padding: 0 0.5rem;
+  border-radius: 0.75rem;
+  background: rgba(59, 130, 246, 0.2);
+  color: rgba(59, 130, 246, 0.9);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.count-badge.completed {
+  background: rgba(34, 197, 94, 0.2);
+  color: rgba(34, 197, 94, 0.9);
+}
+
+.column-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+/* 列内容 */
+.column-content {
+  flex: 1;
+  padding: 1rem;
+  overflow-y: auto;
 }
 
 /* 添加任务表单 */
@@ -836,11 +904,13 @@ onMounted(async () => {
   line-height: 1.4;
 }
 
-/* 任务列表 */
+/* 任务列表 - 网格布局 */
 .todo-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 0.25rem;
+  //height: 100%;
+  padding: 0.125rem;
 }
 
 /* 空状态 */
@@ -849,59 +919,114 @@ onMounted(async () => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 4rem 2rem;
+  padding: 1.5rem 1rem;
   text-align: center;
-  border-radius: 0.75rem;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  height: 150px;
+  border-radius: 0.5rem;
+  border: 2px dashed rgba(255, 255, 255, 0.1);
+  background: linear-gradient(135deg,
+    rgba(255, 255, 255, 0.02) 0%,
+    rgba(255, 255, 255, 0.01) 100%
+  );
+  grid-column: 1 / -1; /* 占满整行 */
 }
 
 .empty-icon {
-  width: 4rem;
-  height: 4rem;
-  margin-bottom: 1.5rem;
+  width: 3rem;
+  height: 3rem;
+  margin-bottom: 1rem;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 0.75rem;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.05);
 }
 
 .empty-icon svg {
-  width: 2rem;
-  height: 2rem;
-  color: rgba(255, 255, 255, 0.6);
+  width: 1.5rem;
+  height: 1.5rem;
+  color: rgba(255, 255, 255, 0.4);
 }
 
 .empty-title {
-  font-size: 1.25rem;
+  font-size: 1rem;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.8);
+  color: rgba(255, 255, 255, 0.7);
   margin: 0 0 0.5rem 0;
 }
 
 .empty-subtitle {
-  font-size: 0.875rem;
-  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.5);
   margin: 0;
 }
 
-/* 任务项 */
+/* 任务项 - 拉长的卡片显示更多内容 */
 .todo-item {
   display: flex;
-  align-items: center;
-  gap: 1rem;
-  padding: 1rem 1.5rem;
-  border-radius: 0.75rem;
+  align-items: stretch;
+  gap: 0.25rem;
+  padding: 0.5rem;
+  border-radius: 0.5rem;
   border: 1px solid rgba(255, 255, 255, 0.1);
-  transition: border-color 0.3s ease, transform 0.2s ease;
+  background: linear-gradient(135deg,
+    rgba(255, 255, 255, 0.08) 0%,
+    rgba(255, 255, 255, 0.04) 100%
+  );
+  transition: all 0.3s ease;
+  /* 拉长比例：宽度:高度 = 1:0.4 */
+  aspect-ratio: 1 / 0.4;
+  min-height: 60px;
+  max-height: 100px;
+  position: relative;
+  overflow: hidden;
 }
 
 .todo-item:hover {
   border-color: rgba(255, 255, 255, 0.2);
+  background: linear-gradient(135deg,
+    rgba(255, 255, 255, 0.12) 0%,
+    rgba(255, 255, 255, 0.06) 100%
+  );
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
-.todo-item.completed {
-  opacity: 0.7;
+.active-item {
+  border-color: rgba(59, 130, 246, 0.3);
+  background: linear-gradient(135deg,
+    rgba(59, 130, 246, 0.08) 0%,
+    rgba(59, 130, 246, 0.04) 100%
+  );
+}
+
+.active-item::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: linear-gradient(to bottom, rgba(59, 130, 246, 0.8), rgba(59, 130, 246, 0.4));
+}
+
+.completed-item {
+  border-color: rgba(34, 197, 94, 0.3);
+  background: linear-gradient(135deg,
+    rgba(34, 197, 94, 0.08) 0%,
+    rgba(34, 197, 94, 0.04) 100%
+  );
+  opacity: 0.9;
+}
+
+.completed-item::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: linear-gradient(to bottom, rgba(34, 197, 94, 0.8), rgba(34, 197, 94, 0.4));
 }
 
 .todo-item.draggable {
@@ -915,12 +1040,13 @@ onMounted(async () => {
 /* 拖拽手柄 */
 .drag-handle {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
-  width: 2rem;
-  height: 2rem;
+  width: 1rem;
+  height: 1rem;
+  padding-top: 0.125rem;
   cursor: grab;
-  border-radius: 0.5rem;
+  border-radius: 0.125rem;
   transition: all 0.3s ease;
   flex-shrink: 0;
 }
@@ -934,14 +1060,14 @@ onMounted(async () => {
 }
 
 .drag-icon {
-  width: 1.25rem;
-  height: 1.25rem;
-  color: rgba(255, 255, 255, 0.5);
+  width: 0.75rem;
+  height: 0.75rem;
+  color: rgba(255, 255, 255, 0.4);
   transition: all 0.3s ease;
 }
 
 .drag-handle:hover .drag-icon {
-  color: rgba(255, 255, 255, 0.8);
+  color: rgba(255, 255, 255, 0.7);
 }
 
 /* 拖拽状态样式 */
@@ -964,25 +1090,26 @@ onMounted(async () => {
 /* 复选框 */
 .todo-checkbox {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
-  width: 2rem;
-  height: 2rem;
+  width: 1rem;
+  height: 1rem;
+  padding-top: 0.125rem;
   border: none;
   background: transparent;
   cursor: pointer;
-  border-radius: 0.5rem;
+  border-radius: 0.125rem;
   transition: all 0.3s ease;
   flex-shrink: 0;
 }
 
 .todo-checkbox:hover {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .checkbox-icon {
-  width: 1.5rem;
-  height: 1.5rem;
+  width: 0.875rem;
+  height: 0.875rem;
   color: rgba(255, 255, 255, 0.6);
   transition: all 0.3s ease;
 }
@@ -996,14 +1123,23 @@ onMounted(async () => {
   flex: 1;
   min-width: 0;
   cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 0.125rem 0;
 }
 
 .todo-text {
-  font-size: 0.875rem;
+  font-size: 0.8rem;
   color: rgba(255, 255, 255, 0.9);
-  line-height: 1.5;
+  line-height: 1.3;
   word-break: break-word;
   transition: all 0.3s ease;
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-weight: 500;
 }
 
 .todo-text.completed {
@@ -1013,8 +1149,8 @@ onMounted(async () => {
 
 .todo-edit-input {
   width: 100%;
-  padding: 0.5rem 0.75rem;
-  border-radius: 0.5rem;
+  padding: 0.25rem;
+  border-radius: 0.25rem;
   border: 1px solid rgba(59, 130, 246, 0.5);
   background: linear-gradient(135deg,
     rgba(255, 255, 255, 0.12) 0%,
@@ -1023,48 +1159,52 @@ onMounted(async () => {
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   color: rgba(255, 255, 255, 0.9);
-  font-size: 0.875rem;
-  line-height: 1.5;
+  font-size: 0.8rem;
+  line-height: 1.3;
   transition: all 0.3s ease;
+  resize: none;
+  min-height: 35px;
+  max-height: 50px;
 }
 
 .todo-edit-input:focus {
   outline: none;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
 }
 
 /* 任务操作按钮 */
 .todo-actions {
   display: flex;
-  gap: 0.5rem;
+  flex-direction: column;
+  gap: 0.125rem;
   align-items: center;
+  justify-content: flex-start;
+  padding-top: 0.125rem;
   flex-shrink: 0;
 }
 
-.action-btn {
+.todo-actions .action-btn {
   width: 2rem;
-  height: 2rem;
-  border-radius: 0.5rem;
+  height: 1rem;
+  border-radius: 0.125rem;
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  background: linear-gradient(135deg,
-    rgba(255, 255, 255, 0.08) 0%,
-    rgba(255, 255, 255, 0.04) 100%
-  );
+  border: none;
+  background: rgba(255, 255, 255, 0.1);
   cursor: pointer;
   transition: all 0.3s ease;
 }
 
 .action-btn:hover {
-  border-color: rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.2);
+  transform: scale(1.1);
 }
 
 .action-btn svg {
-  width: 1rem;
-  height: 1rem;
-  color: rgba(255, 255, 255, 0.7);
+  width: 0.75rem;
+  height: 0.75rem;
+  color: rgba(255, 255, 255, 0.8);
 }
 
 .edit-btn:hover {
@@ -1099,6 +1239,25 @@ onMounted(async () => {
     padding: 1.5rem;
   }
 
+  .golden-ratio-container {
+    grid-template-columns: 1fr;
+    grid-template-rows: 1fr 1fr;
+    min-height: 800px;
+    gap: 1.5rem;
+  }
+
+  .todo-list {
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 0.25rem;
+  }
+
+  .todo-item {
+    min-height: 50px;
+    padding: 0.375rem;
+    gap: 0.125rem;
+    aspect-ratio: 1 / 0.35;
+  }
+
   .stats-summary {
     gap: 1rem;
   }
@@ -1128,7 +1287,7 @@ onMounted(async () => {
   }
 
   .dashboard-title {
-    font-size: 1.75rem;
+    font-size: 1.25rem;
   }
 
   .stats-summary {
@@ -1136,31 +1295,49 @@ onMounted(async () => {
     justify-content: space-between;
   }
 
-  .filter-controls {
-    flex-direction: column;
-    align-items: stretch;
+  .add-todo-section {
+    padding: 1rem;
+  }
+
+  .golden-ratio-container {
+    min-height: 700px;
     gap: 1rem;
   }
 
-  .filter-buttons {
-    justify-content: center;
+  .column-header {
+    padding: 1rem;
   }
 
-  .bulk-actions {
-    justify-content: center;
+  .column-content {
+    padding: 0.75rem;
   }
 
-  .card-header {
-    padding: 1.25rem 1.25rem 0.75rem 1.25rem;
-  }
-
-  .card-content {
-    padding: 0 1.25rem 1.25rem 1.25rem;
+  .todo-list {
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 0.25rem;
   }
 
   .todo-item {
-    padding: 0.875rem 1rem;
-    gap: 0.75rem;
+    padding: 0.25rem;
+    gap: 0.125rem;
+    min-height: 50px;
+    aspect-ratio: 1 / 0.3;
+  }
+
+  .todo-actions {
+    flex-direction: row;
+    gap: 0.125rem;
+    padding-top: 0;
+  }
+
+  .action-btn {
+    width: 0.875rem;
+    height: 0.875rem;
+  }
+
+  .action-btn svg {
+    width: 0.625rem;
+    height: 0.625rem;
   }
 
   .todo-actions {
@@ -1174,7 +1351,7 @@ onMounted(async () => {
   }
 
   .dashboard-title {
-    font-size: 1.5rem;
+    font-size: 1.125rem;
   }
 
   .stats-summary {
@@ -1185,6 +1362,10 @@ onMounted(async () => {
   .stat-item {
     width: 100%;
     justify-content: center;
+  }
+
+  .add-todo-section {
+    padding: 0.75rem;
   }
 
   .add-todo-form {
@@ -1201,107 +1382,129 @@ onMounted(async () => {
     height: 2.5rem;
   }
 
-  .filter-buttons {
-    flex-direction: column;
-    gap: 0.5rem;
-  }
-
-  .filter-btn {
-    justify-content: center;
-  }
-
-  .bulk-actions {
-    flex-direction: column;
-    gap: 0.5rem;
-  }
-
-  .bulk-btn {
-    justify-content: center;
-  }
-
-  .drag-handle {
-    width: 1.5rem;
-    height: 1.5rem;
-  }
-
-  .drag-icon {
-    width: 1rem;
-    height: 1rem;
-  }
-
-  .card-header {
-    padding: 1rem;
+  .golden-ratio-container {
+    min-height: 600px;
     gap: 0.75rem;
   }
 
-  .card-content {
-    padding: 0 1rem 1rem 1rem;
+  .column-header {
+    padding: 0.75rem;
   }
 
-  .card-icon {
-    width: 2.5rem;
-    height: 2.5rem;
-  }
-
-  .card-icon svg {
-    width: 1.25rem;
-    height: 1.25rem;
-  }
-
-  .card-title {
+  .column-title h3 {
     font-size: 1rem;
   }
 
-  .card-subtitle {
-    font-size: 0.8rem;
+  .column-content {
+    padding: 0.5rem;
+  }
+
+  .todo-list {
+    grid-template-columns: 1fr;
+    gap: 0.125rem;
   }
 
   .todo-item {
-    padding: 0.75rem;
-    gap: 0.5rem;
+    padding: 0.25rem;
+    gap: 0.125rem;
+    min-height: 40px;
+    /* 在小屏幕上更扁平的比例 */
+    aspect-ratio: 1 / 0.25;
+  }
+
+  .todo-text {
+    font-size: 0.75rem;
+    -webkit-line-clamp: 2;
+  }
+
+  .todo-actions {
+    flex-direction: row;
+    gap: 0.125rem;
+    padding-top: 0;
+  }
+
+  .action-btn {
+    width: 0.75rem;
+    height: 0.75rem;
+  }
+
+  .action-btn svg {
+    width: 0.5rem;
+    height: 0.5rem;
+  }
+
+  .drag-handle {
+    width: 0.75rem;
+    height: 0.75rem;
+  }
+
+  .drag-icon {
+    width: 0.5rem;
+    height: 0.5rem;
   }
 
   .todo-checkbox {
-    width: 1.75rem;
-    height: 1.75rem;
+    width: 0.75rem;
+    height: 0.75rem;
   }
 
   .checkbox-icon {
+    width: 0.625rem;
+    height: 0.625rem;
+  }
+
+  .drag-handle {
     width: 1.25rem;
     height: 1.25rem;
   }
 
-  .action-btn {
-    width: 1.75rem;
-    height: 1.75rem;
-  }
-
-  .action-btn svg {
+  .drag-icon {
     width: 0.875rem;
     height: 0.875rem;
   }
 
-  .empty-state {
-    padding: 3rem 1rem;
-  }
-
-  .empty-icon {
-    width: 3rem;
-    height: 3rem;
-    margin-bottom: 1rem;
-  }
-
-  .empty-icon svg {
+  .todo-checkbox {
     width: 1.5rem;
     height: 1.5rem;
   }
 
+  .checkbox-icon {
+    width: 1rem;
+    height: 1rem;
+  }
+
+  .action-btn {
+    width: 1.5rem;
+    height: 1.5rem;
+  }
+
+  .action-btn svg {
+    width: 0.75rem;
+    height: 0.75rem;
+  }
+
+  .empty-state {
+    padding: 2rem 1rem;
+    height: 150px;
+  }
+
+  .empty-icon {
+    width: 2.5rem;
+    height: 2.5rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .empty-icon svg {
+    width: 1.25rem;
+    height: 1.25rem;
+  }
+
   .empty-title {
-    font-size: 1.125rem;
+    font-size: 0.9rem;
   }
 
   .empty-subtitle {
-    font-size: 0.8rem;
+    font-size: 0.75rem;
   }
 }
 </style>
