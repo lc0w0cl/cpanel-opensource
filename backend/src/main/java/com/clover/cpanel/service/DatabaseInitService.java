@@ -39,4 +39,9 @@ public interface DatabaseInitService {
      * 检查表结构版本并进行必要的更新
      */
     void checkAndUpdateTableStructure();
+
+    /**
+     * 初始化TODO分组数据
+     */
+    void initializeTodoCategories();
 }

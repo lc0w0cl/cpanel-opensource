@@ -121,11 +121,11 @@
     max-width: none; /* 移除最大宽度限制 */
 }
 
-/* 分组管理左右布局 */
+/* 分组管理三栏布局 */
 .group-management-layout {
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 2rem;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 1.5rem;
     padding: 1.5rem;
 }
 

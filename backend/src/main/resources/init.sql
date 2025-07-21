@@ -40,7 +40,9 @@ INSERT INTO panel_categories (name, type, `order`, created_at, updated_at) VALUE
 ('娱乐休闲', 'navigation', 3, '2023-01-01 00:00:00', '2023-01-01 00:00:00'),
 ('生产环境', 'server', 1, '2023-01-01 00:00:00', '2023-01-01 00:00:00'),
 ('测试环境', 'server', 2, '2023-01-01 00:00:00', '2023-01-01 00:00:00'),
-('开发环境', 'server', 3, '2023-01-01 00:00:00', '2023-01-01 00:00:00');
+('开发环境', 'server', 3, '2023-01-01 00:00:00', '2023-01-01 00:00:00'),
+('工作任务', 'todo', 1, '2023-01-01 00:00:00', '2023-01-01 00:00:00'),
+('个人事务', 'todo', 2, '2023-01-01 00:00:00', '2023-01-01 00:00:00');
 
 -- 初始化示例导航项数据
 INSERT INTO panel_navigation_items (name, url, logo, category_id, description, internal_url, sort_order, created_at, updated_at) VALUES

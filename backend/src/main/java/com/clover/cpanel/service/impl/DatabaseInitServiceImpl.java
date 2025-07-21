@@ -59,6 +59,9 @@ public class DatabaseInitServiceImpl implements DatabaseInitService {
             // 检查并更新表结构
             checkAndUpdateTableStructure();
 
+            // 初始化TODO分组数据
+            initializeTodoCategories();
+
             log.info("数据库表结构检查完成");
         } catch (Exception e) {
             log.error("数据库初始化失败", e);
@@ -662,6 +665,35 @@ public class DatabaseInitServiceImpl implements DatabaseInitService {
         } catch (Exception e) {
             log.error("检查配置是否存在时发生错误: {}", configKey, e);
             return false;
+        }
+    }
+
+    @Override
+    public void initializeTodoCategories() {
+        try {
+            log.info("检查TODO分组初始化状态...");
+
+            // 检查是否已存在TODO分组
+            String checkSql = "SELECT COUNT(*) FROM panel_categories WHERE type = 'todo'";
+            Integer count = jdbcTemplate.queryForObject(checkSql, Integer.class);
+
+            if (count == null || count == 0) {
+                log.info("TODO分组不存在，开始初始化...");
+
+                // 插入默认的TODO分组
+                String insertSql = """
+                    INSERT INTO panel_categories (name, type, `order`, created_at, updated_at) VALUES
+                    ('工作任务', 'todo', 1, NOW(), NOW()),
+                    ('个人事务', 'todo', 2, NOW(), NOW())
+                    """;
+
+                jdbcTemplate.update(insertSql);
+                log.info("TODO分组初始化完成");
+            } else {
+                log.info("TODO分组已存在，跳过初始化");
+            }
+        } catch (Exception e) {
+            log.error("初始化TODO分组失败", e);
         }
     }
 }
