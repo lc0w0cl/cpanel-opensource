@@ -33,6 +33,11 @@ const serverCategories = ref<Category[]>([])
 const serverLoading = ref(false)
 const serverSaving = ref(false)
 
+// TODO分组相关数据
+const todoCategories = ref<Category[]>([])
+const todoLoading = ref(false)
+const todoSaving = ref(false)
+
 // 新增导航分组相关
 const showAddNavigationCategoryForm = ref(false)
 const addNavigationCategoryForm = ref({
@@ -71,9 +76,29 @@ const showDeleteServerCategoryConfirm = ref(false)
 const deletingServerCategory = ref<Category | null>(null)
 const deleteServerCategoryLoading = ref(false)
 
+// 新增TODO分组相关
+const showAddTodoCategoryForm = ref(false)
+const addTodoCategoryForm = ref({
+  name: ''
+})
+const addTodoCategoryLoading = ref(false)
+
+// 编辑TODO分组相关
+const editingTodoCategoryId = ref<number | null>(null)
+const editTodoCategoryForm = ref({
+  name: ''
+})
+const editTodoCategoryLoading = ref(false)
+
+// 删除TODO分组相关
+const showDeleteTodoCategoryConfirm = ref(false)
+const deletingTodoCategory = ref<Category | null>(null)
+const deleteTodoCategoryLoading = ref(false)
+
 // 所有设置项的折叠状态
 const isNavigationGroupManagementCollapsed = ref(true)
 const isServerGroupManagementCollapsed = ref(true)
+const isTodoGroupManagementCollapsed = ref(true)
 const isPasswordSettingsCollapsed = ref(true)
 const isTwoFactorAuthCollapsed = ref(true)
 const isSystemConfigCollapsed = ref(true)
@@ -341,6 +366,25 @@ const fetchServerCategories = async () => {
   }
 }
 
+// 获取TODO分组列表
+const fetchTodoCategories = async () => {
+  todoLoading.value = true
+  try {
+    const response = await apiRequest(`${API_BASE_URL}/categories/type/todo`)
+    const result: ApiResponse<Category[]> = await response.json()
+
+    if (result.success) {
+      todoCategories.value = result.data
+    } else {
+      console.error('获取TODO分组失败:', result.message)
+    }
+  } catch (error) {
+    console.error('获取TODO分组失败:', error)
+  } finally {
+    todoLoading.value = false
+  }
+}
+
 // 保存导航分组排序
 const saveNavigationCategoriesSort = async () => {
   navigationSaving.value = true
@@ -415,6 +459,43 @@ const saveServerCategoriesSort = async () => {
   }
 }
 
+// 保存TODO分组排序
+const saveTodoCategoriesSort = async () => {
+  todoSaving.value = true
+  try {
+    // 更新排序号
+    const sortedCategories = todoCategories.value.map((category, index) => ({
+      ...category,
+      order: index + 1
+    }))
+
+    const response = await apiRequest(`${API_BASE_URL}/categories/sort`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(sortedCategories)
+    })
+
+    const result: ApiResponse<string> = await response.json()
+
+    if (result.success) {
+      todoCategories.value = sortedCategories
+      console.log('TODO分组排序保存成功')
+    } else {
+      console.error('保存TODO分组排序失败:', result.message)
+      // 重新获取数据以恢复原始顺序
+      await fetchTodoCategories()
+    }
+  } catch (error) {
+    console.error('保存TODO分组排序失败:', error)
+    // 重新获取数据以恢复原始顺序
+    await fetchTodoCategories()
+  } finally {
+    todoSaving.value = false
+  }
+}
+
 // 处理导航分组拖拽结束
 const handleNavigationDragEnd = () => {
   console.log('导航分组拖拽排序完成')
@@ -425,6 +506,12 @@ const handleNavigationDragEnd = () => {
 const handleServerDragEnd = () => {
   console.log('服务器分组拖拽排序完成')
   saveServerCategoriesSort()
+}
+
+// 处理TODO分组拖拽结束
+const handleTodoDragEnd = () => {
+  console.log('TODO分组拖拽排序完成')
+  saveTodoCategoriesSort()
 }
 
 // 创建新导航分组
@@ -515,6 +602,51 @@ const createServerCategory = async () => {
 const cancelAddServerCategory = () => {
   addServerCategoryForm.value.name = ''
   showAddServerCategoryForm.value = false
+}
+
+// 创建新TODO分组
+const createTodoCategory = async () => {
+  if (!addTodoCategoryForm.value.name.trim()) {
+    console.error('TODO分组名称不能为空')
+    return
+  }
+
+  addTodoCategoryLoading.value = true
+  try {
+    const response = await apiRequest(`${API_BASE_URL}/categories`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        name: addTodoCategoryForm.value.name.trim(),
+        type: 'todo'
+      })
+    })
+
+    const result: ApiResponse<Category> = await response.json()
+
+    if (result.success) {
+      console.log('TODO分组创建成功')
+      // 重置表单
+      addTodoCategoryForm.value.name = ''
+      showAddTodoCategoryForm.value = false
+      // 重新获取分组列表
+      await fetchTodoCategories()
+    } else {
+      console.error('TODO分组创建失败:', result.message)
+    }
+  } catch (error) {
+    console.error('TODO分组创建失败:', error)
+  } finally {
+    addTodoCategoryLoading.value = false
+  }
+}
+
+// 取消新增TODO分组
+const cancelAddTodoCategory = () => {
+  addTodoCategoryForm.value.name = ''
+  showAddTodoCategoryForm.value = false
 }
 
 // 开始编辑导航分组
@@ -623,6 +755,59 @@ const cancelEditServerCategory = () => {
   editServerCategoryForm.value.name = ''
 }
 
+// 开始编辑TODO分组
+const startEditTodoCategory = (category: Category) => {
+  editingTodoCategoryId.value = category.id
+  editTodoCategoryForm.value.name = category.name
+}
+
+// 保存编辑TODO分组
+const saveEditTodoCategory = async () => {
+  if (!editTodoCategoryForm.value.name.trim()) {
+    console.error('TODO分组名称不能为空')
+    return
+  }
+
+  if (editingTodoCategoryId.value === null) {
+    return
+  }
+
+  editTodoCategoryLoading.value = true
+  try {
+    const response = await apiRequest(`${API_BASE_URL}/categories/${editingTodoCategoryId.value}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        name: editTodoCategoryForm.value.name.trim()
+      })
+    })
+
+    const result: ApiResponse<Category> = await response.json()
+
+    if (result.success) {
+      console.log('TODO分组更新成功')
+      // 取消编辑状态
+      cancelEditTodoCategory()
+      // 重新获取分组列表
+      await fetchTodoCategories()
+    } else {
+      console.error('TODO分组更新失败:', result.message)
+    }
+  } catch (error) {
+    console.error('TODO分组更新失败:', error)
+  } finally {
+    editTodoCategoryLoading.value = false
+  }
+}
+
+// 取消编辑TODO分组
+const cancelEditTodoCategory = () => {
+  editingTodoCategoryId.value = null
+  editTodoCategoryForm.value.name = ''
+}
+
 // 显示删除导航分组确认对话框
 const showDeleteNavigationCategoryConfirm = (category: Category) => {
   deletingNavigationCategory.value = category
@@ -705,6 +890,48 @@ const confirmDeleteServerCategory = async () => {
 const cancelDeleteServerCategory = () => {
   deletingServerCategory.value = null
   showDeleteServerCategoryConfirm.value = false
+}
+
+// 显示删除TODO分组确认对话框
+const showDeleteTodoCategoryConfirmDialog = (category: Category) => {
+  deletingTodoCategory.value = category
+  showDeleteTodoCategoryConfirm.value = true
+}
+
+// 确认删除TODO分组
+const confirmDeleteTodoCategory = async () => {
+  if (!deletingTodoCategory.value) {
+    return
+  }
+
+  deleteTodoCategoryLoading.value = true
+  try {
+    const response = await apiRequest(`${API_BASE_URL}/categories/${deletingTodoCategory.value.id}`, {
+      method: 'DELETE'
+    })
+
+    const result: ApiResponse<string> = await response.json()
+
+    if (result.success) {
+      console.log('TODO分组删除成功')
+      // 关闭确认对话框
+      cancelDeleteTodoCategory()
+      // 重新获取分组列表
+      await fetchTodoCategories()
+    } else {
+      console.error('TODO分组删除失败:', result.message)
+    }
+  } catch (error) {
+    console.error('TODO分组删除失败:', error)
+  } finally {
+    deleteTodoCategoryLoading.value = false
+  }
+}
+
+// 取消删除TODO分组
+const cancelDeleteTodoCategory = () => {
+  deletingTodoCategory.value = null
+  showDeleteTodoCategoryConfirm.value = false
 }
 
 // 修改密码
@@ -1049,6 +1276,7 @@ const testQRCode = () => {
 const toggleAllSections = () => {
   const allCollapsed = isNavigationGroupManagementCollapsed.value &&
                       isServerGroupManagementCollapsed.value &&
+                      isTodoGroupManagementCollapsed.value &&
                       isPasswordSettingsCollapsed.value &&
                       isTwoFactorAuthCollapsed.value &&
                       isSystemConfigCollapsed.value &&
@@ -1062,6 +1290,7 @@ const toggleAllSections = () => {
 
   isNavigationGroupManagementCollapsed.value = newState
   isServerGroupManagementCollapsed.value = newState
+  isTodoGroupManagementCollapsed.value = newState
   isPasswordSettingsCollapsed.value = newState
   isTwoFactorAuthCollapsed.value = newState
   isSystemConfigCollapsed.value = newState
@@ -1076,6 +1305,7 @@ const toggleAllSections = () => {
 const allSectionsCollapsed = computed(() => {
   return isNavigationGroupManagementCollapsed.value &&
          isServerGroupManagementCollapsed.value &&
+         isTodoGroupManagementCollapsed.value &&
          isPasswordSettingsCollapsed.value &&
          isTwoFactorAuthCollapsed.value &&
          isSystemConfigCollapsed.value &&
@@ -1892,6 +2122,7 @@ const onAfterLeave = (el: HTMLElement) => {
 onMounted(async () => {
   fetchNavigationCategories()
   fetchServerCategories()
+  fetchTodoCategories()
   await loadSavedWallpaper()
   await loadLogoConfig()
   await loadMusicConfig()
@@ -1917,7 +2148,7 @@ onUnmounted(() => {
       <div class="page-header">
         <div class="header-left">
           <h1 class="page-title">系统设置</h1>
-          <p class="page-description">分别管理导航分组、服务器分组和系统配置</p>
+          <p class="page-description">分别管理导航分组、服务器分组、TODO分组和系统配置</p>
         </div>
         <div class="header-right">
           <button class="toggle-all-btn" @click="toggleAllSections">
@@ -1938,7 +2169,7 @@ onUnmounted(() => {
                   <Icon icon="mdi:folder-multiple" class="header-icon" />
                   <div>
                     <h2 class="item-title">分组管理</h2>
-                    <p class="item-description">分别管理导航分组和服务器分组</p>
+                    <p class="item-description">分别管理导航分组、服务器分组和TODO分组</p>
                   </div>
                 </div>
               </div>
@@ -2298,10 +2529,176 @@ onUnmounted(() => {
                     </div>
                   </Transition>
                 </div>
+
+                <!-- TODO分组管理 -->
+                <div class="group-section todo-groups">
+                  <div class="section-header" @click="isTodoGroupManagementCollapsed = !isTodoGroupManagementCollapsed">
+                    <div class="header-content">
+                      <Icon icon="mdi:format-list-checks" class="header-icon" />
+                      <div>
+                        <h3 class="section-title">TODO分组</h3>
+                        <p class="section-description">管理TODO任务的分组</p>
+                      </div>
+                    </div>
+                    <div class="header-actions">
+                      <button
+                        v-if="!showAddTodoCategoryForm && !isTodoGroupManagementCollapsed"
+                        class="add-category-btn"
+                        @click.stop="showAddTodoCategoryForm = true"
+                      >
+                        <Icon icon="mdi:plus" class="btn-icon" />
+                        新增分组
+                      </button>
+                      <button
+                        v-if="todoSaving && !isTodoGroupManagementCollapsed"
+                        class="save-button saving"
+                        disabled
+                      >
+                        <Icon icon="mdi:loading" class="spin" />
+                        保存中...
+                      </button>
+                      <button class="collapse-btn" :class="{ collapsed: isTodoGroupManagementCollapsed }">
+                        <Icon icon="mdi:chevron-down" class="collapse-icon" />
+                      </button>
+                    </div>
+                  </div>
+
+                  <Transition
+                    name="expand"
+                    mode="out-in"
+                    @enter="onEnter"
+                    @after-enter="onAfterEnter"
+                    @leave="onLeave"
+                    @after-leave="onAfterLeave"
+                  >
+                    <div v-if="!isTodoGroupManagementCollapsed" class="section-content">
+                      <!-- 新增TODO分组表单 -->
+                      <div v-if="showAddTodoCategoryForm" class="add-category-form">
+                        <div class="form-header">
+                          <h4 class="form-title">新增TODO分组</h4>
+                          <p class="form-description">输入分组名称创建新的TODO分组</p>
+                        </div>
+
+                        <div class="form-group">
+                          <label class="form-label">分组名称</label>
+                          <input
+                            v-model="addTodoCategoryForm.name"
+                            type="text"
+                            class="form-input"
+                            placeholder="请输入分组名称"
+                            @keyup.enter="createTodoCategory"
+                            :disabled="addTodoCategoryLoading"
+                          />
+                        </div>
+
+                        <div class="form-actions">
+                          <button
+                            class="cancel-btn"
+                            @click="cancelAddTodoCategory"
+                            :disabled="addTodoCategoryLoading"
+                          >
+                            取消
+                          </button>
+                          <button
+                            class="save-btn"
+                            @click="createTodoCategory"
+                            :disabled="addTodoCategoryLoading || !addTodoCategoryForm.name.trim()"
+                          >
+                            <Icon v-if="addTodoCategoryLoading" icon="mdi:loading" class="spin btn-icon" />
+                            <Icon v-else icon="mdi:check" class="btn-icon" />
+                            {{ addTodoCategoryLoading ? '创建中...' : '创建' }}
+                          </button>
+                        </div>
+                      </div>
+
+                      <div v-else-if="todoLoading" class="loading-state compact">
+                        <Icon icon="mdi:loading" class="loading-icon spin" />
+                        <p>加载中...</p>
+                      </div>
+
+                      <div v-else-if="todoCategories.length === 0" class="empty-state compact">
+                        <Icon icon="mdi:folder-off" class="empty-icon" />
+                        <p>暂无TODO分组</p>
+                      </div>
+
+                      <VueDraggable
+                        v-else
+                        v-model="todoCategories"
+                        class="categories-list"
+                        :animation="200"
+                        ghost-class="ghost"
+                        chosen-class="chosen"
+                        drag-class="drag"
+                        @end="handleTodoDragEnd"
+                      >
+                        <div
+                          v-for="category in todoCategories"
+                          :key="category.id"
+                          class="category-item"
+                        >
+                          <div class="category-content">
+                            <div class="category-info">
+                              <Icon icon="mdi:drag" class="drag-handle" />
+                              <div class="category-details">
+                                <div v-if="editingTodoCategoryId === category.id" class="edit-form">
+                                  <input
+                                    v-model="editTodoCategoryForm.name"
+                                    type="text"
+                                    class="edit-input"
+                                    @keyup.enter="saveEditTodoCategory"
+                                    @keyup.esc="cancelEditTodoCategory"
+                                    :disabled="editTodoCategoryLoading"
+                                  />
+                                  <div class="edit-actions">
+                                    <button
+                                      class="save-edit-btn"
+                                      @click="saveEditTodoCategory"
+                                      :disabled="editTodoCategoryLoading || !editTodoCategoryForm.name.trim()"
+                                    >
+                                      <Icon v-if="editTodoCategoryLoading" icon="mdi:loading" class="spin" />
+                                      <Icon v-else icon="mdi:check" />
+                                    </button>
+                                    <button
+                                      class="cancel-edit-btn"
+                                      @click="cancelEditTodoCategory"
+                                      :disabled="editTodoCategoryLoading"
+                                    >
+                                      <Icon icon="mdi:close" />
+                                    </button>
+                                  </div>
+                                </div>
+                                <div v-else class="category-display">
+                                  <h4 class="category-name">{{ category.name }}</h4>
+                                  <p class="category-meta">排序: {{ category.order }}</p>
+                                </div>
+                              </div>
+                            </div>
+                            <div v-if="editingTodoCategoryId !== category.id" class="category-actions">
+                              <button
+                                class="edit-btn"
+                                @click="startEditTodoCategory(category)"
+                                title="编辑分组"
+                              >
+                                <Icon icon="mdi:pencil" />
+                              </button>
+                              <button
+                                class="delete-btn"
+                                @click="showDeleteTodoCategoryConfirmDialog(category)"
+                                title="删除分组"
+                              >
+                                <Icon icon="mdi:delete" />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </VueDraggable>
+                    </div>
+                  </Transition>
+                </div>
               </div>
 
               <BorderBeam
-                  v-if="!isNavigationGroupManagementCollapsed || !isServerGroupManagementCollapsed"
+                  v-if="!isNavigationGroupManagementCollapsed || !isServerGroupManagementCollapsed || !isTodoGroupManagementCollapsed"
                   :size="200"
                   :duration="15"
                   :delay="0"
@@ -3752,6 +4149,40 @@ onUnmounted(() => {
             <Icon v-if="deleteServerCategoryLoading" icon="mdi:loading" class="spin btn-icon" />
             <Icon v-else icon="mdi:delete" class="btn-icon" />
             {{ deleteServerCategoryLoading ? '删除中...' : '确认删除' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- TODO分组删除确认对话框 -->
+    <div v-if="showDeleteTodoCategoryConfirm" class="modal-overlay" @click="cancelDeleteTodoCategory">
+      <div class="delete-confirm-dialog" @click.stop>
+        <div class="dialog-header">
+          <Icon icon="mdi:alert-circle" class="warning-icon" />
+          <h3 class="dialog-title">确认删除TODO分组</h3>
+        </div>
+        <div class="dialog-content">
+          <p class="dialog-message">
+            确定要删除分组 <strong>{{ deletingTodoCategory?.name }}</strong> 吗？
+          </p>
+          <p class="dialog-warning">此操作不可撤销，请谨慎操作。</p>
+        </div>
+        <div class="dialog-actions">
+          <button
+            class="cancel-btn"
+            @click="cancelDeleteTodoCategory"
+            :disabled="deleteTodoCategoryLoading"
+          >
+            取消
+          </button>
+          <button
+            class="delete-btn"
+            @click="confirmDeleteTodoCategory"
+            :disabled="deleteTodoCategoryLoading"
+          >
+            <Icon v-if="deleteTodoCategoryLoading" icon="mdi:loading" class="spin btn-icon" />
+            <Icon v-else icon="mdi:delete" class="btn-icon" />
+            {{ deleteTodoCategoryLoading ? '删除中...' : '确认删除' }}
           </button>
         </div>
       </div>
