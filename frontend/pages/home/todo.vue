@@ -321,7 +321,7 @@ onMounted(async () => {
 
 <template>
   <NuxtLayout>
-    <div class="todo-dashboard !mx-0">
+    <div class="todo-dashboard">
       <!-- 页面标题 -->
       <div class="dashboard-header">
         <h1 class="dashboard-title">待办事项</h1>
