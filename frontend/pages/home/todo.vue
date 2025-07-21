@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, nextTick } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { Motion } from "motion-v"
 import { Icon } from '@iconify/vue'
 import { VueDraggable } from 'vue-draggable-plus'
@@ -8,12 +8,25 @@ import { VueDraggable } from 'vue-draggable-plus'
 
 // 导入API函数和类型
 import { useTodoApi, type Todo } from '~/composables/useTodoApi'
+import { apiRequest } from '~/composables/useJwt'
 
 // 筛选类型
 type FilterType = 'all' | 'active' | 'completed'
 
+// 分组接口定义
+interface TodoCategory {
+  id: number
+  name: string
+  type: string
+  order: number
+  createdAt: string
+  updatedAt: string
+}
+
 // 初始化API
 const todoApi = useTodoApi()
+const config = useRuntimeConfig()
+const API_BASE_URL = `${config.public.apiBaseUrl}/api`
 
 
 
@@ -26,10 +39,22 @@ const editingText = ref('')
 const showEditModal = ref(false)
 const editModalTodo = ref<Todo | null>(null)
 
+// 分组相关数据
+const todoCategories = ref<TodoCategory[]>([])
+const selectedCategoryId = ref<number | null>(null)
+const categoriesLoading = ref(false)
+const showCategoryDropdown = ref(false)
+
 // 计算属性
 const sortedTodos = computed(() => {
+  // 根据选择的分组过滤任务
+  let filteredByCategory = todos.value
+  if (selectedCategoryId.value !== null) {
+    filteredByCategory = todos.value.filter(todo => todo.categoryId === selectedCategoryId.value)
+  }
+
   // 默认按sortOrder排序，如果没有sortOrder则按创建时间倒序
-  return [...todos.value].sort((a, b) => {
+  return [...filteredByCategory].sort((a, b) => {
     if (a.sortOrder !== undefined && b.sortOrder !== undefined) {
       return a.sortOrder - b.sortOrder
     }
@@ -71,15 +96,48 @@ const allCompleted = computed(() => {
   return todos.value.length > 0 && todos.value.every(todo => todo.completed)
 })
 
+// 获取TODO分组列表
+const fetchTodoCategories = async () => {
+  categoriesLoading.value = true
+  try {
+    const response = await apiRequest(`${API_BASE_URL}/categories/type/todo`)
+    const result = await response.json()
+
+    if (result.success) {
+      todoCategories.value = result.data
+    } else {
+      console.error('获取TODO分组失败:', result.message)
+    }
+  } catch (error) {
+    console.error('获取TODO分组失败:', error)
+  } finally {
+    categoriesLoading.value = false
+  }
+}
+
 // 添加新任务
 const addTodo = async () => {
   const text = newTodoText.value.trim()
   if (!text) return
 
   try {
-    const newTodo = await todoApi.createTodo(text)
-    if (newTodo) {
-      todos.value.unshift(newTodo)
+    // 创建任务时传入选择的分组ID
+    const requestData: any = { text }
+    if (selectedCategoryId.value !== null) {
+      requestData.categoryId = selectedCategoryId.value
+    }
+
+    const response = await apiRequest(`${API_BASE_URL}/todos`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(requestData)
+    })
+
+    const result = await response.json()
+    if (result.success && result.data) {
+      todos.value.unshift(result.data)
       newTodoText.value = ''
     }
   } catch (error) {
@@ -313,9 +371,42 @@ const handleModalKeyup = (event: KeyboardEvent) => {
   }
 }
 
+// 选择分组
+const selectCategory = (categoryId: number | null) => {
+  selectedCategoryId.value = categoryId
+  showCategoryDropdown.value = false
+}
+
+// 获取当前选择的分组名称
+const selectedCategoryName = computed(() => {
+  if (selectedCategoryId.value === null) {
+    return '全部任务'
+  }
+  const category = todoCategories.value.find(c => c.id === selectedCategoryId.value)
+  return category ? category.name : '未知分组'
+})
+
+// 点击外部关闭下拉框
+const handleClickOutside = (event: MouseEvent) => {
+  const target = event.target as HTMLElement
+  const dropdown = document.querySelector('.category-dropdown')
+  if (dropdown && !dropdown.contains(target)) {
+    showCategoryDropdown.value = false
+  }
+}
+
 // 组件挂载时加载数据
 onMounted(async () => {
   await loadTodos()
+  await fetchTodoCategories()
+
+  // 添加点击外部关闭下拉框的事件监听
+  document.addEventListener('click', handleClickOutside)
+})
+
+// 组件卸载时移除事件监听
+onUnmounted(() => {
+  document.removeEventListener('click', handleClickOutside)
 })
 </script>
 
@@ -324,22 +415,91 @@ onMounted(async () => {
     <div class="todo-dashboard">
       <!-- 页面标题 -->
       <div class="dashboard-header">
-        <h1 class="dashboard-title">待办事项</h1>
-        <div class="stats-summary">
-          <div class="stat-item">
-            <Icon icon="material-symbols:task-alt" class="stat-icon" />
-            <span class="stat-value">{{ todoStats.total }}</span>
-            <span class="stat-label">总计</span>
+        <div class="header-left">
+          <h1 class="dashboard-title">待办事项</h1>
+          <div class="stats-summary">
+            <div class="stat-item">
+              <Icon icon="material-symbols:task-alt" class="stat-icon" />
+              <span class="stat-value">{{ todoStats.total }}</span>
+              <span class="stat-label">总计</span>
+            </div>
+            <div class="stat-item">
+              <Icon icon="material-symbols:radio-button-unchecked" class="stat-icon active" />
+              <span class="stat-value">{{ todoStats.active }}</span>
+              <span class="stat-label">待完成</span>
+            </div>
+            <div class="stat-item">
+              <Icon icon="material-symbols:check-circle" class="stat-icon completed" />
+              <span class="stat-value">{{ todoStats.completed }}</span>
+              <span class="stat-label">已完成</span>
+            </div>
           </div>
-          <div class="stat-item">
-            <Icon icon="material-symbols:radio-button-unchecked" class="stat-icon active" />
-            <span class="stat-value">{{ todoStats.active }}</span>
-            <span class="stat-label">待完成</span>
-          </div>
-          <div class="stat-item">
-            <Icon icon="material-symbols:check-circle" class="stat-icon completed" />
-            <span class="stat-value">{{ todoStats.completed }}</span>
-            <span class="stat-label">已完成</span>
+        </div>
+
+        <!-- 分组选择下拉框 -->
+        <div class="header-right">
+          <div class="category-selector">
+            <div class="category-dropdown" @click.stop>
+              <button
+                class="category-dropdown-trigger"
+                @click="showCategoryDropdown = !showCategoryDropdown"
+                :disabled="categoriesLoading"
+              >
+                <Icon icon="mdi:format-list-checks" class="dropdown-icon" />
+                <span class="dropdown-text">{{ selectedCategoryName }}</span>
+                <Icon
+                  icon="mdi:chevron-down"
+                  class="dropdown-arrow"
+                  :class="{ 'rotated': showCategoryDropdown }"
+                />
+              </button>
+
+              <Transition name="dropdown">
+                <div v-if="showCategoryDropdown" class="category-dropdown-menu">
+                  <div class="dropdown-header">
+                    <Icon icon="mdi:format-list-checks" class="header-icon" />
+                    <span>选择分组</span>
+                  </div>
+
+                  <div class="dropdown-item" @click="selectCategory(null)">
+                    <Icon icon="mdi:view-list" class="item-icon" />
+                    <span class="item-text">全部任务</span>
+                    <Icon
+                      v-if="selectedCategoryId === null"
+                      icon="mdi:check"
+                      class="check-icon"
+                    />
+                  </div>
+
+                  <div class="dropdown-divider"></div>
+
+                  <div
+                    v-for="category in todoCategories"
+                    :key="category.id"
+                    class="dropdown-item"
+                    @click="selectCategory(category.id)"
+                  >
+                    <Icon icon="mdi:folder" class="item-icon" />
+                    <span class="item-text">{{ category.name }}</span>
+                    <Icon
+                      v-if="selectedCategoryId === category.id"
+                      icon="mdi:check"
+                      class="check-icon"
+                    />
+                  </div>
+
+                  <div v-if="todoCategories.length === 0 && !categoriesLoading" class="dropdown-empty">
+                    <Icon icon="mdi:folder-off" class="empty-icon" />
+                    <span>暂无分组</span>
+                  </div>
+
+                  <div v-if="categoriesLoading" class="dropdown-loading">
+                    <Icon icon="mdi:loading" class="loading-icon spin" />
+                    <span>加载中...</span>
+                  </div>
+                </div>
+              </Transition>
+            </div>
           </div>
         </div>
       </div>
@@ -620,6 +780,19 @@ onMounted(async () => {
   padding-right: 0.5rem;
 }
 
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+  flex-wrap: wrap;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
 .dashboard-title {
   font-size: 1.4rem;
   font-weight: 600;
@@ -674,6 +847,205 @@ onMounted(async () => {
   font-size: 0.8rem;
   color: rgba(255, 255, 255, 0.6);
   font-weight: 500;
+}
+
+/* 分组选择器样式 */
+.category-selector {
+  position: relative;
+}
+
+.category-dropdown {
+  position: relative;
+}
+
+.category-dropdown-trigger {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: linear-gradient(135deg,
+    rgba(255, 255, 255, 0.08) 0%,
+    rgba(255, 255, 255, 0.04) 100%
+  );
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  min-width: 160px;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.category-dropdown-trigger:hover:not(:disabled) {
+  border-color: rgba(255, 255, 255, 0.3);
+  background: linear-gradient(135deg,
+    rgba(255, 255, 255, 0.12) 0%,
+    rgba(255, 255, 255, 0.06) 100%
+  );
+  transform: translateY(-1px);
+}
+
+.category-dropdown-trigger:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.dropdown-icon {
+  width: 1.25rem;
+  height: 1.25rem;
+  color: rgba(34, 197, 94, 0.8);
+  flex-shrink: 0;
+}
+
+.dropdown-text {
+  flex: 1;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dropdown-arrow {
+  width: 1rem;
+  height: 1rem;
+  color: rgba(255, 255, 255, 0.6);
+  transition: transform 0.3s ease;
+  flex-shrink: 0;
+}
+
+.dropdown-arrow.rotated {
+  transform: rotate(180deg);
+}
+
+.category-dropdown-menu {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  right: 0;
+  min-width: 220px;
+  max-height: 300px;
+  overflow-y: auto;
+  background: linear-gradient(135deg,
+    rgba(255, 255, 255, 0.15) 0%,
+    rgba(255, 255, 255, 0.08) 100%
+  );
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 0.75rem;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+  z-index: 1000;
+  padding: 0.5rem 0;
+}
+
+.dropdown-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  margin-bottom: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.header-icon {
+  width: 1rem;
+  height: 1rem;
+  color: rgba(34, 197, 94, 0.8);
+}
+
+.dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-size: 0.875rem;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.dropdown-item:hover {
+  background: linear-gradient(135deg,
+    rgba(255, 255, 255, 0.1) 0%,
+    rgba(255, 255, 255, 0.05) 100%
+  );
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.item-icon {
+  width: 1rem;
+  height: 1rem;
+  color: rgba(255, 255, 255, 0.6);
+  flex-shrink: 0;
+}
+
+.item-text {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.check-icon {
+  width: 1rem;
+  height: 1rem;
+  color: rgba(34, 197, 94, 0.8);
+  flex-shrink: 0;
+}
+
+.dropdown-divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.1);
+  margin: 0.5rem 0;
+}
+
+.dropdown-empty,
+.dropdown-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 1rem;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.875rem;
+}
+
+.empty-icon,
+.loading-icon {
+  width: 1rem;
+  height: 1rem;
+}
+
+.loading-icon.spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* 下拉框动画 */
+.dropdown-enter-active,
+.dropdown-leave-active {
+  transition: all 0.3s ease;
+}
+
+.dropdown-enter-from,
+.dropdown-leave-to {
+  opacity: 0;
+  transform: translateY(-10px) scale(0.95);
+}
+
+.dropdown-enter-to,
+.dropdown-leave-from {
+  opacity: 1;
+  transform: translateY(0) scale(1);
 }
 
 /* 添加任务区域 */
@@ -1522,5 +1894,44 @@ onMounted(async () => {
   cursor: not-allowed;
   transform: none;
   box-shadow: none;
+}
+
+/* 响应式样式 */
+@media (max-width: 768px) {
+  .dashboard-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 1.5rem;
+  }
+
+  .header-left {
+    flex-direction: column;
+    gap: 1rem;
+    align-items: stretch;
+  }
+
+  .header-right {
+    justify-content: center;
+  }
+
+  .stats-summary {
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .category-dropdown-trigger {
+    min-width: 200px;
+  }
+
+  .category-dropdown-menu {
+    left: 0;
+    right: 0;
+    min-width: auto;
+  }
+
+  .golden-ratio-container {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
 }
 </style>
