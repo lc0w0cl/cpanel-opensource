@@ -25,27 +25,43 @@ public class TodoServiceImpl extends ServiceImpl<TodoMapper, Todo> implements To
     }
 
     @Override
+    public List<Todo> getTodosByCategoryId(Integer categoryId) {
+        return baseMapper.getTodosByCategoryId(categoryId);
+    }
+
+    @Override
     public Todo createTodo(String text) {
+        return createTodo(text, null);
+    }
+
+    @Override
+    public Todo createTodo(String text, Integer categoryId) {
         try {
-            // 获取下一个排序序号
-            Integer maxSortOrder = baseMapper.getMaxSortOrder();
+            // 获取下一个排序序号（按分组）
+            Integer maxSortOrder;
+            if (categoryId != null) {
+                maxSortOrder = baseMapper.getMaxSortOrderByCategory(categoryId);
+            } else {
+                maxSortOrder = baseMapper.getMaxSortOrder();
+            }
             int nextSortOrder = (maxSortOrder != null ? maxSortOrder : 0) + 1;
 
             Todo todo = new Todo();
             todo.setText(text);
             todo.setCompleted(false);
+            todo.setCategoryId(categoryId);
             todo.setSortOrder(nextSortOrder);
 
             boolean success = save(todo);
             if (success) {
-                log.info("创建TODO任务成功: {}", text);
+                log.info("创建TODO任务成功: text={}, categoryId={}", text, categoryId);
                 return todo;
             } else {
-                log.error("创建TODO任务失败: {}", text);
+                log.error("创建TODO任务失败: text={}, categoryId={}", text, categoryId);
                 return null;
             }
         } catch (Exception e) {
-            log.error("创建TODO任务异常: {}", text, e);
+            log.error("创建TODO任务异常: text={}, categoryId={}", text, categoryId, e);
             return null;
         }
     }

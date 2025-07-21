@@ -17,11 +17,26 @@ public interface TodoService extends IService<Todo> {
     List<Todo> getAllTodosOrdered();
 
     /**
+     * 根据分组ID获取任务列表，按排序序号和创建时间排序
+     * @param categoryId 分组ID
+     * @return 任务列表
+     */
+    List<Todo> getTodosByCategoryId(Integer categoryId);
+
+    /**
      * 创建新任务
      * @param text 任务内容
      * @return 创建的任务
      */
     Todo createTodo(String text);
+
+    /**
+     * 创建新任务（指定分组）
+     * @param text 任务内容
+     * @param categoryId 分组ID
+     * @return 创建的任务
+     */
+    Todo createTodo(String text, Integer categoryId);
 
     /**
      * 更新任务内容

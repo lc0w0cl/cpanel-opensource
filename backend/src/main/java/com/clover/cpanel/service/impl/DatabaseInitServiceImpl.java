@@ -91,12 +91,15 @@ public class DatabaseInitServiceImpl implements DatabaseInitService {
                   id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '任务ID，自增主键',
                   text VARCHAR(500) NOT NULL COMMENT '任务内容',
                   completed BOOLEAN NOT NULL DEFAULT FALSE COMMENT '是否已完成',
+                  category_id INT COMMENT '所属分组ID，外键关联panel_categories表（type=todo）',
                   sort_order INT NOT NULL DEFAULT 0 COMMENT '排序序号',
                   created_at VARCHAR(19) COMMENT '创建时间，格式：yyyy-MM-dd HH:mm:ss',
                   updated_at VARCHAR(19) COMMENT '更新时间，格式：yyyy-MM-dd HH:mm:ss',
                   INDEX idx_sort_order (sort_order),
                   INDEX idx_completed (completed),
-                  INDEX idx_created_at (created_at)
+                  INDEX idx_created_at (created_at),
+                  INDEX idx_category_id (category_id),
+                  FOREIGN KEY (category_id) REFERENCES panel_categories(id) ON DELETE SET NULL
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='TODO任务表'
                 """;
 

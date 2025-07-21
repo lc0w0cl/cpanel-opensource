@@ -32,6 +32,12 @@ public class Todo {
     private Boolean completed;
 
     /**
+     * 所属分组ID，外键关联panel_categories表（type=todo）
+     */
+    @TableField("category_id")
+    private Integer categoryId;
+
+    /**
      * 排序序号
      */
     @TableField("sort_order")
