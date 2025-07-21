@@ -23,8 +23,8 @@ const {
 const route = useRoute()
 
 // 检查是否为终端页面
-const isTerminalPage = computed(() => {
-  return route.path === '/home/terminal'
+const noPaddingPage = computed(() => {
+  return route.path === '/home/terminal' || route.path === '/home/todo'
 })
 
 
@@ -78,8 +78,8 @@ onUnmounted(() => {
           :style="{
             paddingTop: '1rem',
             paddingBottom: '1rem',
-            paddingLeft: isTerminalPage ? '4px' : `calc(1rem + ${contentPadding}px)`,
-            paddingRight: isTerminalPage ? '4px' : `calc(1rem + ${contentPadding}px)`,
+            paddingLeft: noPaddingPage ? '4px' : `calc(1rem + ${contentPadding}px)`,
+            paddingRight: noPaddingPage ? '4px' : `calc(1rem + ${contentPadding}px)`,
             transition: 'padding 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
           }"
         >
