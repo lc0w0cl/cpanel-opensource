@@ -23,6 +23,8 @@ const newTodoText = ref('')
 const currentFilter = ref<FilterType>('all')
 const editingId = ref<number | null>(null)
 const editingText = ref('')
+const showEditModal = ref(false)
+const editModalTodo = ref<Todo | null>(null)
 
 // 计算属性
 const sortedTodos = computed(() => {
@@ -116,14 +118,15 @@ const deleteTodo = async (id: number) => {
   }
 }
 
-// 开始编辑
+// 开始编辑 - 打开模态框
 const startEdit = (todo: Todo) => {
-  editingId.value = todo.id
+  editModalTodo.value = { ...todo }
   editingText.value = todo.text
+  showEditModal.value = true
 
   // 下一个tick时聚焦输入框
   nextTick(() => {
-    const editInput = document.querySelector('.todo-edit-input') as HTMLInputElement
+    const editInput = document.querySelector('.edit-modal-textarea') as HTMLTextAreaElement
     if (editInput) {
       editInput.focus()
       editInput.select()
@@ -139,11 +142,11 @@ const saveEdit = async () => {
     return
   }
 
-  if (editingId.value) {
+  if (editModalTodo.value) {
     try {
-      const success = await todoApi.updateTodoText(editingId.value, text)
+      const success = await todoApi.updateTodoText(editModalTodo.value.id, text)
       if (success) {
-        const todo = todos.value.find(t => t.id === editingId.value)
+        const todo = todos.value.find(t => t.id === editModalTodo.value!.id)
         if (todo) {
           todo.text = text
           todo.updatedAt = new Date().toISOString()
@@ -159,8 +162,17 @@ const saveEdit = async () => {
 
 // 取消编辑
 const cancelEdit = () => {
-  editingId.value = null
+  showEditModal.value = false
+  editModalTodo.value = null
   editingText.value = ''
+}
+
+// 点击模态框外部关闭
+const closeModalOnClickOutside = (event: MouseEvent) => {
+  const target = event.target as HTMLElement
+  if (target.classList.contains('edit-modal-overlay')) {
+    saveEdit()
+  }
 }
 
 // 全选/全不选
@@ -279,12 +291,24 @@ const loadTodos = async () => {
 // 处理回车键
 const handleKeyup = (event: KeyboardEvent) => {
   if (event.key === 'Enter') {
-    if (editingId.value) {
-      saveEdit()
+    if (showEditModal.value) {
+      // 在模态框中，Ctrl+Enter 或 Cmd+Enter 保存
+      if (event.ctrlKey || event.metaKey) {
+        saveEdit()
+      }
     } else {
       addTodo()
     }
-  } else if (event.key === 'Escape' && editingId.value) {
+  } else if (event.key === 'Escape' && showEditModal.value) {
+    cancelEdit()
+  }
+}
+
+// 模态框专用的键盘事件处理
+const handleModalKeyup = (event: KeyboardEvent) => {
+  if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
+    saveEdit()
+  } else if (event.key === 'Escape') {
     cancelEdit()
   }
 }
@@ -396,22 +420,12 @@ onMounted(async () => {
                   >
                     <!-- 任务内容 -->
                     <div class="todo-content-area" @dblclick="startEdit(todo)">
-                      <textarea
-                        v-if="editingId === todo.id"
-                        v-model="editingText"
-                        @keyup="handleKeyup"
-                        @blur="saveEdit"
-                        class="todo-edit-input"
-                        maxlength="200"
-                        rows="2"
-                      ></textarea>
-                      <span v-else class="todo-text">{{ todo.text }}</span>
+                      <span class="todo-text">{{ todo.text }}</span>
                     </div>
 
                     <!-- 操作按钮 -->
                     <div class="todo-actions">
                       <button
-                        v-if="editingId !== todo.id"
                         @click="startEdit(todo)"
                         class="todo-action-btn edit-btn"
                         title="编辑任务"
@@ -484,22 +498,12 @@ onMounted(async () => {
                   >
                     <!-- 任务内容 -->
                     <div class="todo-content-area" @dblclick="startEdit(todo)">
-                      <textarea
-                        v-if="editingId === todo.id"
-                        v-model="editingText"
-                        @keyup="handleKeyup"
-                        @blur="saveEdit"
-                        class="todo-edit-input"
-                        maxlength="200"
-                        rows="2"
-                      ></textarea>
-                      <span v-else class="todo-text completed">{{ todo.text }}</span>
+                      <span class="todo-text completed">{{ todo.text }}</span>
                     </div>
 
                     <!-- 操作按钮 -->
                     <div class="todo-actions">
                       <button
-                        v-if="editingId !== todo.id"
                         @click="startEdit(todo)"
                         class="todo-action-btn edit-btn"
                         title="编辑任务"
@@ -531,6 +535,67 @@ onMounted(async () => {
         </div>
       </div>
     </div>
+
+    <!-- 编辑模态框 -->
+    <Teleport to="body">
+      <div
+        v-if="showEditModal"
+        class="edit-modal-overlay"
+        @click="closeModalOnClickOutside"
+      >
+        <Motion
+          :initial="{ opacity: 0, scale: 0.9 }"
+          :animate="{ opacity: 1, scale: 1 }"
+          :exit="{ opacity: 0, scale: 0.9 }"
+          :transition="{ duration: 0.2 }"
+        >
+          <div class="edit-modal" @click.stop>
+            <div class="edit-modal-header">
+              <h3 class="edit-modal-title">编辑任务</h3>
+              <button
+                @click="cancelEdit"
+                class="edit-modal-close"
+                title="关闭"
+              >
+                <Icon icon="material-symbols:close" />
+              </button>
+            </div>
+
+            <div class="edit-modal-body">
+              <textarea
+                v-model="editingText"
+                @keyup="handleModalKeyup"
+                class="edit-modal-textarea"
+                placeholder="输入任务内容..."
+                maxlength="500"
+                rows="6"
+                autofocus
+              ></textarea>
+              <div class="edit-modal-info">
+                <span class="char-count">{{ editingText.length }}/500</span>
+                <span class="edit-hint">Ctrl+Enter 保存，Esc 取消</span>
+              </div>
+            </div>
+
+            <div class="edit-modal-footer">
+              <button
+                @click="cancelEdit"
+                class="edit-modal-btn cancel-btn"
+              >
+                取消
+              </button>
+              <button
+                @click="saveEdit"
+                class="edit-modal-btn save-btn"
+                :disabled="!editingText.trim()"
+              >
+                保存
+              </button>
+            </div>
+          </div>
+        </Motion>
+      </div>
+    </Teleport>
   </NuxtLayout>
 </template>
 
@@ -1197,30 +1262,7 @@ onMounted(async () => {
   color: rgba(255, 255, 255, 0.5);
 }
 
-.todo-edit-input {
-  width: 100%;
-  padding: 0.25rem;
-  border-radius: 0.25rem;
-  border: 1px solid rgba(59, 130, 246, 0.5);
-  background: linear-gradient(135deg,
-    rgba(255, 255, 255, 0.12) 0%,
-    rgba(255, 255, 255, 0.06) 100%
-  );
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  color: rgba(255, 255, 255, 0.9);
-  font-size: 0.8rem;
-  line-height: 1.3;
-  transition: all 0.3s ease;
-  resize: none;
-  min-height: 35px;
-  max-height: 50px;
-}
 
-.todo-edit-input:focus {
-  outline: none;
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
-}
 
 /* 任务操作按钮 */
 .todo-actions {
@@ -1235,7 +1277,7 @@ onMounted(async () => {
 
 .todo-actions .todo-action-btn {
   width: 2rem;
-  height: 1rem;
+  height: 2rem;
   border-radius: 0.125rem;
   display: flex;
   align-items: center;
@@ -1283,262 +1325,202 @@ onMounted(async () => {
   color: rgba(239, 68, 68, 0.9);
 }
 
-/* 响应式设计 */
-@media (max-width: 1024px) {
-  .todo-dashboard {
-    padding: 1.5rem;
-  }
-
-  .golden-ratio-container {
-    grid-template-columns: 1fr;
-    grid-template-rows: 1fr 1fr;
-    min-height: 800px;
-    gap: 1.5rem;
-  }
-
-  .todo-list {
-    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-    gap: 0.25rem;
-  }
-
-  .todo-item {
-    min-height: 50px;
-    padding: 0.5rem;
-    gap: 0.375rem;
-    aspect-ratio: 1 / 0.35;
-  }
-
-  .stats-summary {
-    gap: 1rem;
-  }
-
-  .stat-item {
-    padding: 0.5rem 0.75rem;
-  }
-
-  .stat-value {
-    font-size: 1rem;
-  }
-
-  .stat-label {
-    font-size: 0.8rem;
-  }
+/* 编辑模态框样式 */
+.edit-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1rem;
 }
 
-@media (max-width: 768px) {
-  .todo-dashboard {
-    padding: 1rem;
-  }
-
-  .dashboard-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 1rem;
-  }
-
-  .dashboard-title {
-    font-size: 1.25rem;
-  }
-
-  .stats-summary {
-    width: 100%;
-    justify-content: space-between;
-  }
-
-  .add-todo-section {
-    padding: 1rem;
-  }
-
-  .golden-ratio-container {
-    min-height: 700px;
-    gap: 1rem;
-  }
-
-  .column-header {
-    padding: 1rem;
-  }
-
-  .column-content {
-    padding: 0.75rem;
-  }
-
-  .todo-list {
-    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-    gap: 0.25rem;
-  }
-
-  .todo-item {
-    padding: 0.375rem;
-    gap: 0.25rem;
-    min-height: 50px;
-    aspect-ratio: 1 / 0.3;
-  }
-
-  .todo-actions {
-    flex-direction: row;
-    gap: 0.125rem;
-    padding-top: 0;
-  }
-
-  .todo-action-btn {
-    width: 0.875rem;
-    height: 0.875rem;
-  }
-
-  .todo-action-btn svg {
-    width: 0.625rem;
-    height: 0.625rem;
-  }
-
-  .todo-actions {
-    gap: 0.25rem;
-  }
+.edit-modal {
+  background: linear-gradient(135deg,
+    rgba(255, 255, 255, 0.15) 0%,
+    rgba(255, 255, 255, 0.08) 100%
+  );
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 1rem;
+  width: 100%;
+  max-width: 800px;
+  min-width: 50vw;
+  max-height: 80vh;
+  overflow: hidden;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
 }
 
-@media (max-width: 480px) {
-  .todo-dashboard {
-    padding: 0.75rem;
-  }
+.edit-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  background: linear-gradient(135deg,
+    rgba(255, 255, 255, 0.1) 0%,
+    rgba(255, 255, 255, 0.05) 100%
+  );
+}
 
-  .dashboard-title {
-    font-size: 1.125rem;
-  }
+.edit-modal-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+  margin: 0;
+}
 
-  .stats-summary {
-    flex-direction: column;
-    gap: 0.75rem;
-  }
+.edit-modal-close {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.5rem;
+  border: none;
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.7);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+}
 
-  .stat-item {
-    width: 100%;
-    justify-content: center;
-  }
+.edit-modal-close:hover {
+  background: rgba(255, 255, 255, 0.2);
+  color: rgba(255, 255, 255, 0.9);
+}
 
-  .add-todo-section {
-    padding: 0.75rem;
-  }
+.edit-modal-close svg {
+  width: 1.25rem;
+  height: 1.25rem;
+}
 
-  .add-todo-form {
-    flex-direction: column;
-    gap: 0.75rem;
-  }
+.edit-modal-body {
+  padding: 1.5rem;
+}
 
-  .todo-input {
-    width: 100%;
-  }
+.edit-modal-textarea {
+  width: 100%;
+  min-height: 200px;
+  padding: 1rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: linear-gradient(135deg,
+    rgba(255, 255, 255, 0.1) 0%,
+    rgba(255, 255, 255, 0.05) 100%
+  );
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 1rem;
+  line-height: 1.5;
+  resize: vertical;
+  transition: all 0.3s ease;
+  font-family: inherit;
+}
 
-  .add-btn {
-    width: 100%;
-    height: 2.5rem;
-  }
+.edit-modal-textarea::placeholder {
+  color: rgba(255, 255, 255, 0.4);
+}
 
-  .golden-ratio-container {
-    min-height: 600px;
-    gap: 0.75rem;
-  }
+.edit-modal-textarea:focus {
+  outline: none;
+  border-color: rgba(59, 130, 246, 0.5);
+  background: linear-gradient(135deg,
+    rgba(255, 255, 255, 0.15) 0%,
+    rgba(255, 255, 255, 0.08) 100%
+  );
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
 
-  .column-header {
-    padding: 0.75rem;
-  }
+.edit-modal-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 0.75rem;
+  font-size: 0.875rem;
+}
 
-  .column-title h3 {
-    font-size: 1rem;
-  }
+.char-count {
+  color: rgba(255, 255, 255, 0.6);
+}
 
-  .column-content {
-    padding: 0.5rem;
-  }
+.edit-hint {
+  color: rgba(255, 255, 255, 0.5);
+  font-style: italic;
+}
 
-  .todo-list {
-    grid-template-columns: 1fr;
-    gap: 0.125rem;
-  }
+.edit-modal-footer {
+  display: flex;
+  gap: 0.75rem;
+  padding: 1.5rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  background: linear-gradient(135deg,
+    rgba(255, 255, 255, 0.05) 0%,
+    rgba(255, 255, 255, 0.02) 100%
+  );
+  justify-content: flex-end;
+}
 
-  .todo-item {
-    padding: 0.375rem;
-    gap: 0.25rem;
-    min-height: 40px;
-    /* 在小屏幕上更扁平的比例 */
-    aspect-ratio: 1 / 0.25;
-  }
+.edit-modal-btn {
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  min-width: 80px;
+}
 
-  .todo-text {
-    font-size: 0.75rem;
-    -webkit-line-clamp: 2;
-  }
+.cancel-btn {
+  background: linear-gradient(135deg,
+    rgba(255, 255, 255, 0.08) 0%,
+    rgba(255, 255, 255, 0.04) 100%
+  );
+  color: rgba(255, 255, 255, 0.7);
+}
 
-  .todo-actions {
-    flex-direction: row;
-    gap: 0.125rem;
-    padding-top: 0;
-  }
+.cancel-btn:hover {
+  background: linear-gradient(135deg,
+    rgba(255, 255, 255, 0.15) 0%,
+    rgba(255, 255, 255, 0.08) 100%
+  );
+  color: rgba(255, 255, 255, 0.9);
+  border-color: rgba(255, 255, 255, 0.3);
+}
 
-  .todo-action-btn {
-    width: 0.75rem;
-    height: 0.75rem;
-  }
+.save-btn {
+  background: linear-gradient(135deg,
+    rgba(59, 130, 246, 0.2) 0%,
+    rgba(59, 130, 246, 0.1) 100%
+  );
+  color: rgba(59, 130, 246, 0.9);
+  border-color: rgba(59, 130, 246, 0.3);
+}
 
-  .todo-action-btn svg {
-    width: 0.5rem;
-    height: 0.5rem;
-  }
+.save-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg,
+    rgba(59, 130, 246, 0.3) 0%,
+    rgba(59, 130, 246, 0.15) 100%
+  );
+  color: rgba(59, 130, 246, 1);
+  border-color: rgba(59, 130, 246, 0.5);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2);
+}
 
-
-
-  .todo-checkbox {
-    width: 0.75rem;
-    height: 0.75rem;
-  }
-
-  .checkbox-icon {
-    width: 0.625rem;
-    height: 0.625rem;
-  }
-
-
-
-  .todo-checkbox {
-    width: 1.5rem;
-    height: 1.5rem;
-  }
-
-  .checkbox-icon {
-    width: 1rem;
-    height: 1rem;
-  }
-
-  .todo-action-btn {
-    width: 1.5rem;
-    height: 1.5rem;
-  }
-
-  .todo-action-btn svg {
-    width: 0.75rem;
-    height: 0.75rem;
-  }
-
-  .empty-state {
-    padding: 2rem 1rem;
-    height: 150px;
-  }
-
-  .empty-icon {
-    width: 2.5rem;
-    height: 2.5rem;
-    margin-bottom: 0.75rem;
-  }
-
-  .empty-icon svg {
-    width: 1.25rem;
-    height: 1.25rem;
-  }
-
-  .empty-title {
-    font-size: 0.9rem;
-  }
-
-  .empty-subtitle {
-    font-size: 0.75rem;
-  }
+.save-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
 }
 </style>
