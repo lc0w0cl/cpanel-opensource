@@ -371,9 +371,35 @@ const handleModalKeyup = (event: KeyboardEvent) => {
   }
 }
 
+// 本地存储键名
+const SELECTED_CATEGORY_KEY = 'todo-selected-category'
+
+// 从本地存储加载选择的分组
+const loadSelectedCategory = () => {
+  try {
+    const saved = localStorage.getItem(SELECTED_CATEGORY_KEY)
+    if (saved !== null) {
+      const categoryId = saved === 'null' ? null : parseInt(saved, 10)
+      selectedCategoryId.value = isNaN(categoryId) ? null : categoryId
+    }
+  } catch (error) {
+    console.warn('加载选择的分组失败:', error)
+  }
+}
+
+// 保存选择的分组到本地存储
+const saveSelectedCategory = (categoryId: number | null) => {
+  try {
+    localStorage.setItem(SELECTED_CATEGORY_KEY, String(categoryId))
+  } catch (error) {
+    console.warn('保存选择的分组失败:', error)
+  }
+}
+
 // 选择分组
 const selectCategory = (categoryId: number | null) => {
   selectedCategoryId.value = categoryId
+  saveSelectedCategory(categoryId)
   showCategoryDropdown.value = false
 }
 
@@ -397,8 +423,23 @@ const handleClickOutside = (event: MouseEvent) => {
 
 // 组件挂载时加载数据
 onMounted(async () => {
+  // 先加载保存的分组选择
+  loadSelectedCategory()
+
   await loadTodos()
   await fetchTodoCategories()
+
+  // 验证保存的分组ID是否仍然有效
+  await nextTick(() => {
+    if (selectedCategoryId.value !== null) {
+      const categoryExists = todoCategories.value.some(c => c.id === selectedCategoryId.value)
+      if (!categoryExists) {
+        // 如果保存的分组不存在，重置为全部任务
+        selectedCategoryId.value = null
+        saveSelectedCategory(null)
+      }
+    }
+  })
 
   // 添加点击外部关闭下拉框的事件监听
   document.addEventListener('click', handleClickOutside)
