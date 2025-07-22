@@ -900,26 +900,18 @@ onUnmounted(() => {
   padding: 0.75rem 1rem;
   border-radius: 0.5rem;
   border: 1px solid rgba(255, 255, 255, 0.2);
-  background: linear-gradient(135deg,
-    rgba(255, 255, 255, 0.08) 0%,
-    rgba(255, 255, 255, 0.04) 100%
-  );
+  background: transparent;
   color: rgba(255, 255, 255, 0.9);
   font-size: 0.875rem;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.3s ease;
   min-width: 160px;
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
 }
 
 .category-dropdown-trigger:hover:not(:disabled) {
   border-color: rgba(255, 255, 255, 0.3);
-  background: linear-gradient(135deg,
-    rgba(255, 255, 255, 0.12) 0%,
-    rgba(255, 255, 255, 0.06) 100%
-  );
+  background: rgba(255, 255, 255, 0.08);
   transform: translateY(-1px);
 }
 
@@ -962,12 +954,7 @@ onUnmounted(() => {
   min-width: 220px;
   max-height: 300px;
   overflow-y: auto;
-  background: linear-gradient(135deg,
-    rgba(255, 255, 255, 0.15) 0%,
-    rgba(255, 255, 255, 0.08) 100%
-  );
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  background: rgba(30, 30, 30, 0.95);
   border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 0.75rem;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
@@ -988,10 +975,7 @@ onUnmounted(() => {
 }
 
 .dropdown-item:hover {
-  background: linear-gradient(135deg,
-    rgba(255, 255, 255, 0.1) 0%,
-    rgba(255, 255, 255, 0.05) 100%
-  );
+  background: rgba(255, 255, 255, 0.08);
   color: rgba(255, 255, 255, 0.95);
 }
 
@@ -1089,12 +1073,7 @@ onUnmounted(() => {
   height: 100%;
   border-radius: 0.75rem;
   border: 1px solid rgba(255, 255, 255, 0.1);
-  background: linear-gradient(135deg,
-    rgba(255, 255, 255, 0.05) 0%,
-    rgba(255, 255, 255, 0.02) 100%
-  );
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  background: transparent;
   overflow: hidden;
   transition: border-color 0.3s ease, transform 0.2s ease;
 }
@@ -1118,10 +1097,7 @@ onUnmounted(() => {
   justify-content: space-between;
   padding: 0.5rem;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  background: linear-gradient(135deg,
-    rgba(255, 255, 255, 0.08) 0%,
-    rgba(255, 255, 255, 0.04) 100%
-  );
+  background: transparent;
 }
 
 .column-title {
@@ -1178,10 +1154,7 @@ onUnmounted(() => {
   padding: 0.75rem 1rem;
   border-radius: 0.5rem;
   border: 1px solid rgba(255, 255, 255, 0.2);
-  background: linear-gradient(135deg,
-    rgba(255, 255, 255, 0.08) 0%,
-    rgba(255, 255, 255, 0.04) 100%
-  );
+  background: transparent;
   color: rgba(255, 255, 255, 0.7);
   font-size: 0.875rem;
   font-weight: 500;
@@ -1233,15 +1206,10 @@ onUnmounted(() => {
   padding: 0.5rem 0.75rem;
   border-radius: 0.5rem;
   border: 1px solid rgba(255, 255, 255, 0.2);
-  background: linear-gradient(135deg,
-    rgba(255, 255, 255, 0.08) 0%,
-    rgba(255, 255, 255, 0.04) 100%
-  );
+  background: transparent;
   color: rgba(255, 255, 255, 0.9);
   font-size: 0.875rem;
   transition: all 0.3s ease;
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
 }
 
 .todo-input::placeholder {
@@ -1251,10 +1219,7 @@ onUnmounted(() => {
 .todo-input:focus {
   outline: none;
   border-color: rgba(59, 130, 246, 0.5);
-  background: linear-gradient(135deg,
-    rgba(255, 255, 255, 0.12) 0%,
-    rgba(255, 255, 255, 0.06) 100%
-  );
+  background: rgba(255, 255, 255, 0.05);
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
@@ -1268,18 +1233,12 @@ onUnmounted(() => {
   border: 1px solid rgba(59, 130, 246, 0.3);
   cursor: pointer;
   transition: all 0.3s ease;
-  background: linear-gradient(135deg,
-    rgba(59, 130, 246, 0.15) 0%,
-    rgba(59, 130, 246, 0.08) 100%
-  );
+  background: rgba(59, 130, 246, 0.1);
   color: rgba(59, 130, 246, 0.9);
 }
 
 .add-btn:hover:not(:disabled) {
-  background: linear-gradient(135deg,
-    rgba(59, 130, 246, 0.25) 0%,
-    rgba(59, 130, 246, 0.15) 100%
-  );
+  background: rgba(59, 130, 246, 0.2);
   border-color: rgba(59, 130, 246, 0.5);
   color: rgba(59, 130, 246, 1);
   transform: translateY(-1px);
@@ -1444,10 +1403,7 @@ onUnmounted(() => {
   height: 150px;
   border-radius: 0.5rem;
   border: 2px dashed rgba(255, 255, 255, 0.1);
-  background: linear-gradient(135deg,
-    rgba(255, 255, 255, 0.02) 0%,
-    rgba(255, 255, 255, 0.01) 100%
-  );
+  background: transparent;
   grid-column: 1 / -1; /* 占满整行 */
 }
 
@@ -1490,10 +1446,7 @@ onUnmounted(() => {
   padding: 0.75rem;
   border-radius: 0.5rem;
   border: 1px solid rgba(255, 255, 255, 0.1);
-  background: linear-gradient(135deg,
-    rgba(255, 255, 255, 0.08) 0%,
-    rgba(255, 255, 255, 0.04) 100%
-  );
+  background: transparent;
   transition: all 0.3s ease;
   /* 拉长比例：宽度:高度 = 1:0.4 */
   aspect-ratio: 1 / 0.4;
@@ -1505,20 +1458,14 @@ onUnmounted(() => {
 
 .todo-item:hover {
   border-color: rgba(255, 255, 255, 0.2);
-  background: linear-gradient(135deg,
-    rgba(255, 255, 255, 0.12) 0%,
-    rgba(255, 255, 255, 0.06) 100%
-  );
+  background: rgba(255, 255, 255, 0.05);
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 .active-item {
   border-color: rgba(59, 130, 246, 0.3);
-  background: linear-gradient(135deg,
-    rgba(59, 130, 246, 0.08) 0%,
-    rgba(59, 130, 246, 0.04) 100%
-  );
+  background: rgba(59, 130, 246, 0.05);
 }
 
 .active-item::before {
@@ -1533,10 +1480,7 @@ onUnmounted(() => {
 
 .completed-item {
   border-color: rgba(34, 197, 94, 0.3);
-  background: linear-gradient(135deg,
-    rgba(34, 197, 94, 0.08) 0%,
-    rgba(34, 197, 94, 0.04) 100%
-  );
+  background: rgba(34, 197, 94, 0.05);
   opacity: 0.9;
 }
 
@@ -1605,10 +1549,7 @@ onUnmounted(() => {
   font-size: 0.875rem;
   border: 2px dashed rgba(255, 255, 255, 0.1);
   border-radius: 0.5rem;
-  background: linear-gradient(135deg,
-    rgba(255, 255, 255, 0.02) 0%,
-    rgba(255, 255, 255, 0.01) 100%
-  );
+  background: transparent;
 }
 
 
@@ -1712,8 +1653,6 @@ onUnmounted(() => {
   right: 0;
   bottom: 0;
   background: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1722,12 +1661,7 @@ onUnmounted(() => {
 }
 
 .edit-modal {
-  background: linear-gradient(135deg,
-    rgba(255, 255, 255, 0.15) 0%,
-    rgba(255, 255, 255, 0.08) 100%
-  );
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  background: rgba(30, 30, 30, 0.95);
   border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 1rem;
   width: 100%;
@@ -1744,10 +1678,7 @@ onUnmounted(() => {
   justify-content: space-between;
   padding: 1.5rem;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  background: linear-gradient(135deg,
-    rgba(255, 255, 255, 0.1) 0%,
-    rgba(255, 255, 255, 0.05) 100%
-  );
+  background: transparent;
 }
 
 .edit-modal-title {
@@ -1791,12 +1722,7 @@ onUnmounted(() => {
   padding: 1rem;
   border-radius: 0.75rem;
   border: 1px solid rgba(255, 255, 255, 0.2);
-  background: linear-gradient(135deg,
-    rgba(255, 255, 255, 0.1) 0%,
-    rgba(255, 255, 255, 0.05) 100%
-  );
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  background: rgba(255, 255, 255, 0.05);
   color: rgba(255, 255, 255, 0.9);
   font-size: 1rem;
   line-height: 1.5;
@@ -1812,10 +1738,7 @@ onUnmounted(() => {
 .edit-modal-textarea:focus {
   outline: none;
   border-color: rgba(59, 130, 246, 0.5);
-  background: linear-gradient(135deg,
-    rgba(255, 255, 255, 0.15) 0%,
-    rgba(255, 255, 255, 0.08) 100%
-  );
+  background: rgba(255, 255, 255, 0.1);
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
@@ -1841,10 +1764,7 @@ onUnmounted(() => {
   gap: 0.75rem;
   padding: 1.5rem;
   border-top: 1px solid rgba(255, 255, 255, 0.1);
-  background: linear-gradient(135deg,
-    rgba(255, 255, 255, 0.05) 0%,
-    rgba(255, 255, 255, 0.02) 100%
-  );
+  background: transparent;
   justify-content: flex-end;
 }
 
@@ -1860,36 +1780,24 @@ onUnmounted(() => {
 }
 
 .cancel-btn {
-  background: linear-gradient(135deg,
-    rgba(255, 255, 255, 0.08) 0%,
-    rgba(255, 255, 255, 0.04) 100%
-  );
+  background: rgba(255, 255, 255, 0.05);
   color: rgba(255, 255, 255, 0.7);
 }
 
 .cancel-btn:hover {
-  background: linear-gradient(135deg,
-    rgba(255, 255, 255, 0.15) 0%,
-    rgba(255, 255, 255, 0.08) 100%
-  );
+  background: rgba(255, 255, 255, 0.1);
   color: rgba(255, 255, 255, 0.9);
   border-color: rgba(255, 255, 255, 0.3);
 }
 
 .save-btn {
-  background: linear-gradient(135deg,
-    rgba(59, 130, 246, 0.2) 0%,
-    rgba(59, 130, 246, 0.1) 100%
-  );
+  background: rgba(59, 130, 246, 0.15);
   color: rgba(59, 130, 246, 0.9);
   border-color: rgba(59, 130, 246, 0.3);
 }
 
 .save-btn:hover:not(:disabled) {
-  background: linear-gradient(135deg,
-    rgba(59, 130, 246, 0.3) 0%,
-    rgba(59, 130, 246, 0.15) 100%
-  );
+  background: rgba(59, 130, 246, 0.25);
   color: rgba(59, 130, 246, 1);
   border-color: rgba(59, 130, 246, 0.5);
   transform: translateY(-1px);
