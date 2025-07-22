@@ -551,25 +551,24 @@ onUnmounted(() => {
         :animate="{ opacity: 1, y: 0 }"
         :transition="{ duration: 0.5, delay: 0.1 }"
       >
-        <div class="add-todo-section">
-          <div class="add-todo-form">
-            <input
+
+        <div class="add-todo-form">
+          <input
               v-model="newTodoText"
               @keyup="handleKeyup"
               type="text"
               placeholder="输入新任务..."
               class="todo-input"
               maxlength="200"
-            />
-            <button
+          />
+          <button
               @click="addTodo"
               :disabled="!newTodoText.trim()"
               class="add-btn"
               title="添加任务"
-            >
-              <Icon icon="material-symbols:add" class="add-btn-icon" />
-            </button>
-          </div>
+          >
+            <Icon icon="material-symbols:add" class="add-btn-icon" />
+          </button>
         </div>
       </Motion>
 
@@ -1089,19 +1088,7 @@ onUnmounted(() => {
   transform: translateY(0) scale(1);
 }
 
-/* 添加任务区域 */
-.add-todo-section {
-  margin-bottom: 2rem;
-  padding: 1.5rem;
-  border-radius: 0.75rem;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: linear-gradient(135deg,
-    rgba(255, 255, 255, 0.08) 0%,
-    rgba(255, 255, 255, 0.04) 100%
-  );
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-}
+
 
 /* 主要内容区域 - 两列布局 */
 .todo-content {
@@ -1151,7 +1138,7 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 1.5rem;
+  padding: 0.5rem;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   background: linear-gradient(135deg,
     rgba(255, 255, 255, 0.08) 0%,
@@ -1257,6 +1244,7 @@ onUnmounted(() => {
 
 /* 添加任务表单 */
 .add-todo-form {
+  margin-bottom: 2rem;
   display: flex;
   gap: 0.75rem;
   align-items: center;
