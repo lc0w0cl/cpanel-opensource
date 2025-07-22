@@ -497,11 +497,6 @@ onUnmounted(() => {
 
               <Transition name="dropdown">
                 <div v-if="showCategoryDropdown" class="category-dropdown-menu">
-                  <div class="dropdown-header">
-                    <Icon icon="mdi:format-list-checks" class="header-icon" />
-                    <span>选择分组</span>
-                  </div>
-
                   <div class="dropdown-item" @click="selectCategory(null)">
                     <Icon icon="mdi:view-list" class="item-icon" />
                     <span class="item-text">全部任务</span>
@@ -980,23 +975,6 @@ onUnmounted(() => {
   padding: 0.5rem 0;
 }
 
-.dropdown-header {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.75rem 1rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  margin-bottom: 0.5rem;
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.8);
-}
-
-.header-icon {
-  width: 1rem;
-  height: 1rem;
-  color: rgba(34, 197, 94, 0.8);
-}
 
 .dropdown-item {
   display: flex;
