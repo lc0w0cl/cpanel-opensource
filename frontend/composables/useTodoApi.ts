@@ -175,7 +175,7 @@ export const useTodoApi = () => {
         body: JSON.stringify({ completed })
       })
       const result = await response.json()
-      
+
       if (result.success) {
         return true
       } else {
@@ -184,6 +184,32 @@ export const useTodoApi = () => {
       }
     } catch (error) {
       console.error('批量设置任务状态异常:', error)
+      return false
+    }
+  }
+
+  /**
+   * 批量设置指定任务的完成状态
+   */
+  const setTodosCompleted = async (todoIds: number[], completed: boolean): Promise<boolean> => {
+    try {
+      const response = await apiRequest(`${API_BASE_URL}/todos/batch-toggle`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ todoIds, completed })
+      })
+      const result = await response.json()
+
+      if (result.success) {
+        return true
+      } else {
+        console.error('批量设置指定任务状态失败:', result.message)
+        return false
+      }
+    } catch (error) {
+      console.error('批量设置指定任务状态异常:', error)
       return false
     }
   }
@@ -218,6 +244,7 @@ export const useTodoApi = () => {
     deleteTodo,
     updateTodosSortOrder,
     setAllTodosCompleted,
+    setTodosCompleted,
     deleteCompletedTodos
   }
 }

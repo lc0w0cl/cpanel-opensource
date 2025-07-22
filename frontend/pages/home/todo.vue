@@ -86,14 +86,26 @@ const filteredTodos = computed(() => {
 })
 
 const todoStats = computed(() => {
-  const total = todos.value.length
-  const completed = todos.value.filter(todo => todo.completed).length
+  // 根据选择的分组过滤任务
+  let filteredTodos = todos.value
+  if (selectedCategoryId.value !== null) {
+    filteredTodos = todos.value.filter(todo => todo.categoryId === selectedCategoryId.value)
+  }
+
+  const total = filteredTodos.length
+  const completed = filteredTodos.filter(todo => todo.completed).length
   const active = total - completed
   return { total, completed, active }
 })
 
 const allCompleted = computed(() => {
-  return todos.value.length > 0 && todos.value.every(todo => todo.completed)
+  // 根据选择的分组过滤任务
+  let filteredTodos = todos.value
+  if (selectedCategoryId.value !== null) {
+    filteredTodos = todos.value.filter(todo => todo.categoryId === selectedCategoryId.value)
+  }
+
+  return filteredTodos.length > 0 && filteredTodos.every(todo => todo.completed)
 })
 
 // 获取TODO分组列表
@@ -236,13 +248,34 @@ const closeModalOnClickOutside = (event: MouseEvent) => {
 // 全选/全不选
 const toggleAll = async () => {
   const shouldComplete = !allCompleted.value
+
+  // 根据选择的分组过滤任务
+  let filteredTodos = todos.value
+  if (selectedCategoryId.value !== null) {
+    filteredTodos = todos.value.filter(todo => todo.categoryId === selectedCategoryId.value)
+  }
+
   try {
-    const success = await todoApi.setAllTodosCompleted(shouldComplete)
-    if (success) {
-      todos.value.forEach(todo => {
-        todo.completed = shouldComplete
-        todo.updatedAt = new Date().toISOString()
-      })
+    // 如果有选择分组，只对该分组的任务进行操作
+    if (selectedCategoryId.value !== null) {
+      // 批量更新当前分组的任务
+      const todoIds = filteredTodos.map(todo => todo.id)
+      const success = await todoApi.setTodosCompleted(todoIds, shouldComplete)
+      if (success) {
+        filteredTodos.forEach(todo => {
+          todo.completed = shouldComplete
+          todo.updatedAt = new Date().toISOString()
+        })
+      }
+    } else {
+      // 如果是全部任务，使用原来的方法
+      const success = await todoApi.setAllTodosCompleted(shouldComplete)
+      if (success) {
+        todos.value.forEach(todo => {
+          todo.completed = shouldComplete
+          todo.updatedAt = new Date().toISOString()
+        })
+      }
     }
   } catch (error) {
     console.error('批量设置任务状态失败:', error)
@@ -252,9 +285,29 @@ const toggleAll = async () => {
 // 清除已完成任务
 const clearCompleted = async () => {
   try {
-    const deletedCount = await todoApi.deleteCompletedTodos()
-    if (deletedCount > 0) {
-      todos.value = todos.value.filter(todo => !todo.completed)
+    // 根据选择的分组过滤任务
+    let completedTodos = todos.value.filter(todo => todo.completed)
+    if (selectedCategoryId.value !== null) {
+      completedTodos = completedTodos.filter(todo => todo.categoryId === selectedCategoryId.value)
+    }
+
+    if (selectedCategoryId.value !== null) {
+      // 如果有选择分组，只删除该分组的已完成任务
+      const deletePromises = completedTodos.map(todo => todoApi.deleteTodo(todo.id))
+      const results = await Promise.all(deletePromises)
+      const successCount = results.filter(result => result).length
+
+      if (successCount > 0) {
+        // 从本地状态中移除已删除的任务
+        const deletedIds = completedTodos.slice(0, successCount).map(todo => todo.id)
+        todos.value = todos.value.filter(todo => !deletedIds.includes(todo.id))
+      }
+    } else {
+      // 如果是全部任务，使用原来的方法
+      const deletedCount = await todoApi.deleteCompletedTodos()
+      if (deletedCount > 0) {
+        todos.value = todos.value.filter(todo => !todo.completed)
+      }
     }
   } catch (error) {
     console.error('删除已完成任务失败:', error)
