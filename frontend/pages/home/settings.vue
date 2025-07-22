@@ -2636,44 +2636,55 @@ onUnmounted(() => {
                           :key="category.id"
                           class="category-item"
                         >
-                          <div class="category-content">
-                            <div class="category-info">
-                              <Icon icon="mdi:drag" class="drag-handle" />
-                              <div class="category-details">
-                                <div v-if="editingTodoCategoryId === category.id" class="edit-form">
-                                  <input
-                                    v-model="editTodoCategoryForm.name"
-                                    type="text"
-                                    class="edit-input"
-                                    @keyup.enter="saveEditTodoCategory"
-                                    @keyup.esc="cancelEditTodoCategory"
-                                    :disabled="editTodoCategoryLoading"
-                                  />
-                                  <div class="edit-actions">
-                                    <button
-                                      class="save-edit-btn"
-                                      @click="saveEditTodoCategory"
-                                      :disabled="editTodoCategoryLoading || !editTodoCategoryForm.name.trim()"
-                                    >
-                                      <Icon v-if="editTodoCategoryLoading" icon="mdi:loading" class="spin" />
-                                      <Icon v-else icon="mdi:check" />
-                                    </button>
-                                    <button
-                                      class="cancel-edit-btn"
-                                      @click="cancelEditTodoCategory"
-                                      :disabled="editTodoCategoryLoading"
-                                    >
-                                      <Icon icon="mdi:close" />
-                                    </button>
-                                  </div>
-                                </div>
-                                <div v-else class="category-display">
-                                  <h4 class="category-name">{{ category.name }}</h4>
-                                  <p class="category-meta">排序: {{ category.order }}</p>
-                                </div>
+                          <div class="drag-handle">
+                            <Icon icon="mdi:drag-vertical" class="drag-icon" />
+                          </div>
+
+                          <div class="category-info">
+                            <!-- 编辑状态 -->
+                            <div v-if="editingTodoCategoryId === category.id" class="edit-form">
+                              <input
+                                v-model="editTodoCategoryForm.name"
+                                type="text"
+                                class="edit-input"
+                                placeholder="请输入分组名称"
+                                @keyup.enter="saveEditTodoCategory"
+                                @keyup.esc="cancelEditTodoCategory"
+                                :disabled="editTodoCategoryLoading"
+                              />
+                              <div class="edit-actions">
+                                <button
+                                  class="edit-save-btn"
+                                  @click="saveEditTodoCategory"
+                                  :disabled="editTodoCategoryLoading || !editTodoCategoryForm.name.trim()"
+                                >
+                                  <Icon v-if="editTodoCategoryLoading" icon="mdi:loading" class="spin" />
+                                  <Icon v-else icon="mdi:check" />
+                                </button>
+                                <button
+                                  class="edit-cancel-btn"
+                                  @click="cancelEditTodoCategory"
+                                  :disabled="editTodoCategoryLoading"
+                                >
+                                  <Icon icon="mdi:close" />
+                                </button>
                               </div>
                             </div>
-                            <div v-if="editingTodoCategoryId !== category.id" class="category-actions">
+
+                            <!-- 显示状态 -->
+                            <div v-else>
+                              <div class="category-name">{{ category.name }}</div>
+                              <div class="category-meta">
+                                #{{ category.order }}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div class="category-actions">
+                            <span class="order-badge">{{ category.order }}</span>
+
+                            <!-- 操作按钮 -->
+                            <div v-if="editingTodoCategoryId !== category.id" class="action-buttons">
                               <button
                                 class="edit-btn"
                                 @click="startEditTodoCategory(category)"
