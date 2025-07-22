@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import {computed, nextTick, onMounted, onUnmounted, ref} from 'vue'
+import {computed, nextTick, onMounted, onUnmounted, ref, watch} from 'vue'
 import {Motion} from "motion-v"
 import {Icon} from '@iconify/vue'
 import {VueDraggable} from 'vue-draggable-plus'
@@ -60,13 +60,18 @@ const sortedTodos = computed(() => {
 })
 
 // 分别获取待办和已完成的任务
-const activeTodos = computed(() => {
-  return sortedTodos.value.filter(todo => !todo.completed)
-})
+const activeTodos = ref<Todo[]>([])
+const completedTodos = ref<Todo[]>([])
 
-const completedTodos = computed(() => {
-  return sortedTodos.value.filter(todo => todo.completed)
-})
+// 同步活动任务和已完成任务
+const syncTodoLists = () => {
+  const sorted = sortedTodos.value
+  activeTodos.value = sorted.filter(todo => !todo.completed)
+  completedTodos.value = sorted.filter(todo => todo.completed)
+}
+
+// 监听sortedTodos变化，同步到activeTodos和completedTodos
+watch(sortedTodos, syncTodoLists, { immediate: true })
 
 
 const todoStats = computed(() => {
@@ -309,22 +314,47 @@ const onActiveDragEnd = async (event: any) => {
   } else {
     // 在同一列表内排序
     const currentTime = new Date().toISOString()
+
+    // 注意：此时activeTodos.value已经是拖拽后的新顺序
     const todoIds = activeTodos.value.map(todo => todo.id)
+
+    console.log('开始更新排序，拖拽后的activeTodos:', activeTodos.value.map(t => ({ id: t.id, text: t.text, sortOrder: t.sortOrder })))
+    console.log('发送的todoIds（新顺序）:', todoIds)
 
     try {
       const success = await todoApi.updateTodosSortOrder(todoIds)
+      console.log('排序更新结果:', success)
+
       if (success) {
-        // 更新本地排序号
+        // 更新原始todos数组中对应任务的排序号
         activeTodos.value.forEach((todo, index) => {
           const originalTodo = todos.value.find(t => t.id === todo.id)
           if (originalTodo) {
-            originalTodo.sortOrder = index + 1
+            const newSortOrder = index + 1
+            console.log(`更新任务 ${todo.id} 的排序从 ${originalTodo.sortOrder} 到 ${newSortOrder}`)
+            originalTodo.sortOrder = newSortOrder
             originalTodo.updatedAt = currentTime
+
+            // 同时更新activeTodos中的sortOrder
+            todo.sortOrder = newSortOrder
+            todo.updatedAt = currentTime
           }
         })
+
+        console.log('排序更新完成，当前todos状态:', todos.value.filter(t => !t.completed).map(t => ({ id: t.id, text: t.text, sortOrder: t.sortOrder })))
+
+        // 重新加载数据以验证更新
+        setTimeout(async () => {
+          console.log('3秒后重新加载数据以验证排序更新...')
+          await loadTodos()
+        }, 3000)
+      } else {
+        console.error('排序更新失败，重新加载原始数据')
+        await loadTodos()
       }
     } catch (error) {
       console.error('更新任务排序失败:', error)
+      await loadTodos()
     }
   }
 }

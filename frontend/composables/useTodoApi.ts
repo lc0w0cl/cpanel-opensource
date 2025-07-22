@@ -141,6 +141,8 @@ export const useTodoApi = () => {
    */
   const updateTodosSortOrder = async (todoIds: number[]): Promise<boolean> => {
     try {
+      console.log('发送排序请求，todoIds:', todoIds)
+
       const response = await apiRequest(`${API_BASE_URL}/todos/sort`, {
         method: 'PUT',
         headers: {
@@ -149,7 +151,9 @@ export const useTodoApi = () => {
         body: JSON.stringify({ todoIds })
       })
       const result = await response.json()
-      
+
+      console.log('排序响应:', result)
+
       if (result.success) {
         return true
       } else {
