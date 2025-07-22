@@ -1,7 +1,7 @@
 /* 音乐下载页面样式 */
 .music-container {
   min-height: 100vh;
-  padding: 2rem;
+  padding: 0 2rem 2rem;
   max-width: 100%;
   contain: layout style paint;
 }
