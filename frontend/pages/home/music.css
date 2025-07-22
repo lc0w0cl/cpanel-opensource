@@ -1625,7 +1625,7 @@
 }
 
 /* 加载动画 */
-.loading-icon {
+.music-loading-icon {
   animation: spin 1s linear infinite;
 }
 

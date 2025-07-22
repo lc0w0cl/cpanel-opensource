@@ -2471,7 +2471,7 @@ onUnmounted(() => {
                       <Icon
                         v-if="currentPlaying?.id === result.id && isLoading"
                         icon="mdi:loading"
-                        class="loading-icon"
+                        class="music-loading-icon"
                       />
                       <Icon
                         v-else-if="currentPlaying?.id === result.id && isPlaying"
