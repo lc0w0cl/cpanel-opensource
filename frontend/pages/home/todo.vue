@@ -1464,7 +1464,7 @@ onUnmounted(() => {
 }
 
 .todo-text {
-  font-size: 0.8rem;
+  font-size: 1rem;
   color: rgba(255, 255, 255, 0.9);
   line-height: 1.3;
   word-break: break-word;
