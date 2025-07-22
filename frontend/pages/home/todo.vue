@@ -1,18 +1,15 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
-import { Motion } from "motion-v"
-import { Icon } from '@iconify/vue'
-import { VueDraggable } from 'vue-draggable-plus'
+import {computed, nextTick, onMounted, onUnmounted, ref} from 'vue'
+import {Motion} from "motion-v"
+import {Icon} from '@iconify/vue'
+import {VueDraggable} from 'vue-draggable-plus'
 
 // 子页面不需要定义 layout 和 middleware，由父页面处理
-
 // 导入API函数和类型
-import { useTodoApi, type Todo } from '~/composables/useTodoApi'
-import { apiRequest } from '~/composables/useJwt'
+import {type Todo, useTodoApi} from '~/composables/useTodoApi'
+import {apiRequest} from '~/composables/useJwt'
 
 // 筛选类型
-type FilterType = 'all' | 'active' | 'completed'
-
 // 分组接口定义
 interface TodoCategory {
   id: number
@@ -33,8 +30,6 @@ const API_BASE_URL = `${config.public.apiBaseUrl}/api`
 // 响应式数据
 const todos = ref<Todo[]>([])
 const newTodoText = ref('')
-const currentFilter = ref<FilterType>('all')
-const editingId = ref<number | null>(null)
 const editingText = ref('')
 const showEditModal = ref(false)
 const editModalTodo = ref<Todo | null>(null)
@@ -73,17 +68,6 @@ const completedTodos = computed(() => {
   return sortedTodos.value.filter(todo => todo.completed)
 })
 
-const filteredTodos = computed(() => {
-  const sorted = sortedTodos.value
-  switch (currentFilter.value) {
-    case 'active':
-      return sorted.filter(todo => !todo.completed)
-    case 'completed':
-      return sorted.filter(todo => todo.completed)
-    default:
-      return sorted
-  }
-})
 
 const todoStats = computed(() => {
   // 根据选择的分组过滤任务
@@ -154,22 +138,6 @@ const addTodo = async () => {
     }
   } catch (error) {
     console.error('添加任务失败:', error)
-  }
-}
-
-// 切换任务完成状态
-const toggleTodo = async (id: number) => {
-  try {
-    const success = await todoApi.toggleTodoCompleted(id)
-    if (success) {
-      const todo = todos.value.find(t => t.id === id)
-      if (todo) {
-        todo.completed = !todo.completed
-        todo.updatedAt = new Date().toISOString()
-      }
-    }
-  } catch (error) {
-    console.error('切换任务状态失败:', error)
   }
 }
 
@@ -318,7 +286,7 @@ const clearCompleted = async () => {
 
 // 拖拽处理函数
 const onActiveDragEnd = async (event: any) => {
-  const { newIndex, oldIndex, to, from } = event
+  const {oldIndex, to} = event
 
   // 如果拖拽到已完成列表
   if (to.classList.contains('completed-list')) {
@@ -362,7 +330,7 @@ const onActiveDragEnd = async (event: any) => {
 }
 
 const onCompletedDragEnd = async (event: any) => {
-  const { newIndex, oldIndex, to, from } = event
+  const {oldIndex, to} = event
 
   // 如果拖拽到待办列表
   if (to.classList.contains('active-list')) {
@@ -391,8 +359,7 @@ const onCompletedDragEnd = async (event: any) => {
 // 从API加载任务
 const loadTodos = async () => {
   try {
-    const todoList = await todoApi.getAllTodos()
-    todos.value = todoList
+    todos.value = await todoApi.getAllTodos()
   } catch (error) {
     console.error('加载任务失败:', error)
     todos.value = []
@@ -1004,7 +971,7 @@ onUnmounted(() => {
   position: absolute;
   top: calc(100% + 0.5rem);
   right: 0;
-  min-width: 220px;
+  min-width: 203px;
   max-height: 300px;
   overflow-y: auto;
   background: rgba(30, 30, 30, 0.95);
@@ -1085,23 +1052,6 @@ onUnmounted(() => {
   to { transform: rotate(360deg); }
 }
 
-/* 下拉框动画 */
-.dropdown-enter-active,
-.dropdown-leave-active {
-  transition: all 0.3s ease;
-}
-
-.dropdown-enter-from,
-.dropdown-leave-to {
-  opacity: 0;
-  transform: translateY(-10px) scale(0.95);
-}
-
-.dropdown-enter-to,
-.dropdown-leave-from {
-  opacity: 1;
-  transform: translateY(0) scale(1);
-}
 
 
 
@@ -1309,50 +1259,6 @@ onUnmounted(() => {
 }
 
 /* 筛选控制 */
-.filter-controls {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 1rem;
-  flex-wrap: wrap;
-}
-
-.filter-buttons {
-  display: flex;
-  gap: 0.5rem;
-}
-
-.filter-btn {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.75rem 1rem;
-  border-radius: 0.5rem;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  background: linear-gradient(135deg,
-    rgba(255, 255, 255, 0.08) 0%,
-    rgba(255, 255, 255, 0.04) 100%
-  );
-  color: rgba(255, 255, 255, 0.7);
-  font-size: 0.875rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.filter-btn:hover {
-  color: rgba(255, 255, 255, 0.9);
-  border-color: rgba(255, 255, 255, 0.3);
-}
-
-.filter-btn.active {
-  background: linear-gradient(135deg,
-    rgba(59, 130, 246, 0.15) 0%,
-    rgba(59, 130, 246, 0.08) 100%
-  );
-  border-color: rgba(59, 130, 246, 0.3);
-  color: rgba(59, 130, 246, 0.9);
-}
 
 .filter-btn svg {
   width: 1rem;
@@ -1362,86 +1268,19 @@ onUnmounted(() => {
 
 
 /* 批量操作 */
-.bulk-actions {
-  display: flex;
-  gap: 0.5rem;
-}
 
-.bulk-btn {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.75rem 1rem;
-  border-radius: 0.5rem;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  background: linear-gradient(135deg,
-    rgba(255, 255, 255, 0.08) 0%,
-    rgba(255, 255, 255, 0.04) 100%
-  );
-  color: rgba(255, 255, 255, 0.7);
-  font-size: 0.875rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.bulk-btn:hover:not(:disabled) {
-  color: rgba(255, 255, 255, 0.9);
-  border-color: rgba(255, 255, 255, 0.3);
-}
-
-.bulk-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.bulk-btn.clear-btn:hover:not(:disabled) {
-  background: linear-gradient(135deg,
-    rgba(239, 68, 68, 0.15) 0%,
-    rgba(239, 68, 68, 0.08) 100%
-  );
-  border-color: rgba(239, 68, 68, 0.3);
-  color: rgba(239, 68, 68, 0.9);
-}
 
 .bulk-btn svg {
   width: 1rem;
   height: 1rem;
 }
 
-/* 拖拽提示卡片 */
-.drag-hint-card {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 1rem 1.5rem;
-  border-radius: 0.5rem;
-  background: linear-gradient(135deg,
-    rgba(59, 130, 246, 0.15) 0%,
-    rgba(59, 130, 246, 0.08) 100%
-  );
-  border: 1px solid rgba(59, 130, 246, 0.3);
-}
-
-.drag-hint-card .hint-icon {
-  width: 1.25rem;
-  height: 1.25rem;
-  color: rgba(59, 130, 246, 0.8);
-  flex-shrink: 0;
-}
-
-.drag-hint-card .hint-text {
-  font-size: 0.875rem;
-  color: rgba(255, 255, 255, 0.8);
-  line-height: 1.4;
-}
 
 /* 任务列表 - 网格布局 */
 .todo-list {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 0.25rem;
-  //height: 100%;
   padding: 0.125rem;
 }
 
@@ -1560,29 +1399,6 @@ onUnmounted(() => {
 .draggable-item:hover {
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-}
-
-/* 拖拽状态样式 */
-.ghost-item {
-  opacity: 0.5;
-  border: 2px dashed rgba(59, 130, 246, 0.5);
-  transform: rotate(2deg);
-  background: linear-gradient(135deg,
-    rgba(59, 130, 246, 0.1) 0%,
-    rgba(59, 130, 246, 0.05) 100%
-  );
-}
-
-.chosen-item {
-  transform: scale(1.02);
-  border-color: rgba(59, 130, 246, 0.5);
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2);
-}
-
-.drag-item {
-  transform: rotate(5deg);
-  opacity: 0.8;
-  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
 }
 
 /* 拖拽区域提示 */
