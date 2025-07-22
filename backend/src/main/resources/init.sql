@@ -8,13 +8,13 @@ SET CHARACTER_SET_CONNECTION = utf8mb4;
 CREATE TABLE IF NOT EXISTS panel_categories (
   id INT AUTO_INCREMENT PRIMARY KEY COMMENT '分类ID，自增主键',
   name VARCHAR(100) NOT NULL COMMENT '分类名称',
-  type VARCHAR(20) NOT NULL DEFAULT 'navigation' COMMENT '分类类型：navigation(导航分类)、server(服务器分组)',
+  type VARCHAR(20) NOT NULL DEFAULT 'navigation' COMMENT '分类类型：navigation(导航分类)、server(服务器分组)、todo(TODO分组)',
   `order` INT NOT NULL DEFAULT 0 COMMENT '分类排序序号',
   created_at VARCHAR(19) COMMENT '创建时间，格式：yyyy-MM-dd HH:mm:ss',
   updated_at VARCHAR(19) COMMENT '更新时间，格式：yyyy-MM-dd HH:mm:ss',
   INDEX idx_order (`order`),
   INDEX idx_type (type)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='分类表（支持导航分类和服务器分组）';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='分类表（支持导航分类、服务器分组和TODO分组）';
 
 -- 创建导航项表
 CREATE TABLE IF NOT EXISTS panel_navigation_items (
@@ -42,7 +42,9 @@ INSERT INTO panel_categories (name, type, `order`, created_at, updated_at) VALUE
 ('测试环境', 'server', 2, '2023-01-01 00:00:00', '2023-01-01 00:00:00'),
 ('开发环境', 'server', 3, '2023-01-01 00:00:00', '2023-01-01 00:00:00'),
 ('工作任务', 'todo', 1, '2023-01-01 00:00:00', '2023-01-01 00:00:00'),
-('个人事务', 'todo', 2, '2023-01-01 00:00:00', '2023-01-01 00:00:00');
+('个人事务', 'todo', 2, '2023-01-01 00:00:00', '2023-01-01 00:00:00'),
+('学习计划', 'todo', 3, '2023-01-01 00:00:00', '2023-01-01 00:00:00'),
+('生活杂事', 'todo', 4, '2023-01-01 00:00:00', '2023-01-01 00:00:00');
 
 -- 初始化示例导航项数据
 INSERT INTO panel_navigation_items (name, url, logo, category_id, description, internal_url, sort_order, created_at, updated_at) VALUES
@@ -109,12 +111,15 @@ CREATE TABLE IF NOT EXISTS panel_todos (
   id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '任务ID，自增主键',
   text VARCHAR(500) NOT NULL COMMENT '任务内容',
   completed BOOLEAN NOT NULL DEFAULT FALSE COMMENT '是否已完成',
+  category_id INT COMMENT '所属分组ID，外键关联panel_categories表（type=todo）',
   sort_order INT NOT NULL DEFAULT 0 COMMENT '排序序号',
   created_at VARCHAR(19) COMMENT '创建时间，格式：yyyy-MM-dd HH:mm:ss',
   updated_at VARCHAR(19) COMMENT '更新时间，格式：yyyy-MM-dd HH:mm:ss',
   INDEX idx_sort_order (sort_order),
   INDEX idx_completed (completed),
-  INDEX idx_created_at (created_at)
+  INDEX idx_created_at (created_at),
+  INDEX idx_category_id (category_id),
+  FOREIGN KEY (category_id) REFERENCES panel_categories(id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='TODO任务表';
 
 -- 创建2FA认证配置表

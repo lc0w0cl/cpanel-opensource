@@ -914,6 +914,8 @@ const confirmDeleteTodoCategory = async () => {
 
     if (result.success) {
       console.log('TODO分组删除成功')
+      // 关闭确认对话框
+      cancelDeleteTodoCategory()
       // 重新获取分组列表
       await fetchTodoCategories()
     } else {
@@ -923,8 +925,6 @@ const confirmDeleteTodoCategory = async () => {
     console.error('TODO分组删除失败:', error)
   } finally {
     deleteTodoCategoryLoading.value = false
-    deletingTodoCategory.value = null
-    showDeleteTodoCategoryConfirm.value = false
   }
 }
 
@@ -1276,6 +1276,7 @@ const testQRCode = () => {
 const toggleAllSections = () => {
   const allCollapsed = isNavigationGroupManagementCollapsed.value &&
                       isServerGroupManagementCollapsed.value &&
+                      isTodoGroupManagementCollapsed.value &&
                       isPasswordSettingsCollapsed.value &&
                       isTwoFactorAuthCollapsed.value &&
                       isSystemConfigCollapsed.value &&
@@ -1289,6 +1290,7 @@ const toggleAllSections = () => {
 
   isNavigationGroupManagementCollapsed.value = newState
   isServerGroupManagementCollapsed.value = newState
+  isTodoGroupManagementCollapsed.value = newState
   isPasswordSettingsCollapsed.value = newState
   isTwoFactorAuthCollapsed.value = newState
   isSystemConfigCollapsed.value = newState
@@ -1303,6 +1305,7 @@ const toggleAllSections = () => {
 const allSectionsCollapsed = computed(() => {
   return isNavigationGroupManagementCollapsed.value &&
          isServerGroupManagementCollapsed.value &&
+         isTodoGroupManagementCollapsed.value &&
          isPasswordSettingsCollapsed.value &&
          isTwoFactorAuthCollapsed.value &&
          isSystemConfigCollapsed.value &&
@@ -2145,7 +2148,7 @@ onUnmounted(() => {
       <div class="page-header">
         <div class="header-left">
           <h1 class="page-title">系统设置</h1>
-          <p class="page-description">分别管理导航分组、服务器分组和系统配置</p>
+          <p class="page-description">分别管理导航分组、服务器分组、TODO分组和系统配置</p>
         </div>
         <div class="header-right">
           <button class="toggle-all-btn" @click="toggleAllSections">
@@ -2166,7 +2169,7 @@ onUnmounted(() => {
                   <Icon icon="mdi:folder-multiple" class="header-icon" />
                   <div>
                     <h2 class="item-title">分组管理</h2>
-                    <p class="item-description">分别管理导航分组和服务器分组</p>
+                    <p class="item-description">分别管理导航分组、服务器分组和TODO分组</p>
                   </div>
                 </div>
               </div>
@@ -2601,8 +2604,8 @@ onUnmounted(() => {
                             @click="createTodoCategory"
                             :disabled="addTodoCategoryLoading || !addTodoCategoryForm.name.trim()"
                           >
-                            <Icon v-if="addTodoCategoryLoading" icon="mdi:loading" class="spin" />
-                            <Icon v-else icon="mdi:check" />
+                            <Icon v-if="addTodoCategoryLoading" icon="mdi:loading" class="spin btn-icon" />
+                            <Icon v-else icon="mdi:check" class="btn-icon" />
                             {{ addTodoCategoryLoading ? '创建中...' : '创建' }}
                           </button>
                         </div>
@@ -2623,69 +2626,68 @@ onUnmounted(() => {
                         v-model="todoCategories"
                         class="categories-list"
                         :animation="200"
-                        ghost-class="ghost-item"
-                        chosen-class="chosen-item"
-                        drag-class="drag-item"
+                        ghost-class="ghost"
+                        chosen-class="chosen"
+                        drag-class="drag"
                         @end="handleTodoDragEnd"
                       >
                         <div
-                          v-for="(category, index) in todoCategories"
+                          v-for="category in todoCategories"
                           :key="category.id"
                           class="category-item"
                         >
-                          <div class="drag-handle">
-                            <Icon icon="mdi:drag-vertical" class="drag-icon" />
-                          </div>
-
-                          <div class="category-info">
-                            <!-- 编辑状态 -->
-                            <div v-if="editingTodoCategoryId === category.id" class="edit-form">
-                              <input
-                                v-model="editTodoCategoryForm.name"
-                                type="text"
-                                class="edit-input"
-                                placeholder="请输入分组名称"
-                                @keyup.enter="saveEditTodoCategory"
-                                :disabled="editTodoCategoryLoading"
-                              />
-                              <div class="edit-actions">
-                                <button
-                                  class="cancel-edit-btn"
-                                  @click="cancelEditTodoCategory"
-                                  :disabled="editTodoCategoryLoading"
-                                >
-                                  <Icon icon="mdi:close" />
-                                </button>
-                                <button
-                                  class="save-edit-btn"
-                                  @click="saveEditTodoCategory"
-                                  :disabled="editTodoCategoryLoading || !editTodoCategoryForm.name.trim()"
-                                >
-                                  <Icon v-if="editTodoCategoryLoading" icon="mdi:loading" class="spin" />
-                                  <Icon v-else icon="mdi:check" />
-                                </button>
+                          <div class="category-content">
+                            <div class="category-info">
+                              <Icon icon="mdi:drag" class="drag-handle" />
+                              <div class="category-details">
+                                <div v-if="editingTodoCategoryId === category.id" class="edit-form">
+                                  <input
+                                    v-model="editTodoCategoryForm.name"
+                                    type="text"
+                                    class="edit-input"
+                                    @keyup.enter="saveEditTodoCategory"
+                                    @keyup.esc="cancelEditTodoCategory"
+                                    :disabled="editTodoCategoryLoading"
+                                  />
+                                  <div class="edit-actions">
+                                    <button
+                                      class="save-edit-btn"
+                                      @click="saveEditTodoCategory"
+                                      :disabled="editTodoCategoryLoading || !editTodoCategoryForm.name.trim()"
+                                    >
+                                      <Icon v-if="editTodoCategoryLoading" icon="mdi:loading" class="spin" />
+                                      <Icon v-else icon="mdi:check" />
+                                    </button>
+                                    <button
+                                      class="cancel-edit-btn"
+                                      @click="cancelEditTodoCategory"
+                                      :disabled="editTodoCategoryLoading"
+                                    >
+                                      <Icon icon="mdi:close" />
+                                    </button>
+                                  </div>
+                                </div>
+                                <div v-else class="category-display">
+                                  <h4 class="category-name">{{ category.name }}</h4>
+                                  <p class="category-meta">排序: {{ category.order }}</p>
+                                </div>
                               </div>
                             </div>
-
-                            <!-- 显示状态 -->
-                            <div v-else class="category-display">
-                              <div class="category-name">{{ category.name }}</div>
-                              <div class="category-actions">
-                                <button
-                                  class="edit-btn"
-                                  @click="startEditTodoCategory(category)"
-                                  title="编辑分组"
-                                >
-                                  <Icon icon="mdi:pencil" />
-                                </button>
-                                <button
-                                  class="delete-btn"
-                                  @click="showDeleteTodoCategoryConfirmDialog(category)"
-                                  title="删除分组"
-                                >
-                                  <Icon icon="mdi:delete" />
-                                </button>
-                              </div>
+                            <div v-if="editingTodoCategoryId !== category.id" class="category-actions">
+                              <button
+                                class="edit-btn"
+                                @click="startEditTodoCategory(category)"
+                                title="编辑分组"
+                              >
+                                <Icon icon="mdi:pencil" />
+                              </button>
+                              <button
+                                class="delete-btn"
+                                @click="showDeleteTodoCategoryConfirmDialog(category)"
+                                title="删除分组"
+                              >
+                                <Icon icon="mdi:delete" />
+                              </button>
                             </div>
                           </div>
                         </div>
@@ -4163,20 +4165,18 @@ onUnmounted(() => {
           <p class="dialog-message">
             确定要删除分组 <strong>{{ deletingTodoCategory?.name }}</strong> 吗？
           </p>
-          <p class="dialog-warning">
-            此操作不可撤销，请谨慎操作。
-          </p>
+          <p class="dialog-warning">此操作不可撤销，请谨慎操作。</p>
         </div>
         <div class="dialog-actions">
           <button
-            class="dialog-cancel-btn"
+            class="cancel-btn"
             @click="cancelDeleteTodoCategory"
             :disabled="deleteTodoCategoryLoading"
           >
             取消
           </button>
           <button
-            class="dialog-confirm-btn"
+            class="delete-btn"
             @click="confirmDeleteTodoCategory"
             :disabled="deleteTodoCategoryLoading"
           >

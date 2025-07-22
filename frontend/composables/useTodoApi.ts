@@ -7,9 +7,10 @@ export interface Todo {
   id: number
   text: string
   completed: boolean
+  categoryId?: number
+  sortOrder?: number
   createdAt: string
   updatedAt: string
-  sortOrder?: number
 }
 
 /**

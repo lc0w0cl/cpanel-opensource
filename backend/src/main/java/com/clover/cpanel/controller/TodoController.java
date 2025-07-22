@@ -37,19 +37,50 @@ public class TodoController {
     }
 
     /**
+     * 根据分组ID获取任务列表
+     * @param categoryId 分组ID
+     * @return 任务列表
+     */
+    @GetMapping("/category/{categoryId}")
+    public ApiResponse<List<Todo>> getTodosByCategory(@PathVariable Integer categoryId) {
+        try {
+            List<Todo> todos = todoService.getTodosByCategoryId(categoryId);
+            return ApiResponse.success(todos);
+        } catch (Exception e) {
+            log.error("获取分组TODO任务列表失败: categoryId={}", categoryId, e);
+            return ApiResponse.error("获取分组任务列表失败：" + e.getMessage());
+        }
+    }
+
+    /**
      * 创建新任务
      * @param request 请求参数
      * @return 创建的任务
      */
     @PostMapping
-    public ApiResponse<Todo> createTodo(@RequestBody Map<String, String> request) {
+    public ApiResponse<Todo> createTodo(@RequestBody Map<String, Object> request) {
         try {
-            String text = request.get("text");
+            String text = (String) request.get("text");
             if (text == null || text.trim().isEmpty()) {
                 return ApiResponse.error("任务内容不能为空");
             }
 
-            Todo todo = todoService.createTodo(text.trim());
+            // 获取分组ID（可选）
+            Integer categoryId = null;
+            Object categoryIdObj = request.get("categoryId");
+            if (categoryIdObj != null) {
+                if (categoryIdObj instanceof Integer) {
+                    categoryId = (Integer) categoryIdObj;
+                } else if (categoryIdObj instanceof String) {
+                    try {
+                        categoryId = Integer.parseInt((String) categoryIdObj);
+                    } catch (NumberFormatException e) {
+                        return ApiResponse.error("分组ID格式错误");
+                    }
+                }
+            }
+
+            Todo todo = todoService.createTodo(text.trim(), categoryId);
             if (todo != null) {
                 return ApiResponse.success(todo);
             } else {
