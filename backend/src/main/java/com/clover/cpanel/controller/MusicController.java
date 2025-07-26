@@ -814,23 +814,27 @@ public class MusicController {
             String contentType = getContentTypeFromFormat(selectedFormat);
             headers.setContentType(MediaType.parseMediaType(contentType));
 
-            // 设置下载文件名 - 使用更兼容的方式
+            // 设置下载文件名 - 使用RFC 5987标准的编码方式
             try {
-                // 方法1：使用 Spring 的 ContentDisposition
-                headers.setContentDisposition(
-                    ContentDisposition.builder("attachment")
-                        .filename(fileName, StandardCharsets.UTF_8)
-                        .build()
-                );
-                log.debug("使用 Spring ContentDisposition 设置文件名: {}", fileName);
-            } catch (Exception e) {
-                // 方法2：手动设置 Content-Disposition 头
-                log.warn("Spring ContentDisposition 设置失败，使用手动方式: {}", e.getMessage());
-                String encodedFileName = java.net.URLEncoder.encode(fileName, StandardCharsets.UTF_8)
+                // 使用RFC 5987标准的filename*参数，这是处理非ASCII字符的标准方式
+                String encodedFileName = URLEncoder.encode(fileName, StandardCharsets.UTF_8)
                     .replace("+", "%20"); // 空格用 %20 而不是 +
-                headers.set("Content-Disposition",
-                    "attachment; filename*=UTF-8''" + encodedFileName);
-                log.debug("手动设置 Content-Disposition: attachment; filename*=UTF-8''{}", encodedFileName);
+
+                // 同时设置filename和filename*以确保兼容性
+                String dispositionValue = String.format(
+                    "attachment; filename=\"%s\"; filename*=UTF-8''%s",
+                    fileName.replaceAll("[\"\\\\]", "_"), // 转义双引号和反斜杠
+                    encodedFileName
+                );
+
+                headers.set("Content-Disposition", dispositionValue);
+                log.debug("设置 Content-Disposition: {}", dispositionValue);
+            } catch (Exception e) {
+                // 降级方案：只使用简单的filename
+                log.warn("文件名编码失败，使用简化方式: {}", e.getMessage());
+                String safeFileName = fileName.replaceAll("[^\\w\\s.-]", "_");
+                headers.set("Content-Disposition", "attachment; filename=\"" + safeFileName + "\"");
+                log.debug("使用简化文件名: {}", safeFileName);
             }
 
             log.info("开始流式传输文件: {}", fileName);
@@ -888,21 +892,26 @@ public class MusicController {
                     HttpHeaders headers = new HttpHeaders();
                     headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
 
-                    // 正确设置文件名，避免编码问题
+                    // 正确设置文件名，避免编码问题 - 使用RFC 5987标准
                     try {
-                        headers.setContentDisposition(
-                            ContentDisposition.builder("attachment")
-                                .filename(fileName, StandardCharsets.UTF_8)
-                                .build()
+                        String encodedFileName = URLEncoder.encode(fileName, StandardCharsets.UTF_8)
+                            .replace("+", "%20"); // 空格用 %20 而不是 +
+
+                        // 同时设置filename和filename*以确保兼容性
+                        String dispositionValue = String.format(
+                            "attachment; filename=\"%s\"; filename*=UTF-8''%s",
+                            fileName.replaceAll("[\"\\\\]", "_"), // 转义双引号和反斜杠
+                            encodedFileName
                         );
-                        log.debug("使用 Spring ContentDisposition 设置文件名: {}", fileName);
+
+                        headers.set("Content-Disposition", dispositionValue);
+                        log.debug("设置 Content-Disposition: {}", dispositionValue);
                     } catch (Exception e) {
-                        log.warn("Spring ContentDisposition 设置失败，使用手动方式: {}", e.getMessage());
-                        String encodedFileName = java.net.URLEncoder.encode(fileName, StandardCharsets.UTF_8)
-                            .replace("+", "%20");
-                        headers.set("Content-Disposition",
-                            "attachment; filename*=UTF-8''" + encodedFileName);
-                        log.debug("手动设置 Content-Disposition: attachment; filename*=UTF-8''{}", encodedFileName);
+                        // 降级方案：只使用简单的filename
+                        log.warn("文件名编码失败，使用简化方式: {}", e.getMessage());
+                        String safeFileName = fileName.replaceAll("[^\\w\\s.-]", "_");
+                        headers.set("Content-Disposition", "attachment; filename=\"" + safeFileName + "\"");
+                        log.debug("使用简化文件名: {}", safeFileName);
                     }
 
                     headers.setContentLength(fileContent.length);
@@ -1028,12 +1037,25 @@ public class MusicController {
             }
 
             try {
-                // 方法2：手动编码
+                // 方法2：RFC 5987标准编码（新的推荐方式）
                 String encodedFileName = URLEncoder.encode(filename, StandardCharsets.UTF_8)
                     .replace("+", "%20");
-                result.append("手动编码: attachment; filename*=UTF-8''").append(encodedFileName).append("\n");
+                String dispositionValue = String.format(
+                    "attachment; filename=\"%s\"; filename*=UTF-8''%s",
+                    filename.replaceAll("[\"\\\\]", "_"),
+                    encodedFileName
+                );
+                result.append("RFC 5987编码: ").append(dispositionValue).append("\n");
             } catch (Exception e) {
-                result.append("手动编码失败: ").append(e.getMessage()).append("\n");
+                result.append("RFC 5987编码失败: ").append(e.getMessage()).append("\n");
+            }
+
+            try {
+                // 方法3：简化编码
+                String safeFileName = filename.replaceAll("[^\\w\\s.-]", "_");
+                result.append("简化文件名: attachment; filename=\"").append(safeFileName).append("\"\n");
+            } catch (Exception e) {
+                result.append("简化编码失败: ").append(e.getMessage()).append("\n");
             }
 
             return ResponseEntity.ok()
