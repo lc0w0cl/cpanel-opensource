@@ -2520,7 +2520,7 @@ onUnmounted(() => {
                       <Icon
                         v-if="downloadProgress[result.id] !== undefined && downloadProgress[result.id] < 100"
                         icon="mdi:loading"
-                        class="loading-icon"
+                        class="music-loading-icon"
                       />
                       <Icon
                         v-else-if="downloadProgress[result.id] === 100"
