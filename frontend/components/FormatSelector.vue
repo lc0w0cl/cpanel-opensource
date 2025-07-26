@@ -10,6 +10,7 @@ interface Format {
   isAudio?: boolean
   isVideo?: boolean
   bitrate?: string
+  isMerged?: boolean
 }
 
 interface Props {
@@ -102,6 +103,20 @@ const autoSelectDefaultFormat = () => {
 // 选择格式
 const selectFormat = (format: Format) => {
   selectedFormat.value = format
+}
+
+// 选择合并格式
+const selectMergeFormat = () => {
+  // 创建一个特殊的合并格式对象
+  selectedFormat.value = {
+    formatId: 'merge',
+    ext: 'mp4',
+    resolution: 'merged',
+    note: '音视频合并',
+    isMerged: true,
+    isAudio: false,
+    isVideo: false
+  }
 }
 
 // 确认选择
@@ -210,6 +225,29 @@ watch(() => props.visible, (visible) => {
 
         <!-- 格式列表 -->
         <div v-else-if="formats.length > 0" class="format-lists">
+          <!-- 合并下载选项 -->
+          <div v-if="audioFormats.length > 0 && videoFormats.length > 0" class="format-section">
+            <h4 class="section-title">
+              <Icon icon="mdi:merge" />
+              合并下载
+            </h4>
+            <div class="format-grid">
+              <div
+                class="format-item merge-option"
+                :class="{ selected: selectedFormat?.isMerged }"
+                @click="selectMergeFormat"
+              >
+                <div class="format-info">
+                  <div class="format-name">音视频合并 (MP4)</div>
+                  <div class="format-desc">将最佳音频和视频合并为一个文件</div>
+                </div>
+                <div class="format-badge merge">
+                  MERGE
+                </div>
+              </div>
+            </div>
+          </div>
+
           <!-- 音频格式 -->
           <div v-if="audioFormats.length > 0" class="format-section">
             <h4 class="section-title">
@@ -665,6 +703,36 @@ watch(() => props.visible, (visible) => {
   background: linear-gradient(135deg, rgba(245, 158, 11, 0.2), rgba(245, 158, 11, 0.1));
   color: rgba(245, 158, 11, 0.9);
   border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.format-badge.merge {
+  background: linear-gradient(135deg, rgba(139, 69, 19, 0.2), rgba(139, 69, 19, 0.1));
+  color: rgba(255, 165, 0, 0.9);
+  border: 1px solid rgba(255, 165, 0, 0.3);
+}
+
+.format-item.merge-option {
+  border: 2px solid rgba(255, 165, 0, 0.3);
+  background: linear-gradient(135deg,
+    rgba(255, 165, 0, 0.1) 0%,
+    rgba(255, 165, 0, 0.05) 100%
+  );
+}
+
+.format-item.merge-option:hover {
+  border-color: rgba(255, 165, 0, 0.5);
+  background: linear-gradient(135deg,
+    rgba(255, 165, 0, 0.15) 0%,
+    rgba(255, 165, 0, 0.08) 100%
+  );
+}
+
+.format-item.merge-option.selected {
+  border-color: rgba(255, 165, 0, 0.7);
+  background: linear-gradient(135deg,
+    rgba(255, 165, 0, 0.25) 0%,
+    rgba(255, 165, 0, 0.15) 100%
+  );
 }
 
 /* 底部操作样式 */

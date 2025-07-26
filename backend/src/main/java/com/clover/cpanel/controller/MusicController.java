@@ -713,9 +713,13 @@ public class MusicController {
         if (selectedFormat != null) {
             Boolean isAudio = (Boolean) selectedFormat.get("isAudio");
             Boolean isVideo = (Boolean) selectedFormat.get("isVideo");
+            Boolean isMerged = (Boolean) selectedFormat.get("isMerged");
             String ext = (String) selectedFormat.get("ext");
 
-            if (Boolean.TRUE.equals(isAudio)) {
+            if (isMerged != null && isMerged) {
+                // 合并下载固定使用mp4格式
+                extension = ".mp4";
+            } else if (Boolean.TRUE.equals(isAudio)) {
                 // 音频格式处理
                 if ("flac".equals(ext) || containsFlac) {
                     extension = ".flac";

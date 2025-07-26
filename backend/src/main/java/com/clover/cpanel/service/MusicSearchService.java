@@ -2215,8 +2215,17 @@ public class MusicSearchService {
                 String formatId = (String) selectedFormat.get("formatId");
                 Boolean isAudio = (Boolean) selectedFormat.get("isAudio");
                 Boolean isVideo = (Boolean) selectedFormat.get("isVideo");
+                Boolean isMerged = (Boolean) selectedFormat.get("isMerged");
 
-                if (formatId != null && !formatId.isEmpty()) {
+                if (isMerged != null && isMerged) {
+                    // 合并下载：下载最佳音频和视频并合并
+                    command.add("--format");
+                    command.add("bestvideo+bestaudio/best");
+                    // 确保输出为mp4格式
+                    command.add("--merge-output-format");
+                    command.add("mp4");
+                    log.info("使用合并格式流式下载: 最佳音频+视频 -> MP4");
+                } else if (formatId != null && !formatId.isEmpty()) {
                     command.add("--format");
                     command.add(formatId);
                     log.info("使用指定格式ID: {}", formatId);
@@ -2381,7 +2390,17 @@ public class MusicSearchService {
             // 处理格式选择
             if (selectedFormat != null) {
                 String formatId = (String) selectedFormat.get("formatId");
-                if (formatId != null && !formatId.trim().isEmpty()) {
+                Boolean isMerged = (Boolean) selectedFormat.get("isMerged");
+
+                if (isMerged != null && isMerged) {
+                    // 合并下载：下载最佳音频和视频并合并
+                    command.add("--format");
+                    command.add("bestvideo+bestaudio/best");
+                    // 确保输出为mp4格式
+                    command.add("--merge-output-format");
+                    command.add("mp4");
+                    log.info("使用合并格式下载: 最佳音频+视频 -> MP4");
+                } else if (formatId != null && !formatId.trim().isEmpty()) {
                     command.add("--format");
                     command.add(formatId);
                     log.info("使用指定格式下载: {}", formatId);
