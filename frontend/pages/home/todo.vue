@@ -291,24 +291,42 @@ const clearCompleted = async () => {
 
 // 拖拽处理函数
 const onActiveDragEnd = async (event: any) => {
-  const {oldIndex, to} = event
+  const {oldIndex, newIndex, to, from, item} = event
+
+  console.log('拖拽事件详情:', {
+    oldIndex,
+    newIndex,
+    to: to?.className,
+    from: from?.className,
+    item: item?.textContent?.trim()
+  })
 
   // 如果拖拽到已完成列表
   if (to.classList.contains('completed-list')) {
-    const draggedTodo = activeTodos.value[oldIndex]
-    if (draggedTodo) {
-      try {
-        const success = await todoApi.toggleTodoCompleted(draggedTodo.id)
-        if (success) {
-          // 更新本地状态
-          const originalTodo = todos.value.find(t => t.id === draggedTodo.id)
-          if (originalTodo) {
-            originalTodo.completed = true
-            originalTodo.updatedAt = new Date().toISOString()
+    // 使用更可靠的方式获取被拖拽的任务
+    // 从 DOM 元素中获取任务 ID
+    const taskId = item?.getAttribute('data-task-id')
+    if (taskId) {
+      const draggedTodo = todos.value.find(t => t.id === parseInt(taskId))
+      if (draggedTodo && !draggedTodo.completed) {
+        console.log('拖拽任务到已完成列表:', draggedTodo)
+        try {
+          const success = await todoApi.toggleTodoCompleted(draggedTodo.id)
+          if (success) {
+            // 更新本地状态
+            draggedTodo.completed = true
+            draggedTodo.updatedAt = new Date().toISOString()
+            console.log('任务状态更新成功:', draggedTodo)
+          } else {
+            console.error('任务状态更新失败')
+            // 重新加载数据以恢复正确状态
+            await loadTodos()
           }
+        } catch (error) {
+          console.error('切换任务状态失败:', error)
+          // 重新加载数据以恢复正确状态
+          await loadTodos()
         }
-      } catch (error) {
-        console.error('切换任务状态失败:', error)
       }
     }
   } else {
@@ -360,24 +378,42 @@ const onActiveDragEnd = async (event: any) => {
 }
 
 const onCompletedDragEnd = async (event: any) => {
-  const {oldIndex, to} = event
+  const {oldIndex, newIndex, to, from, item} = event
+
+  console.log('已完成任务拖拽事件详情:', {
+    oldIndex,
+    newIndex,
+    to: to?.className,
+    from: from?.className,
+    item: item?.textContent?.trim()
+  })
 
   // 如果拖拽到待办列表
   if (to.classList.contains('active-list')) {
-    const draggedTodo = completedTodos.value[oldIndex]
-    if (draggedTodo) {
-      try {
-        const success = await todoApi.toggleTodoCompleted(draggedTodo.id)
-        if (success) {
-          // 更新本地状态
-          const originalTodo = todos.value.find(t => t.id === draggedTodo.id)
-          if (originalTodo) {
-            originalTodo.completed = false
-            originalTodo.updatedAt = new Date().toISOString()
+    // 使用更可靠的方式获取被拖拽的任务
+    // 从 DOM 元素中获取任务 ID
+    const taskId = item?.getAttribute('data-task-id')
+    if (taskId) {
+      const draggedTodo = todos.value.find(t => t.id === parseInt(taskId))
+      if (draggedTodo && draggedTodo.completed) {
+        console.log('拖拽已完成任务到待办列表:', draggedTodo)
+        try {
+          const success = await todoApi.toggleTodoCompleted(draggedTodo.id)
+          if (success) {
+            // 更新本地状态
+            draggedTodo.completed = false
+            draggedTodo.updatedAt = new Date().toISOString()
+            console.log('任务状态更新成功:', draggedTodo)
+          } else {
+            console.error('任务状态更新失败')
+            // 重新加载数据以恢复正确状态
+            await loadTodos()
           }
+        } catch (error) {
+          console.error('切换任务状态失败:', error)
+          // 重新加载数据以恢复正确状态
+          await loadTodos()
         }
-      } catch (error) {
-        console.error('切换任务状态失败:', error)
       }
     }
   }
@@ -661,6 +697,7 @@ onUnmounted(() => {
                   <div
                     v-for="todo in activeTodos"
                     :key="todo.id"
+                    :data-task-id="todo.id"
                     class="todo-item active-item draggable-item"
                   >
                     <!-- 任务内容 -->
@@ -739,6 +776,7 @@ onUnmounted(() => {
                   <div
                     v-for="todo in completedTodos"
                     :key="todo.id"
+                    :data-task-id="todo.id"
                     class="todo-item completed-item draggable-item"
                   >
                     <!-- 任务内容 -->
