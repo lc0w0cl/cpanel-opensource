@@ -197,12 +197,16 @@ const handleKeydown = (event: KeyboardEvent) => {
               <Icon icon="mdi:lock" class="icon" />
             </div>
             <input
+              id="admin-password"
+              name="password"
               v-model="password"
               :type="showPassword ? 'text' : 'password'"
               class="password-input"
               placeholder="请输入密码"
+              autocomplete="current-password"
               @keydown="handleKeydown"
               :disabled="isLoading"
+              aria-label="管理员密码"
             />
             <button
               type="button"

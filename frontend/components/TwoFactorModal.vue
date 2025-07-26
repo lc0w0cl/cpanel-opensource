@@ -34,40 +34,60 @@
           </button>
         </div>
         
-        <div v-if="activeTab === 'totp'" class="auth-input-section">
-          <label>请输入认证器应用中的6位数字代码：</label>
-          <div class="verification-input">
-            <input 
-              v-model="verificationCode" 
-              type="text" 
-              placeholder="000000"
-              maxlength="6"
-              @input="formatVerificationCode"
-              @keyup.enter="handleVerify"
-              :disabled="isVerifying"
-              ref="totpInput"
-            />
+        <!-- 使用表单结构以支持密码管理器 -->
+        <form @submit.prevent="handleVerify" class="auth-form">
+          <div v-if="activeTab === 'totp'" class="auth-input-section">
+            <label for="totp-code">请输入认证器应用中的6位数字代码：</label>
+            <div class="verification-input">
+              <input
+                id="totp-code"
+                name="totp-code"
+                v-model="verificationCode"
+                type="text"
+                placeholder="000000"
+                maxlength="6"
+                autocomplete="one-time-code"
+                inputmode="numeric"
+                pattern="[0-9]*"
+                @input="formatVerificationCode"
+                @keyup.enter="handleVerify"
+                :disabled="isVerifying"
+                ref="totpInput"
+                aria-label="双因素认证代码"
+                aria-describedby="totp-description"
+              />
+            </div>
+            <p id="totp-description" class="input-description">
+              请输入您的认证器应用（如 Google Authenticator、Authy 等）中显示的6位数字代码
+            </p>
           </div>
-        </div>
-        
-        <div v-if="activeTab === 'backup'" class="auth-input-section">
-          <label>请输入8位恢复代码：</label>
-          <div class="verification-input">
-            <input 
-              v-model="backupCode" 
-              type="text" 
-              placeholder="12345678"
-              maxlength="8"
-              @input="formatBackupCode"
-              @keyup.enter="handleVerify"
-              :disabled="isVerifying"
-              ref="backupInput"
-            />
+
+          <div v-if="activeTab === 'backup'" class="auth-input-section">
+            <label for="backup-code">请输入8位恢复代码：</label>
+            <div class="verification-input">
+              <input
+                id="backup-code"
+                name="backup-code"
+                v-model="backupCode"
+                type="text"
+                placeholder="12345678"
+                maxlength="8"
+                autocomplete="one-time-code"
+                inputmode="numeric"
+                pattern="[0-9]*"
+                @input="formatBackupCode"
+                @keyup.enter="handleVerify"
+                :disabled="isVerifying"
+                ref="backupInput"
+                aria-label="备用恢复代码"
+                aria-describedby="backup-description"
+              />
+            </div>
+            <p id="backup-description" class="backup-note">
+              恢复代码只能使用一次，使用后将失效
+            </p>
           </div>
-          <p class="backup-note">
-            恢复代码只能使用一次，使用后将失效
-          </p>
-        </div>
+        </form>
         
         <div v-if="error" class="error-message">
           <Icon icon="mdi:alert-circle" />
@@ -299,6 +319,11 @@ watch(activeTab, async () => {
   color: #374151;
 }
 
+/* 表单样式 */
+.auth-form {
+  width: 100%;
+}
+
 /* 输入区域 */
 .auth-input-section {
   margin-bottom: 1.5rem;
@@ -336,11 +361,20 @@ watch(activeTab, async () => {
   cursor: not-allowed;
 }
 
+.input-description {
+  font-size: 0.8rem;
+  color: #6b7280;
+  margin-top: 0.5rem;
+  text-align: center;
+  line-height: 1.4;
+}
+
 .backup-note {
   font-size: 0.8rem;
   color: #f59e0b;
   margin-top: 0.5rem;
   text-align: center;
+  line-height: 1.4;
 }
 
 /* 错误消息 */
