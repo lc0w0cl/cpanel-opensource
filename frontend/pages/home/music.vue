@@ -234,28 +234,35 @@ const isCurrentAllSelected = computed(() => {
   return currentResults.every(item => selectedResults.value.has(item.id))
 })
 
-// 计算属性：验证URL有效性
-const isValidUrl = computed(() => {
-  if (searchType.value === 'keyword') return true
-  const url = currentSearchQuery.value.trim()
+// isValidUrl 计算属性已移除，改为自动识别
 
-  if (searchType.value === 'url') {
-    return url.includes('bilibili.com') || url.includes('youtube.com') || url.includes('youtu.be')
+// 自动识别输入类型
+const detectInputType = (input: string): 'keyword' | 'url' | 'playlist' => {
+  const trimmedInput = input.trim()
+
+  // 检测歌单链接
+  if (trimmedInput.includes('y.qq.com') || trimmedInput.includes('music.163.com')) {
+    return 'playlist'
   }
 
-  if (searchType.value === 'playlist') {
-    return url.includes('y.qq.com') || url.includes('music.163.com')
+  // 检测视频链接
+  if (trimmedInput.includes('bilibili.com') || trimmedInput.includes('youtube.com') || trimmedInput.includes('youtu.be')) {
+    return 'url'
   }
 
-  return true
-})
+  // 默认为关键词搜索
+  return 'keyword'
+}
 
 // 搜索方法
 const handleSearch = async () => {
   if (!currentSearchQuery.value.trim()) return
 
+  // 自动识别输入类型
+  const detectedType = detectInputType(currentSearchQuery.value)
+
   // 如果是歌单解析，调用歌单解析方法
-  if (searchType.value === 'playlist') {
+  if (detectedType === 'playlist') {
     await handlePlaylistParse()
     return
   }
@@ -267,7 +274,7 @@ const handleSearch = async () => {
     // 构建搜索请求
     const searchRequest = {
       query: currentSearchQuery.value.trim(),
-      searchType: searchType.value,
+      searchType: detectedType,
       platform: platform.value,
       page: 1,
       pageSize: 20
@@ -1144,44 +1151,31 @@ const getDownloadButtonTitle = (result: MusicSearchResult) => {
   return '立即下载'
 }
 
-// 获取搜索占位符文本
-const getSearchPlaceholder = () => {
-  switch (searchType.value) {
-    case 'keyword':
-      return '输入歌曲名称、歌手或关键词...'
-    case 'url':
-      return '粘贴视频链接...'
-    case 'playlist':
-      return '粘贴歌单链接...'
-    default:
-      return '输入搜索内容...'
-  }
+// getSearchPlaceholder 函数已移除，改为固定占位符文本
+
+// 获取当前检测到的输入类型
+const getDetectedType = () => {
+  if (!currentSearchQuery.value.trim()) return 'keyword'
+  return detectInputType(currentSearchQuery.value)
 }
 
 // 获取搜索按钮文本
 const getSearchButtonText = () => {
-  if (isSearching.value) return '搜索中...'
+  if (currentSearching.value) return '搜索中...'
   if (isParsingPlaylist.value) return '解析中...'
 
-  switch (searchType.value) {
+  const detectedType = getDetectedType()
+  switch (detectedType) {
     case 'playlist':
       return '解析歌单'
+    case 'url':
+      return '下载链接'
     default:
       return '搜索'
   }
 }
 
-// 获取URL提示文本
-const getUrlHintText = () => {
-  switch (searchType.value) {
-    case 'url':
-      return '请输入有效的哔哩哔哩或YouTube链接'
-    case 'playlist':
-      return '请输入有效的QQ音乐或网易云音乐歌单链接'
-    default:
-      return '请输入有效的链接'
-  }
-}
+// getUrlHintText 函数已移除，改为自动识别
 
 // 检查下载队列中是否有歌单歌曲
 const hasPlaylistSongs = computed(() => {
@@ -1858,38 +1852,7 @@ const toggleCurrentSelectAll = () => {
   }
 }
 
-// 自定义搜索类型切换函数
-const handleSearchTypeChange = (type: 'keyword' | 'url' | 'playlist') => {
-  // 如果从歌单模式切换到其他模式，只清理自动匹配相关状态，保留歌单信息
-  if (searchType.value === 'playlist' && type !== 'playlist') {
-    isAutoMatching.value = false
-    matchingProgress.value = {}
-    matchingError.value = ''
-    playlistFilter.value = '' // 清空过滤器
-    // 注意：不清空歌单信息，让用户可以在不同搜索模式间切换
-    // setPlaylistInfo(null)  // 已注释掉
-    // playlistError.value = ''  // 已注释掉
-  }
-
-  // 如果切换到歌单模式，清空过滤器
-  if (type === 'playlist') {
-    playlistFilter.value = ''
-  }
-
-  // 清空选中的结果（因为不同搜索类型的结果不同）
-  if (selectedResults.value.size > 0) {
-    // 获取所有选中的ID并逐个取消选择
-    const selectedIds = Array.from(selectedResults.value)
-    selectedIds.forEach(id => {
-      if (selectedResults.value.has(id)) {
-        toggleSelection(id)
-      }
-    })
-  }
-
-  // 设置新的搜索类型
-  setSearchType(type)
-}
+// handleSearchTypeChange 函数已移除，改为自动识别输入类型
 
 // 切换下载抽屉
 const toggleDownloadDrawer = () => {
@@ -1981,11 +1944,7 @@ onUnmounted(() => {
             <Icon icon="mdi:music-note-plus" class="card-icon" />
             <h3 class="card-title">搜索音乐</h3>
             <p class="card-subtitle flex items-center">
-              <span>支持关键词搜索和直链下载</span>
-              <span  v-if="searchType === 'playlist'" class="playlist-hint ml-2">
-                 <Icon icon="mdi:information" class="hint-icon" />
-                <span>支持QQ音乐和网易云音乐歌单链接</span>
-              </span>
+              <span>支持关键词搜索、直链下载和歌单解析，自动识别输入类型</span>
             </p>
             <!-- 歌单解析提示 -->
 
@@ -1994,29 +1953,7 @@ onUnmounted(() => {
 
             <!-- 搜索类型选择和操作按钮 -->
             <div class="search-type-tabs">
-              <div class="tab-buttons">
-                <button
-                    @click="handleSearchTypeChange('keyword')"
-                    :class="['tab-btn', { active: searchType === 'keyword' }]"
-                >
-                  <Icon icon="mdi:magnify" />
-                  关键词搜索
-                </button>
-                <button
-                    @click="handleSearchTypeChange('url')"
-                    :class="['tab-btn', { active: searchType === 'url' }]"
-                >
-                  <Icon icon="mdi:link" />
-                  链接下载
-                </button>
-                <button
-                    @click="handleSearchTypeChange('playlist')"
-                    :class="['tab-btn', { active: searchType === 'playlist' }]"
-                >
-                  <Icon icon="mdi:playlist-music" />
-                  歌单解析
-                </button>
-              </div>
+              <!-- 搜索类型按钮已移除，改为自动识别 -->
 
               <div class="tab-actions">
                 <button
@@ -2028,14 +1965,7 @@ onUnmounted(() => {
                   <Icon icon="mdi:download-multiple" class="btn-icon" />
                   下载队列 ({{ downloadQueue.length }})
                 </button>
-                <button
-                    v-if="currentHasResults"
-                    @click="clearCurrentSearchResults"
-                    class="clear-btn"
-                >
-                  <Icon icon="mdi:broom" class="btn-icon" />
-                  清空结果
-                </button>
+
               </div>
             </div>
           </div>
@@ -2043,8 +1973,8 @@ onUnmounted(() => {
           <div class="card-content">
 
 
-            <!-- 平台选择 -->
-            <div v-if="searchType === 'keyword'" class="platform-selection">
+            <!-- 平台选择 - 当检测到关键词搜索时显示 -->
+            <div v-if="getDetectedType() === 'keyword'" class="platform-selection">
               <label class="platform-label">搜索平台：</label>
               <div class="platform-buttons">
                 <button
@@ -2079,24 +2009,33 @@ onUnmounted(() => {
                   @input="updateCurrentSearchQuery($event.target.value)"
                   @keyup.enter="handleSearch"
                   type="text"
-                  :placeholder="getSearchPlaceholder()"
+                  placeholder="输入歌曲名、歌手名、音乐链接或歌单链接..."
                   class="search-input"
-                  :class="{ invalid: !isValidUrl }"
                 />
                 <button
                   @click="handleSearch"
-                  :disabled="!currentSearchQuery.trim() || !isValidUrl || currentSearching"
+                  :disabled="!currentSearchQuery.trim() || currentSearching"
                   class="search-btn"
                 >
                   <Icon v-if="currentSearching" icon="mdi:loading" class="spin btn-icon" />
-                  <Icon v-else-if="searchType === 'playlist'" icon="mdi:playlist-music" class="btn-icon" />
+                  <Icon v-else-if="getDetectedType() === 'playlist'" icon="mdi:playlist-music" class="btn-icon" />
+                  <Icon v-else-if="getDetectedType() === 'url'" icon="mdi:link" class="btn-icon" />
                   <Icon v-else icon="mdi:magnify" class="btn-icon" />
                   {{ getSearchButtonText() }}
                 </button>
 
-                <!-- 歌单历史记录按钮 - 只在歌单模式下显示 -->
+
                 <button
-                  v-if="searchType === 'playlist'"
+                    v-if="currentHasResults"
+                    @click="clearCurrentSearchResults"
+                    class="clear-btn"
+                >
+                  <Icon icon="mdi:broom" class="btn-icon" />
+                  清空结果
+                </button>
+
+                <!-- 歌单历史记录按钮 - 始终显示，随时可以查看历史歌单 -->
+                <button
                   @click="togglePlaylistHistory"
                   class="history-btn-inline"
                   title="歌单历史记录"
@@ -2107,11 +2046,7 @@ onUnmounted(() => {
                 </button>
               </div>
 
-              <!-- URL验证提示 -->
-              <div v-if="currentSearchQuery && !isValidUrl" class="url-hint">
-                <Icon icon="mdi:alert-circle" class="hint-icon" />
-                <span>{{ getUrlHintText() }}</span>
-              </div>
+              <!-- URL验证提示已移除，改为自动识别 -->
 
 
               <!-- 搜索错误提示 -->
@@ -2133,7 +2068,7 @@ onUnmounted(() => {
               </div>
 
               <!-- 歌单历史记录展示区域 -->
-              <div v-if="showPlaylistHistory && searchType === 'playlist'" class="playlist-history-section">
+              <div v-if="showPlaylistHistory" class="playlist-history-section">
                 <div class="history-section-header">
                   <div class="history-section-title">
                     <Icon icon="mdi:history" class="history-section-icon" />
@@ -2202,12 +2137,12 @@ onUnmounted(() => {
           <div class="card-header">
             <Icon icon="mdi:playlist-music" class="card-icon" />
             <div class="card-title-section">
-              <h3 class="card-title">{{ searchType === 'playlist' && playlistInfo ? '歌单歌曲' : '搜索结果' }}</h3>
-              <p class="card-subtitle">{{ searchType === 'playlist' && playlistInfo ? `共 ${filteredPlaylistResults.length} 首歌曲${playlistFilter ? ` (过滤自 ${currentSearchResults.length} 首)` : ''}` : `找到 ${currentSearchResults.length} 个结果` }}</p>
+              <h3 class="card-title">{{ getDetectedType() === 'playlist' && playlistInfo ? '歌单歌曲' : '搜索结果' }}</h3>
+              <p class="card-subtitle">{{ getDetectedType() === 'playlist' && playlistInfo ? `共 ${filteredPlaylistResults.length} 首歌曲${playlistFilter ? ` (过滤自 ${currentSearchResults.length} 首)` : ''}` : `找到 ${currentSearchResults.length} 个结果` }}</p>
             </div>
 
             <!-- 歌单信息 - 只在歌单解析模式下显示 -->
-            <div v-if="playlistInfo && searchType === 'playlist'" class="playlist-info-inline">
+            <div v-if="playlistInfo && getDetectedType() === 'playlist'" class="playlist-info-inline">
               <div class="playlist-cover-small">
                 <img :src="processImageUrl(playlistInfo.cover)" :alt="playlistInfo.title" class="cover-img-small" />
                 <div class="platform-badge-small" :class="playlistInfo.source">
@@ -2316,7 +2251,7 @@ onUnmounted(() => {
           <div class="card-content">
             <div class="results-grid">
               <div
-                v-for="result in (searchType === 'playlist' ? filteredPlaylistResults : currentSearchResults)"
+                v-for="result in (getDetectedType() === 'playlist' ? filteredPlaylistResults : currentSearchResults)"
                 :key="result.id"
                 class="result-card"
                 :class="{
