@@ -163,10 +163,8 @@ const initTerminal = async (sessionId: string, containerElement: HTMLElement, re
       sendCommand(data, sessionId)
       // 不在本地显示任何内容，完全依赖服务器的响应
     } else {
-      // 未连接时，显示提示信息
-      if (data === '\r') {
-        terminal.write('\r\n请在左侧服务器列表中选择要连接的服务器。\r\n')
-      }
+      // 未连接时，不显示任何内容，保持终端清空状态
+      // 用户应该通过左侧服务器列表进行连接
     }
   })
 
@@ -175,8 +173,8 @@ const initTerminal = async (sessionId: string, containerElement: HTMLElement, re
     // 恢复会话时，重新显示所有历史输出
     restoreTerminalContent(sessionId, terminal)
   } else {
-    // 新会话时，显示欢迎信息
-    showWelcomeMessage(sessionId)
+    // 新会话时，保持终端清空状态，等待服务器输出
+    terminal.clear()
   }
 
   // 如果这是当前活动会话，自动聚焦终端
@@ -228,22 +226,8 @@ const getServerIconColor = (iconName: string) => {
   return colorMap[iconName] || 'text-gray-300'
 }
 
-// 显示欢迎信息
-const showWelcomeMessage = (sessionId?: string) => {
-  const terminal = sessionId ? terminals.value.get(sessionId) : null
-  if (!terminal) return
-
-  terminal.clear()
-  terminal.writeln('╔══════════════════════════════════════════════════════════════╗')
-  terminal.writeln('║                    服务器连接管理系统                        ║')
-  terminal.writeln('╚══════════════════════════════════════════════════════════════╝')
-  terminal.writeln('')
-  terminal.writeln('欢迎使用服务器连接管理系统！')
-  terminal.writeln('')
-  terminal.writeln('请在左侧服务器列表中点击要连接的服务器。')
-  terminal.writeln('连接成功后，您将获得完整的终端访问权限。')
-  terminal.writeln('')
-}
+// 显示欢迎信息函数已移除
+// 连接成功后，终端内容完全由服务器控制，不再显示本地欢迎信息
 
 // 恢复终端内容
 const restoreTerminalContent = (sessionId: string, terminal: Terminal) => {
@@ -265,9 +249,9 @@ const restoreTerminalContent = (sessionId: string, terminal: Terminal) => {
     // 更新已处理的输出数量
     processedOutputCounts.value.set(sessionId, session.terminalOutput.length)
   } else {
-    // 如果会话未连接，显示连接状态信息
-    terminal.writeln(`会话 ${session.server.name} (${session.server.host}:${session.server.port})`)
-    terminal.writeln('连接已断开，请重新连接。')
+    // 如果会话未连接，显示简洁的断开信息
+    terminal.writeln(`连接已断开 - ${session.server.name} (${session.server.host}:${session.server.port})`)
+    terminal.writeln('请重新连接以继续使用。')
     terminal.writeln('')
   }
 }
@@ -323,9 +307,8 @@ const performServerConnection = async (server: ServerConnection) => {
 
         const terminal = terminals.value.get(sessionId)
         if (terminal) {
+          // 连接成功后清空终端，等待服务器输出
           terminal.clear()
-          terminal.writeln(`正在连接到 ${server.name} (${server.host}:${server.port})...`)
-          terminal.writeln('')
 
           // 连接成功后自动聚焦终端
           nextTick(() => {
@@ -432,7 +415,8 @@ const handleClearTerminal = (sessionId?: string) => {
       // 发送clear命令给服务器，让服务器处理
       sendCommand('clear\r', targetSessionId)
     } else {
-      showWelcomeMessage(targetSessionId)
+      // 未连接时，只清空终端，不显示任何内容
+      terminal.clear()
     }
   }
 }
@@ -489,6 +473,11 @@ watch(() => terminalState.sessions, (sessions) => {
     if (terminal && session.terminalOutput.length > 0) {
       const processedCount = processedOutputCounts.value.get(sessionId) || 0
       const newOutputs = session.terminalOutput.slice(processedCount)
+
+      // 如果这是第一次收到服务器输出，清除欢迎信息
+      if (processedCount === 0 && newOutputs.length > 0 && session.isConnected) {
+        terminal.clear()
+      }
 
       newOutputs.forEach(output => {
         if (typeof output === 'object' && output.type === 'output') {
