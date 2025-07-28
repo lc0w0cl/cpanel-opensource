@@ -793,16 +793,28 @@
   margin-bottom: 1.5rem;
 }
 
-.search-input-wrapper {
+.music-search-input-wrapper {
+  position: relative;
   display: flex;
   gap: 0.75rem;
   align-items: center;
   margin-bottom: 0.75rem;
 }
 
-.search-input {
+.music-search-icon {
+  position: absolute;
+  left: 1rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 1.25rem;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.music-search-input {
   flex: 1;
-  padding: 0.875rem 1rem;
+  padding: 0.875rem 1rem 0.875rem 3rem;
   border-radius: 0.5rem;
   border: 1px solid rgba(255, 255, 255, 0.2);
   background: linear-gradient(135deg,
@@ -816,11 +828,11 @@
   -webkit-backdrop-filter: blur(10px);
 }
 
-.search-input::placeholder {
+.music-search-input::placeholder {
   color: rgba(255, 255, 255, 0.4);
 }
 
-.search-input:focus {
+.music-search-input:focus {
   outline: none;
   border-color: rgba(255, 255, 255, 0.5);
   background: linear-gradient(135deg,
@@ -830,11 +842,16 @@
   box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.1);
 }
 
-.search-input.invalid {
+.music-search-input:focus ~ .music-search-icon,
+.music-search-input:not(:placeholder-shown) ~ .music-search-icon {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.music-search-input.invalid {
   border-color: rgba(239, 68, 68, 0.5);
 }
 
-.search-input.invalid:focus {
+.music-search-input.invalid:focus {
   border-color: rgba(239, 68, 68, 0.5);
   box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1);
 }
@@ -2044,7 +2061,7 @@
     gap: 0.75rem;
   }
 
-  .search-input-wrapper {
+  .music-search-input-wrapper {
     flex-direction: column;
     gap: 0.75rem;
   }
@@ -3347,9 +3364,19 @@
 
 /* 响应式样式 - 移动设备 */
 @media (max-width: 768px) {
-  .search-input-wrapper {
+  .music-search-input-wrapper {
     flex-direction: column;
     gap: 0.75rem;
+  }
+
+  .music-search-icon {
+    left: 0.75rem;
+    font-size: 1.125rem;
+  }
+
+  .music-search-input {
+    padding: 0.75rem 0.75rem 0.75rem 2.5rem;
+    font-size: 0.9rem;
   }
 
   .history-btn-inline {

@@ -2003,15 +2003,16 @@ onUnmounted(() => {
 
             <!-- 搜索输入框 -->
             <div class="search-input-section">
-              <div class="search-input-wrapper">
+              <div class="music-search-input-wrapper">
                 <input
                   :value="currentSearchQuery"
                   @input="updateCurrentSearchQuery($event.target.value)"
                   @keyup.enter="handleSearch"
                   type="text"
                   placeholder="输入歌曲名、歌手名、音乐链接或歌单链接..."
-                  class="search-input"
+                  class="music-search-input"
                 />
+                <Icon icon="mdi:magnify" class="music-search-icon" />
                 <button
                   @click="handleSearch"
                   :disabled="!currentSearchQuery.trim() || currentSearching"
