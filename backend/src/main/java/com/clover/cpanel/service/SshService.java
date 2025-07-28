@@ -11,6 +11,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.io.*;
+import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -137,8 +138,9 @@ public class SshService {
             Session session = sshClient.startSession();
             log.info("SSH会话创建成功");
 
+
             // 分配PTY并启动Shell
-            session.allocateDefaultPTY();
+            session.allocatePTY("xterm", 80, 24, 0, 0, Collections.emptyMap());
             Shell shell = session.startShell();
             log.info("SSH Shell启动成功");
 
