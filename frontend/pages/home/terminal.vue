@@ -463,8 +463,6 @@ watch([isLoading, servers], ([loading, serverList], [prevLoading, prevServerList
 const processedOutputCounts = ref<Map<string, number>>(new Map())
 // 跟踪每个会话是否有未读输出
 const hasUnreadOutput = ref<Map<string, boolean>>(new Map())
-// 定时器用于更新活动时间显示
-const activityUpdateTimer = ref<NodeJS.Timeout | null>(null)
 
 // 监听终端会话变化，将SSH输出显示到对应的xterm
 watch(() => terminalState.sessions, (sessions) => {
@@ -568,12 +566,6 @@ onMounted(async () => {
   // 监听键盘快捷键
   window.addEventListener('keydown', handleKeyDown)
 
-  // 启动活动时间更新定时器
-  activityUpdateTimer.value = setInterval(() => {
-    // 强制更新组件以刷新活动时间显示
-    // 这里我们不需要做任何事，Vue的响应式系统会自动更新
-  }, 30000) // 每30秒更新一次
-
   // 恢复现有的终端会话（如果有的话）
   const sessions = getAllSessions()
   if (sessions.length > 0) {
@@ -625,11 +617,6 @@ onUnmounted(() => {
 
   window.removeEventListener('resize', handleResize)
   window.removeEventListener('keydown', handleKeyDown)
-
-  // 清理定时器
-  if (activityUpdateTimer.value) {
-    clearInterval(activityUpdateTimer.value)
-  }
 
   // 注意：不再自动断开所有连接，让全局状态管理器处理
   // disconnectAllSessions()
@@ -704,19 +691,7 @@ const getTabTitle = (session: any) => {
   return `${session.server.name} (${session.server.host})`
 }
 
-const getTabSubtitle = (session: any) => {
-  if (session.isConnected) {
-    const duration = Math.floor((Date.now() - session.lastActivity.getTime()) / 1000)
-    if (duration < 60) {
-      return `活动 ${duration}s 前`
-    } else if (duration < 3600) {
-      return `活动 ${Math.floor(duration / 60)}m 前`
-    } else {
-      return `活动 ${Math.floor(duration / 3600)}h 前`
-    }
-  }
-  return '未连接'
-}
+// getTabSubtitle 函数已移除，不再显示活动时间
 
 const getTabIcon = (session: any) => {
   return session.server.icon
@@ -938,7 +913,6 @@ const setTerminalContainer = (sessionId: string, element: HTMLElement | null) =>
                 <Icon :icon="getTabIcon(session)" class="tab-icon" />
                 <div class="tab-info">
                   <span class="tab-title">{{ getTabTitle(session) }}</span>
-                  <span class="tab-subtitle">{{ getTabSubtitle(session) }}</span>
                 </div>
                 <div class="tab-status">
                   <Icon

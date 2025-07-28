@@ -758,15 +758,7 @@
   line-height: 1.2;
 }
 
-.tab-subtitle {
-  font-size: 11px;
-  color: rgba(255, 255, 255, 0.6);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  line-height: 1.2;
-  margin-top: 2px;
-}
+/* .tab-subtitle 样式已移除，不再显示活动时间 */
 
 .tab-status .status-icon {
   width: 12px;
