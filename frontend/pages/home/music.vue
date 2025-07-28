@@ -1155,6 +1155,7 @@ const getDownloadButtonTitle = (result: MusicSearchResult) => {
 
 // 获取当前检测到的输入类型
 const getDetectedType = () => {
+  // 直接基于当前显示的搜索查询内容进行检测
   if (!currentSearchQuery.value.trim()) return 'keyword'
   return detectInputType(currentSearchQuery.value)
 }
