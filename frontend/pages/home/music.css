@@ -636,7 +636,6 @@
 .card-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   padding: 1rem 1.5rem;
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
   flex-wrap: wrap;
@@ -647,18 +646,15 @@
   width: 1.5rem;
   height: 1.5rem;
   color: rgba(255, 255, 255, 0.9);
-  margin-right: 1rem;
 }
 
-.card-title-section {
-  min-width: 0;
-}
+/* .card-title-section 已移除，标题和副标题现在直接在header中 */
 
 .card-title {
   font-size: 1.1rem;
   font-weight: 600;
   color: rgba(255, 255, 255, 0.9);
-  margin: 0 0 0.25rem 0;
+  margin: 0;
 }
 
 .card-subtitle {
@@ -683,7 +679,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 1.5rem;
+  /*margin-bottom: 1.5rem;*/
   gap: 1rem;
 }
 
@@ -2032,9 +2028,9 @@
   }
 
   .card-header {
-    flex-direction: column;
+    flex-wrap: wrap;
     align-items: flex-start;
-    gap: 1rem;
+    gap: 0.5rem;
   }
 
   .header-actions {
