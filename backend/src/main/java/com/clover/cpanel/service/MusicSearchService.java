@@ -13,13 +13,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.OutputStream;
+import java.io.*;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -2195,6 +2189,8 @@ public class MusicSearchService {
             command.add("yt-dlp");
             command.add("--no-playlist");       // 不处理播放列表
             command.add("--no-warnings");       // 减少警告输出
+            command.add("--prefer-ffmpeg");     // 优先使用ffmpeg进行后处理
+            command.add("--embed-metadata");    // 嵌入元数据
 
             // 添加cookie支持
             if (cookieValue != null && !cookieValue.trim().isEmpty()) {
@@ -2220,9 +2216,13 @@ public class MusicSearchService {
                 if (isMerged != null && isMerged) {
                     // 合并下载：下载最佳音频和视频并合并
                     command.add("--format");
-                    command.add("bestvideo+bestaudio/best");
+                    // 使用更好的格式选择策略，优先选择mp4容器的高质量流
+                    command.add("bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best[ext=mp4]/best");
                     // 确保输出为mp4格式
                     command.add("--merge-output-format");
+                    command.add("mp4");
+                    // 添加重新编码选项以确保兼容性
+                    command.add("--recode-video");
                     command.add("mp4");
                     log.info("使用合并格式流式下载: 最佳音频+视频 -> MP4");
                 } else if (formatId != null && !formatId.isEmpty()) {
@@ -2248,9 +2248,24 @@ public class MusicSearchService {
                 log.info("未指定格式，使用最佳音频格式");
             }
 
-            // 直接输出到stdout，让我们可以读取并写入到响应流
-            command.add("--output");
-            command.add("-");  // 输出到stdout
+            // 检查是否需要合并下载
+            boolean needsMerging = selectedFormat != null &&
+                                 Boolean.TRUE.equals(selectedFormat.get("isMerged"));
+
+            String tempFileName = null;
+            if (needsMerging) {
+                // 合并下载需要使用临时文件，不能直接输出到stdout
+                // 创建临时文件路径
+                tempFileName = "temp_download_" + System.currentTimeMillis();
+                command.add("--output");
+                command.add(tempFileName + ".%(ext)s");
+                log.info("合并下载使用临时文件: {}", tempFileName);
+            } else {
+                // 非合并下载可以直接输出到stdout
+                command.add("--output");
+                command.add("-");  // 输出到stdout
+                log.info("使用流式输出到stdout");
+            }
 
             // 添加视频URL
             command.add(videoUrl);
@@ -2307,23 +2322,30 @@ public class MusicSearchService {
             });
             stderrReaderThread.start();
 
-            // 将yt-dlp的输出流直接传输到响应流
-            try (InputStream inputStream = process.getInputStream()) {
-                byte[] buffer = new byte[8192]; // 8KB缓冲区
-                int bytesRead;
-                long totalBytes = 0;
+            // 根据是否需要合并来处理输出
+            if (needsMerging) {
+                // 合并下载：等待下载完成后再传输文件
+                log.info("等待合并下载完成...");
+                // 这里不读取stdout，因为输出到了文件
+            } else {
+                // 非合并下载：直接传输stdout流
+                try (InputStream inputStream = process.getInputStream()) {
+                    byte[] buffer = new byte[8192]; // 8KB缓冲区
+                    int bytesRead;
+                    long totalBytes = 0;
 
-                while ((bytesRead = inputStream.read(buffer)) != -1) {
-                    outputStream.write(buffer, 0, bytesRead);
-                    outputStream.flush(); // 确保数据立即发送
-                    totalBytes += bytesRead;
+                    while ((bytesRead = inputStream.read(buffer)) != -1) {
+                        outputStream.write(buffer, 0, bytesRead);
+                        outputStream.flush(); // 确保数据立即发送
+                        totalBytes += bytesRead;
 
-                    if (totalBytes % (1024 * 1024) == 0) { // 每1MB记录一次
-                        log.debug("已传输 {} MB", totalBytes / (1024 * 1024));
+                        if (totalBytes % (1024 * 1024) == 0) { // 每1MB记录一次
+                            log.debug("已传输 {} MB", totalBytes / (1024 * 1024));
+                        }
                     }
-                }
 
-                log.info("流式下载完成，总共传输: {} bytes", totalBytes);
+                    log.info("流式下载完成，总共传输: {} bytes", totalBytes);
+                }
             }
 
             // 等待进程完成
@@ -2333,8 +2355,13 @@ public class MusicSearchService {
             stderrReaderThread.join(5000); // 最多等待5秒
 
             if (exitCode == 0) {
-                log.info("yt-dlp流式下载成功完成");
-                return true;
+                if (needsMerging) {
+                    // 合并下载完成后，需要找到生成的文件并传输
+                    return transferMergedFile(outputStream, tempFileName);
+                } else {
+                    log.info("yt-dlp流式下载成功完成");
+                    return true;
+                }
             } else {
                 log.error("yt-dlp流式下载失败，退出码: {}", exitCode);
                 return false;
@@ -2357,6 +2384,70 @@ public class MusicSearchService {
     }
 
     /**
+     * 传输合并下载的临时文件到输出流
+     */
+    private boolean transferMergedFile(OutputStream outputStream, String tempFileName) {
+        try {
+            // 查找生成的临时文件
+            File currentDir = new File(".");
+            File[] files = currentDir.listFiles((dir, name) ->
+                name.startsWith(tempFileName) &&
+                (name.endsWith(".mp4") || name.endsWith(".mkv") || name.endsWith(".webm")));
+
+            if (files == null || files.length == 0) {
+                log.error("未找到合并下载的临时文件: {}", tempFileName);
+                return false;
+            }
+
+            // 通常只会有一个文件，取第一个
+            File tempFile = files[0];
+
+            if (!tempFile.exists()) {
+                log.error("临时文件不存在: {}", tempFile.getName());
+                return false;
+            }
+
+            log.info("开始传输合并文件: {}, 大小: {} bytes", tempFile.getName(), tempFile.length());
+
+            // 传输文件内容到输出流
+            try (FileInputStream fileInputStream = new FileInputStream(tempFile)) {
+                byte[] buffer = new byte[8192];
+                int bytesRead;
+                long totalBytes = 0;
+
+                while ((bytesRead = fileInputStream.read(buffer)) != -1) {
+                    outputStream.write(buffer, 0, bytesRead);
+                    outputStream.flush();
+                    totalBytes += bytesRead;
+
+                    if (totalBytes % (1024 * 1024) == 0) {
+                        log.debug("已传输 {} MB", totalBytes / (1024 * 1024));
+                    }
+                }
+
+                log.info("合并文件传输完成，总共传输: {} bytes", totalBytes);
+            }
+
+            // 清理临时文件
+            try {
+                if (tempFile.delete()) {
+                    log.info("临时文件清理成功: {}", tempFile.getName());
+                } else {
+                    log.warn("临时文件清理失败: {}", tempFile.getName());
+                }
+            } catch (Exception e) {
+                log.warn("清理临时文件时发生错误: {}", tempFile.getName(), e);
+            }
+
+            return true;
+
+        } catch (Exception e) {
+            log.error("传输合并文件时发生错误", e);
+            return false;
+        }
+    }
+
+    /**
      * 使用yt-dlp下载音频到服务器
      */
     public boolean downloadAudioWithYtDlp(String videoUrl, String platform, Map<String, Object> selectedFormat, Path outputPath) {
@@ -2372,6 +2463,8 @@ public class MusicSearchService {
             command.add("yt-dlp");
             command.add("--no-playlist");       // 不处理播放列表
             command.add("--no-warnings");       // 减少警告输出
+            command.add("--prefer-ffmpeg");     // 优先使用ffmpeg进行后处理
+            command.add("--embed-metadata");    // 嵌入元数据
 
             // 如果有cookie，创建临时cookie文件
             if (cookieValue != null && !cookieValue.trim().isEmpty()) {
@@ -2395,9 +2488,13 @@ public class MusicSearchService {
                 if (isMerged != null && isMerged) {
                     // 合并下载：下载最佳音频和视频并合并
                     command.add("--format");
-                    command.add("bestvideo+bestaudio/best");
+                    // 使用更好的格式选择策略，优先选择mp4容器的高质量流
+                    command.add("bestvideo[ext=mp4]+bestaudio[ext=m4a]/bestvideo+bestaudio/best[ext=mp4]/best");
                     // 确保输出为mp4格式
                     command.add("--merge-output-format");
+                    command.add("mp4");
+                    // 添加重新编码选项以确保兼容性
+                    command.add("--recode-video");
                     command.add("mp4");
                     log.info("使用合并格式下载: 最佳音频+视频 -> MP4");
                 } else if (formatId != null && !formatId.trim().isEmpty()) {
