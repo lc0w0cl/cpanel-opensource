@@ -5,6 +5,7 @@ import {Icon} from '@iconify/vue'
 import {VueDraggable} from 'vue-draggable-plus'
 // Ant Design Vue 组件通过插件全局注册
 import dayjs, {type Dayjs} from 'dayjs'
+import zhCN from 'ant-design-vue/es/locale/zh_CN'
 
 // 子页面不需要定义 layout 和 middleware，由父页面处理
 // 导入API函数和类型
@@ -35,6 +36,7 @@ const newTodoText = ref('')
 const editingText = ref('')
 const showEditModal = ref(false)
 const editModalTodo = ref<Todo | null>(null)
+const editingDateRange = ref<[Dayjs, Dayjs] | null>(null)
 
 // 分组相关数据
 const todoCategories = ref<TodoCategory[]>([])
@@ -46,6 +48,9 @@ const showCategoryDropdown = ref(false)
 const selectedDateRange = ref<[Dayjs, Dayjs] | null>(null)
 const showDateFilter = ref(false)
 const newTodoDateRange = ref<[Dayjs, Dayjs] | null>(null)
+
+// Ant Design Vue 中文配置
+const locale = zhCN
 
 // 计算属性
 const sortedTodos = computed(() => {
@@ -194,6 +199,18 @@ const deleteTodo = async (id: number) => {
 const startEdit = (todo: Todo) => {
   editModalTodo.value = { ...todo }
   editingText.value = todo.text
+
+  // 初始化编辑日期
+  if (todo.startDate && todo.endDate) {
+    editingDateRange.value = [dayjs(todo.startDate), dayjs(todo.endDate)]
+  } else if (todo.startDate) {
+    editingDateRange.value = [dayjs(todo.startDate), dayjs(todo.startDate)]
+  } else if (todo.endDate) {
+    editingDateRange.value = [dayjs(todo.endDate), dayjs(todo.endDate)]
+  } else {
+    editingDateRange.value = null
+  }
+
   showEditModal.value = true
 
   // 下一个tick时聚焦输入框
@@ -216,11 +233,35 @@ const saveEdit = async () => {
 
   if (editModalTodo.value) {
     try {
-      const success = await todoApi.updateTodoText(editModalTodo.value.id, text)
-      if (success) {
+      // 更新文本
+      const textSuccess = await todoApi.updateTodoText(editModalTodo.value.id, text)
+
+      // 更新日期
+      let dateSuccess = true
+      if (editingDateRange.value) {
+        const [startDate, endDate] = editingDateRange.value
+        dateSuccess = await todoApi.updateTodoDates(
+          editModalTodo.value.id,
+          startDate.format('YYYY-MM-DD'),
+          endDate.format('YYYY-MM-DD')
+        )
+      } else {
+        // 清除日期
+        dateSuccess = await todoApi.updateTodoDates(editModalTodo.value.id, undefined, undefined)
+      }
+
+      if (textSuccess && dateSuccess) {
         const todo = todos.value.find(t => t.id === editModalTodo.value!.id)
         if (todo) {
           todo.text = text
+          if (editingDateRange.value) {
+            const [startDate, endDate] = editingDateRange.value
+            todo.startDate = startDate.format('YYYY-MM-DD')
+            todo.endDate = endDate.format('YYYY-MM-DD')
+          } else {
+            todo.startDate = undefined
+            todo.endDate = undefined
+          }
           todo.updatedAt = new Date().toISOString()
         }
       }
@@ -237,6 +278,7 @@ const cancelEdit = () => {
   showEditModal.value = false
   editModalTodo.value = null
   editingText.value = ''
+  editingDateRange.value = null
 }
 
 // 点击模态框外部关闭
@@ -642,13 +684,15 @@ onUnmounted(() => {
                 <div class="date-filter-content">
                   <div class="date-input-group">
                     <label class="date-label">选择日期范围</label>
-                    <a-range-picker
-                      v-model:value="selectedDateRange"
-                      class="ant-date-picker"
-                      :placeholder="['开始日期', '结束日期']"
-                      format="YYYY-MM-DD"
-                      :allowClear="true"
-                    />
+                    <a-config-provider :locale="locale">
+                      <a-range-picker
+                        v-model:value="selectedDateRange"
+                        class="ant-date-picker"
+                        :placeholder="['开始日期', '结束日期']"
+                        format="YYYY-MM-DD"
+                        :allowClear="true"
+                      />
+                    </a-config-provider>
                   </div>
                   <div class="date-filter-actions">
                     <button @click="clearDateFilter" class="date-btn clear-btn">
@@ -740,14 +784,16 @@ onUnmounted(() => {
               class="todo-input"
               maxlength="200"
           />
-          <a-range-picker
-            v-model:value="newTodoDateRange"
-            class="ant-date-picker-inline"
-            :placeholder="['开始日期', '结束日期']"
-            format="YYYY-MM-DD"
-            :allowClear="true"
-            size="small"
-          />
+          <a-config-provider :locale="locale">
+            <a-range-picker
+              v-model:value="newTodoDateRange"
+              class="ant-date-picker-inline"
+              :placeholder="['开始日期', '结束日期']"
+              format="YYYY-MM-DD"
+              :allowClear="true"
+              size="small"
+            />
+          </a-config-provider>
           <button
               @click="addTodo"
               :disabled="!newTodoText.trim()"
@@ -967,15 +1013,32 @@ onUnmounted(() => {
             </div>
 
             <div class="edit-modal-body">
-              <textarea
-                v-model="editingText"
-                @keyup="handleModalKeyup"
-                class="edit-modal-textarea"
-                placeholder="输入任务内容..."
-                maxlength="500"
-                rows="6"
-                autofocus
-              ></textarea>
+              <div class="edit-form-group">
+                <label class="edit-form-label">任务内容</label>
+                <textarea
+                  v-model="editingText"
+                  @keyup="handleModalKeyup"
+                  class="edit-modal-textarea"
+                  placeholder="输入任务内容..."
+                  maxlength="500"
+                  rows="4"
+                  autofocus
+                ></textarea>
+              </div>
+
+              <div class="edit-form-group">
+                <label class="edit-form-label">任务日期</label>
+                <a-config-provider :locale="locale">
+                  <a-range-picker
+                    v-model:value="editingDateRange"
+                    class="edit-date-picker"
+                    :placeholder="['开始日期', '结束日期']"
+                    format="YYYY-MM-DD"
+                    :allowClear="true"
+                  />
+                </a-config-provider>
+              </div>
+
               <div class="edit-modal-info">
                 <span class="char-count">{{ editingText.length }}/500</span>
                 <span class="edit-hint">Ctrl+Enter 保存，Esc 取消</span>
@@ -1243,6 +1306,7 @@ onUnmounted(() => {
   border-radius: 0.75rem !important;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5) !important;
   backdrop-filter: blur(10px) !important;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', Helvetica, Arial, sans-serif !important;
 }
 
 :global(.ant-picker-panel) {
@@ -1312,23 +1376,94 @@ onUnmounted(() => {
   border: 1px solid rgba(59, 130, 246, 1) !important;
 }
 
+/* 范围内日期的独立选中样式，不连续 */
 :global(.ant-picker-cell-in-range .ant-picker-cell-inner) {
-  background: rgba(59, 130, 246, 0.25) !important;
-  color: rgba(255, 255, 255, 0.95) !important;
+  background: rgba(59, 130, 246, 0.4) !important;
+  color: rgba(255, 255, 255, 1) !important;
+  border: 1px solid rgba(59, 130, 246, 0.6) !important;
+  border-radius: 4px !important;
 }
 
+/* 开始和结束日期的强调样式 */
 :global(.ant-picker-cell-range-start .ant-picker-cell-inner),
 :global(.ant-picker-cell-range-end .ant-picker-cell-inner) {
-  background: rgba(59, 130, 246, 0.8) !important;
+  background: rgba(59, 130, 246, 0.9) !important;
   color: rgba(255, 255, 255, 1) !important;
-  border: 1px solid rgba(59, 130, 246, 1) !important;
+  border: 2px solid rgba(59, 130, 246, 1) !important;
+  border-radius: 4px !important;
+  font-weight: 600 !important;
 }
 
+/* 悬停时的范围预览效果 */
 :global(.ant-picker-cell-range-hover-start .ant-picker-cell-inner),
-:global(.ant-picker-cell-range-hover-end .ant-picker-cell-inner),
+:global(.ant-picker-cell-range-hover-end .ant-picker-cell-inner) {
+  background: rgba(59, 130, 246, 0.6) !important;
+  color: rgba(255, 255, 255, 1) !important;
+  border: 2px solid rgba(59, 130, 246, 0.8) !important;
+  border-radius: 4px !important;
+}
+
 :global(.ant-picker-cell-range-hover .ant-picker-cell-inner) {
-  background: rgba(59, 130, 246, 0.2) !important;
-  color: rgba(255, 255, 255, 0.95) !important;
+  background: rgba(59, 130, 246, 0.25) !important;
+  color: rgba(255, 255, 255, 1) !important;
+  border: 1px solid rgba(59, 130, 246, 0.4) !important;
+  border-radius: 4px !important;
+}
+
+/* 移除范围选择的边框连接效果 */
+:global(.ant-picker-cell-in-range) {
+  position: relative !important;
+}
+
+:global(.ant-picker-cell-in-range::before) {
+  display: none !important;
+}
+
+:global(.ant-picker-cell-range-start::before),
+:global(.ant-picker-cell-range-end::before) {
+  display: none !important;
+}
+
+/* 范围内日期的悬停效果 */
+:global(.ant-picker-cell-in-range:hover .ant-picker-cell-inner) {
+  background: rgba(59, 130, 246, 0.6) !important;
+  color: rgba(255, 255, 255, 1) !important;
+  border: 1px solid rgba(59, 130, 246, 0.8) !important;
+  border-radius: 4px !important;
+  transform: scale(1.05) !important;
+  transition: all 0.2s ease !important;
+}
+
+/* 确保外层容器透明，只有inner有样式 */
+:global(.ant-picker-cell-range-start),
+:global(.ant-picker-cell-range-end),
+:global(.ant-picker-cell-in-range),
+:global(.ant-picker-cell) {
+  background: transparent !important;
+}
+
+/* 移除所有可能的连接线和伪元素 */
+:global(.ant-picker-cell-range-start::before),
+:global(.ant-picker-cell-range-start::after),
+:global(.ant-picker-cell-range-end::before),
+:global(.ant-picker-cell-range-end::after),
+:global(.ant-picker-cell-in-range::before),
+:global(.ant-picker-cell-in-range::after) {
+  display: none !important;
+  content: none !important;
+}
+
+/* 移除可能的范围连接背景 */
+:global(.ant-picker-panel-container .ant-picker-cell-range-start),
+:global(.ant-picker-panel-container .ant-picker-cell-range-end),
+:global(.ant-picker-panel-container .ant-picker-cell-in-range) {
+  background-color: transparent !important;
+}
+
+/* 确保每个日期都是独立的圆角框 */
+:global(.ant-picker-cell .ant-picker-cell-inner) {
+  border-radius: 4px !important;
+  margin: 1px !important;
 }
 
 :global(.ant-picker-today .ant-picker-cell-inner) {
@@ -1356,6 +1491,21 @@ onUnmounted(() => {
 :global(.ant-picker-footer .ant-picker-now-btn:hover) {
   color: rgba(59, 130, 246, 1) !important;
   background: rgba(59, 130, 246, 0.15) !important;
+}
+
+/* 中文按钮和文字样式 */
+:global(.ant-picker-footer .ant-picker-now-btn),
+:global(.ant-picker-header-view button),
+:global(.ant-picker-super-prev-icon),
+:global(.ant-picker-super-next-icon),
+:global(.ant-picker-prev-icon),
+:global(.ant-picker-next-icon) {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', Helvetica, Arial, sans-serif !important;
+}
+
+/* 确保所有日期选择器文字都使用中文字体 */
+:global(.ant-picker-dropdown *) {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', Helvetica, Arial, sans-serif !important;
 }
 
 /* 年月选择面板样式 */
@@ -1421,6 +1571,7 @@ onUnmounted(() => {
 :global(.ant-picker-content thead th) {
   color: rgba(255, 255, 255, 0.8) !important;
   font-weight: 600 !important;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', Helvetica, Arial, sans-serif !important;
 }
 
 /* 额外的输入框文字颜色修复 */
@@ -2354,6 +2505,22 @@ onUnmounted(() => {
 
 .edit-modal-body {
   padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.edit-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.edit-form-label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+  margin-bottom: 0.5rem;
 }
 
 .edit-modal-textarea {
@@ -2382,12 +2549,69 @@ onUnmounted(() => {
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
+/* 编辑模态框中的日期选择器样式 */
+:deep(.edit-date-picker) {
+  width: 100% !important;
+  background: rgba(255, 255, 255, 0.05) !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  border-radius: 0.75rem !important;
+  color: rgba(255, 255, 255, 0.9) !important;
+  font-size: 1rem !important;
+  height: 48px !important;
+  padding: 0.75rem 1rem !important;
+}
+
+:deep(.edit-date-picker:hover) {
+  border-color: rgba(255, 255, 255, 0.3) !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+}
+
+:deep(.edit-date-picker.ant-date-picker-focused) {
+  border-color: rgba(59, 130, 246, 0.5) !important;
+  background: rgba(255, 255, 255, 0.1) !important;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1) !important;
+}
+
+:deep(.edit-date-picker .ant-date-picker-input) {
+  color: rgba(255, 255, 255, 0.9) !important;
+  height: 100% !important;
+  display: flex !important;
+  align-items: center !important;
+}
+
+:deep(.edit-date-picker .ant-date-picker-input > input) {
+  color: rgba(255, 255, 255, 0.9) !important;
+  background: transparent !important;
+  font-size: 1rem !important;
+  -webkit-text-fill-color: rgba(255, 255, 255, 0.9) !important;
+  height: 100% !important;
+  line-height: 1.5 !important;
+  padding: 0 !important;
+}
+
+:deep(.edit-date-picker .ant-date-picker-input > input::placeholder) {
+  color: rgba(255, 255, 255, 0.4) !important;
+  font-size: 1rem !important;
+}
+
+:deep(.edit-date-picker .ant-date-picker-separator) {
+  color: rgba(255, 255, 255, 0.6) !important;
+}
+
+:deep(.edit-date-picker .ant-date-picker-suffix) {
+  color: rgba(255, 255, 255, 0.6) !important;
+}
+
+:deep(.edit-date-picker .ant-date-picker-clear) {
+  color: rgba(255, 255, 255, 0.6) !important;
+}
+
 .edit-modal-info {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-top: 0.75rem;
   font-size: 0.875rem;
+  margin-top: 0.5rem;
 }
 
 .char-count {
@@ -2517,6 +2741,39 @@ onUnmounted(() => {
   .golden-ratio-container {
     grid-template-columns: 1fr;
     gap: 1.5rem;
+  }
+
+  /* 编辑模态框移动端适配 */
+  .edit-modal-content {
+    width: 95vw !important;
+    max-width: none !important;
+    margin: 1rem !important;
+    max-height: 90vh !important;
+  }
+
+  .edit-modal-body {
+    padding: 1rem !important;
+    gap: 1rem !important;
+  }
+
+  .edit-form-group {
+    gap: 0.5rem !important;
+  }
+
+  .edit-modal-textarea {
+    min-height: 120px !important;
+    font-size: 0.875rem !important;
+    padding: 0.75rem !important;
+  }
+
+  :deep(.edit-date-picker) {
+    font-size: 0.875rem !important;
+    height: 42px !important;
+    padding: 0.5rem 0.75rem !important;
+  }
+
+  :deep(.edit-date-picker .ant-date-picker-input > input) {
+    font-size: 0.875rem !important;
   }
 }
 </style>
