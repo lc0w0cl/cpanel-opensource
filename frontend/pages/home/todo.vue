@@ -52,6 +52,10 @@ const newTodoDateRange = ref<[Dayjs, Dayjs] | null>(null)
 // Ant Design Vue 中文配置
 const locale = zhCN
 
+// 日历相关数据
+const currentCalendarDate = ref(dayjs())
+const showCalendar = ref(true)
+
 // 计算属性
 const sortedTodos = computed(() => {
   // 根据选择的分组过滤任务
@@ -594,6 +598,135 @@ const dateRangeText = computed(() => {
   return `${startDate.format('YYYY-MM-DD')} 至 ${endDate.format('YYYY-MM-DD')}`
 })
 
+// 日历相关计算属性和方法
+const calendarTodos = computed(() => {
+  const todosByDate = new Map<string, Todo[]>()
+
+  todos.value.forEach(todo => {
+    if (todo.startDate || todo.endDate) {
+      const startDate = todo.startDate || todo.endDate
+      const endDate = todo.endDate || todo.startDate
+
+      if (startDate && endDate) {
+        try {
+          const start = dayjs(startDate)
+          const end = dayjs(endDate)
+
+          // 验证日期是否有效
+          if (!start.isValid() || !end.isValid()) {
+            return
+          }
+
+          // 为日期范围内的每一天添加任务
+          let current = start
+          while (current.isSameOrBefore(end, 'day')) {
+            const dateKey = current.format('YYYY-MM-DD')
+            if (!todosByDate.has(dateKey)) {
+              todosByDate.set(dateKey, [])
+            }
+            todosByDate.get(dateKey)!.push(todo)
+            current = current.add(1, 'day')
+          }
+        } catch (error) {
+          // 忽略无效的日期
+        }
+      }
+    }
+  })
+
+  return todosByDate
+})
+
+// 获取指定日期的任务
+const getTodosForDate = (date: any): Todo[] => {
+  try {
+    // 确保 date 是 dayjs 对象
+    const dayjsDate = dayjs.isDayjs(date) ? date : dayjs(date)
+
+    if (!dayjsDate.isValid()) {
+      return []
+    }
+
+    const dateKey = dayjsDate.format('YYYY-MM-DD')
+    const todosForDate = calendarTodos.value.get(dateKey) || []
+
+    return todosForDate
+  } catch (error) {
+    return []
+  }
+}
+
+// 获取任务的徽章状态
+const getBadgeStatus = (todo: Todo): 'success' | 'processing' | 'default' | 'error' | 'warning' => {
+  if (todo.completed) {
+    return 'success'
+  }
+
+  const today = dayjs()
+
+  // 如果有结束日期，根据日期判断紧急程度
+  if (todo.endDate) {
+    const endDate = dayjs(todo.endDate)
+    const daysUntilDue = endDate.diff(today, 'day')
+
+    if (daysUntilDue < 0) {
+      return 'error' // 已过期
+    } else if (daysUntilDue === 0) {
+      return 'warning' // 今天到期
+    } else if (daysUntilDue <= 2) {
+      return 'warning' // 即将到期（2天内）
+    } else {
+      return 'processing' // 正常进行中
+    }
+  }
+
+  // 如果有开始日期但没有结束日期
+  if (todo.startDate) {
+    const startDate = dayjs(todo.startDate)
+    if (startDate.isSameOrBefore(today, 'day')) {
+      return 'processing' // 已开始
+    } else {
+      return 'default' // 未开始
+    }
+  }
+
+  // 没有日期的任务
+  return 'default'
+}
+
+// 获取任务显示文本
+const getTodoDisplayText = (todo: Todo): string => {
+  const maxLength = 10
+  if (todo.text.length <= maxLength) {
+    return todo.text
+  }
+
+  // 智能截断：优先在空格处截断
+  const truncated = todo.text.slice(0, maxLength)
+  const lastSpaceIndex = truncated.lastIndexOf(' ')
+
+  if (lastSpaceIndex > maxLength * 0.6) {
+    return truncated.slice(0, lastSpaceIndex) + '...'
+  }
+
+  return truncated + '...'
+}
+
+// 日历日期点击处理
+const onCalendarDateClick = (date: any) => {
+  const dayjsDate = dayjs.isDayjs(date) ? date : dayjs(date)
+  const todosForDate = getTodosForDate(dayjsDate)
+  if (todosForDate.length > 0) {
+    // 可以在这里添加显示当天任务的逻辑
+    console.log(`${dayjsDate.format('YYYY-MM-DD')} 的任务:`, todosForDate)
+  }
+}
+
+// 切换日历显示
+const toggleCalendar = () => {
+  showCalendar.value = !showCalendar.value
+}
+
 // 点击外部关闭下拉框
 const handleClickOutside = (event: MouseEvent) => {
   const target = event.target as HTMLElement
@@ -805,10 +938,10 @@ onUnmounted(() => {
         </div>
       </Motion>
 
-      <!-- 主要内容区域 - 两列布局 -->
+      <!-- 主要内容区域 - 三列布局 -->
       <div class="todo-content">
-        <!-- 黄金比例容器 -->
-        <div class="golden-ratio-container">
+        <!-- 三列容器 -->
+        <div class="three-column-container">
 
           <!-- 左列：待办事项 -->
           <Motion
@@ -983,6 +1116,110 @@ onUnmounted(() => {
               </div>
             </div>
           </Motion>
+
+          <!-- 第三列：通知事项日历 -->
+          <Motion
+            :initial="{ opacity: 0, x: 20 }"
+            :animate="{ opacity: 1, x: 0 }"
+            :transition="{ duration: 0.6, delay: 0.4 }"
+            class="calendar-column"
+          >
+            <div class="calendar-section">
+              <div class="calendar-header">
+                <div class="calendar-title-group">
+                  <Icon icon="mdi:calendar-month" class="calendar-icon" />
+                  <h3 class="calendar-title">通知事项日历</h3>
+                </div>
+                <button
+                  @click="toggleCalendar"
+                  class="calendar-toggle-btn"
+                  :title="showCalendar ? '隐藏日历' : '显示日历'"
+                >
+                  <Icon
+                    :icon="showCalendar ? 'mdi:calendar-minus' : 'mdi:calendar-plus'"
+                    class="toggle-icon"
+                  />
+                </button>
+              </div>
+
+              <Transition name="calendar-slide">
+                <div v-if="showCalendar" class="calendar-content">
+                  <a-config-provider :locale="locale">
+                    <a-calendar
+                      v-model:value="currentCalendarDate"
+                      class="todo-calendar"
+                      :fullscreen="false"
+                    >
+                      <template #dateCellRender="{ current }">
+                        <ul class="calendar-events">
+                          <li
+                            v-for="todo in getTodosForDate(current).slice(0, 4)"
+                            :key="todo.id"
+                            @click="startEdit(todo)"
+                          >
+                            <a-badge
+                              :status="getBadgeStatus(todo)"
+                              :text="getTodoDisplayText(todo)"
+                              :title="todo.text"
+                            />
+                          </li>
+                          <li v-if="getTodosForDate(current).length > 4">
+                            <a-badge
+                              status="default"
+                              :text="`+${getTodosForDate(current).length - 4} 更多`"
+                              :title="`还有 ${getTodosForDate(current).length - 4} 个任务`"
+                            />
+                          </li>
+                        </ul>
+                      </template>
+                    </a-calendar>
+                  </a-config-provider>
+
+                  <!-- 当前日期的任务详情 -->
+                  <div class="calendar-details">
+                    <h4 class="details-title">
+                      <Icon icon="mdi:calendar-today" class="details-icon" />
+                      {{ currentCalendarDate.format('YYYY年MM月DD日') }} 的任务
+                    </h4>
+                    <div class="details-content">
+                      <div
+                        v-if="getTodosForDate(currentCalendarDate).length === 0"
+                        class="no-todos-today"
+                      >
+                        <Icon icon="mdi:calendar-check" class="no-todos-icon" />
+                        <span>今天没有安排任务</span>
+                      </div>
+                      <div
+                        v-else
+                        class="today-todos"
+                      >
+                        <div
+                          v-for="todo in getTodosForDate(currentCalendarDate)"
+                          :key="todo.id"
+                          class="today-todo-item"
+                          :class="{ 'completed': todo.completed }"
+                          @click="startEdit(todo)"
+                        >
+                          <div class="todo-status">
+                            <Icon
+                              :icon="todo.completed ? 'mdi:check-circle' : 'mdi:circle-outline'"
+                              class="status-icon"
+                            />
+                          </div>
+                          <div class="calendar-todo-content">
+                            <span class="todo-title">{{ todo.text }}</span>
+                            <div v-if="todo.startDate !== todo.endDate" class="todo-date-range">
+                              {{ formatDate(todo.startDate) }} - {{ formatDate(todo.endDate) }}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </Transition>
+            </div>
+          </Motion>
         </div>
       </div>
     </div>
@@ -1071,8 +1308,7 @@ onUnmounted(() => {
 /* Todo应用样式 */
 .todo-dashboard {
   padding: 2rem;
-  max-width: 1400px;
-  margin: 0 auto;
+  width: 100%;
   min-height: 100vh;
 }
 
@@ -1306,7 +1542,7 @@ onUnmounted(() => {
   border-radius: 0.75rem !important;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5) !important;
   backdrop-filter: blur(10px) !important;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', Helvetica, Arial, sans-serif !important;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Helvetica Neue", Helvetica, Arial, sans-serif !important;
 }
 
 :global(.ant-picker-panel) {
@@ -1500,12 +1736,12 @@ onUnmounted(() => {
 :global(.ant-picker-super-next-icon),
 :global(.ant-picker-prev-icon),
 :global(.ant-picker-next-icon) {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', Helvetica, Arial, sans-serif !important;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Helvetica Neue", Helvetica, Arial, sans-serif !important;
 }
 
 /* 确保所有日期选择器文字都使用中文字体 */
 :global(.ant-picker-dropdown *) {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', Helvetica, Arial, sans-serif !important;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Helvetica Neue", Helvetica, Arial, sans-serif !important;
 }
 
 /* 年月选择面板样式 */
@@ -1571,7 +1807,7 @@ onUnmounted(() => {
 :global(.ant-picker-content thead th) {
   color: rgba(255, 255, 255, 0.8) !important;
   font-weight: 600 !important;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', Helvetica, Arial, sans-serif !important;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Helvetica Neue", Helvetica, Arial, sans-serif !important;
 }
 
 /* 额外的输入框文字颜色修复 */
@@ -1823,11 +2059,355 @@ onUnmounted(() => {
   gap: 1.5rem;
 }
 
-.golden-ratio-container {
+.three-column-container {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 0.4fr 0.4fr 0.6fr;
   gap: 2rem;
   min-height: 600px;
+}
+
+/* 日历列样式 */
+.calendar-column {
+  display: flex;
+  flex-direction: column;
+}
+
+.calendar-section {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 1rem;
+  padding: 1.5rem;
+  height: fit-content;
+  backdrop-filter: blur(10px);
+}
+
+.calendar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.calendar-title-group {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.calendar-icon {
+  width: 1.5rem;
+  height: 1.5rem;
+  color: rgba(59, 130, 246, 0.8);
+}
+
+.calendar-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+  margin: 0;
+}
+
+.calendar-toggle-btn {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.7);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.calendar-toggle-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.9);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.toggle-icon {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+/* 日历内容样式 */
+.calendar-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+/* 日历组件样式覆盖 */
+:deep(.todo-calendar) {
+  background: transparent !important;
+  border: none !important;
+}
+
+:deep(.todo-calendar .ant-picker-calendar-header) {
+  background: rgba(255, 255, 255, 0.05) !important;
+  border-radius: 0.5rem !important;
+  padding: 0.75rem !important;
+  margin-bottom: 1rem !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+:deep(.todo-calendar .ant-picker-calendar-header .ant-picker-calendar-year-select),
+:deep(.todo-calendar .ant-picker-calendar-header .ant-picker-calendar-month-select) {
+  color: rgba(255, 255, 255, 0.9) !important;
+  background: rgba(255, 255, 255, 0.05) !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  border-radius: 0.375rem !important;
+}
+
+:deep(.todo-calendar .ant-picker-content) {
+  background: transparent !important;
+}
+
+:deep(.todo-calendar .ant-picker-content th) {
+  color: rgba(255, 255, 255, 0.7) !important;
+  background: rgba(255, 255, 255, 0.05) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  font-weight: 600 !important;
+}
+
+:deep(.todo-calendar .ant-picker-content td) {
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  background: rgba(255, 255, 255, 0.02) !important;
+  transition: all 0.3s ease !important;
+}
+
+:deep(.todo-calendar .ant-picker-content td:hover) {
+  background: rgba(255, 255, 255, 0.08) !important;
+}
+
+:deep(.todo-calendar .ant-picker-cell-selected) {
+  background: rgba(59, 130, 246, 0.2) !important;
+  border-color: rgba(59, 130, 246, 0.5) !important;
+}
+
+:deep(.todo-calendar .ant-picker-cell-today) {
+  border-color: rgba(59, 130, 246, 0.8) !important;
+}
+
+/* 日历事件列表样式 */
+.calendar-events {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+.calendar-events li {
+  margin-bottom: 2px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.calendar-events li:hover {
+  transform: translateX(2px);
+}
+
+/* 覆盖 Ant Design Badge 样式以适配深色主题 */
+:deep(.calendar-events .ant-badge-status) {
+  overflow: hidden;
+  white-space: nowrap;
+  width: 100%;
+  text-overflow: ellipsis;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.9) !important;
+  line-height: 1.2;
+}
+
+:deep(.calendar-events .ant-badge-status-success) {
+  background-color: rgba(34, 197, 94, 0.8) !important;
+}
+
+:deep(.calendar-events .ant-badge-status-processing) {
+  background-color: rgba(59, 130, 246, 0.8) !important;
+}
+
+:deep(.calendar-events .ant-badge-status-warning) {
+  background-color: rgba(245, 158, 11, 0.8) !important;
+}
+
+:deep(.calendar-events .ant-badge-status-error) {
+  background-color: rgba(239, 68, 68, 0.8) !important;
+}
+
+:deep(.calendar-events .ant-badge-status-default) {
+  background-color: rgba(156, 163, 175, 0.8) !important;
+}
+
+:deep(.calendar-events .ant-badge-status-text) {
+  color: rgba(255, 255, 255, 0.9) !important;
+  font-size: 11px !important;
+  margin-left: 8px !important;
+}
+
+/* 日历单元格高度调整 */
+:deep(.todo-calendar .ant-picker-content td) {
+  height: 80px !important;
+  vertical-align: top !important;
+  padding: 4px !important;
+}
+
+/* 今天的日期特殊样式 */
+:deep(.todo-calendar .ant-picker-cell-today .calendar-events) {
+  background: rgba(59, 130, 246, 0.05) !important;
+  border-radius: 4px !important;
+  padding: 2px !important;
+}
+
+/* 有任务的日期背景 */
+:deep(.todo-calendar .ant-picker-content td:has(.calendar-events li)) {
+  background: rgba(255, 255, 255, 0.03) !important;
+}
+
+/* 选中日期的样式 */
+:deep(.todo-calendar .ant-picker-cell-selected .calendar-events) {
+  background: rgba(59, 130, 246, 0.1) !important;
+  border-radius: 4px !important;
+  padding: 2px !important;
+}
+
+/* 日历详情样式 */
+.calendar-details {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0.75rem;
+  padding: 1rem;
+}
+
+.details-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+  margin: 0 0 1rem 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.details-icon {
+  width: 1.125rem;
+  height: 1.125rem;
+  color: rgba(59, 130, 246, 0.8);
+}
+
+.details-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.no-todos-today {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 1.5rem;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.875rem;
+}
+
+.no-todos-icon {
+  width: 1.25rem;
+  height: 1.25rem;
+  color: rgba(59, 130, 246, 0.6);
+}
+
+.today-todos {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.today-todo-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0.5rem;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.today-todo-item:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.2);
+  transform: translateY(-1px);
+}
+
+.today-todo-item.completed {
+  opacity: 0.7;
+}
+
+.todo-status {
+  display: flex;
+  align-items: center;
+}
+
+.status-icon {
+  width: 1.25rem;
+  height: 1.25rem;
+  color: rgba(59, 130, 246, 0.8);
+}
+
+.today-todo-item.completed .status-icon {
+  color: rgba(34, 197, 94, 0.8);
+}
+
+.calendar-todo-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.todo-title {
+  font-size: 0.875rem;
+  color: rgba(255, 255, 255, 0.9);
+  line-height: 1.3;
+}
+
+.today-todo-item.completed .todo-title {
+  text-decoration: line-through;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.todo-date-range {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+/* 日历滑动过渡动画 */
+.calendar-slide-enter-active,
+.calendar-slide-leave-active {
+  transition: all 0.4s ease;
+}
+
+.calendar-slide-enter-from {
+  opacity: 0;
+  transform: translateY(-20px);
+  max-height: 0;
+}
+
+.calendar-slide-leave-to {
+  opacity: 0;
+  transform: translateY(-20px);
+  max-height: 0;
+}
+
+.calendar-slide-enter-to,
+.calendar-slide-leave-from {
+  opacity: 1;
+  transform: translateY(0);
+  max-height: 1000px;
 }
 
 /* 列样式 */
@@ -2738,10 +3318,54 @@ onUnmounted(() => {
     max-width: 320px !important;
   }
 
-  .golden-ratio-container {
+  .three-column-container {
     grid-template-columns: 1fr;
     gap: 1.5rem;
   }
+
+  /* 移动端日历样式调整 */
+  .calendar-section {
+    padding: 1rem;
+  }
+
+  .calendar-header {
+    margin-bottom: 1rem;
+  }
+
+  .calendar-title {
+    font-size: 1.125rem;
+  }
+
+  :deep(.todo-calendar .ant-picker-calendar-header) {
+    padding: 0.5rem !important;
+    margin-bottom: 0.75rem !important;
+  }
+
+  :deep(.calendar-events .ant-badge-status) {
+    font-size: 10px !important;
+  }
+
+  :deep(.calendar-events .ant-badge-status-text) {
+    font-size: 10px !important;
+    margin-left: 6px !important;
+  }
+
+  .calendar-details {
+    padding: 0.75rem;
+  }
+
+  .details-title {
+    font-size: 0.875rem;
+  }
+
+  .today-todo-item {
+    padding: 0.5rem;
+  }
+
+  .todo-title {
+    font-size: 0.8rem;
+  }
+}
 
   /* 编辑模态框移动端适配 */
   .edit-modal-content {
@@ -2775,5 +3399,5 @@ onUnmounted(() => {
   :deep(.edit-date-picker .ant-date-picker-input > input) {
     font-size: 0.875rem !important;
   }
-}
+
 </style>
