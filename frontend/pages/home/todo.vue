@@ -3,6 +3,8 @@ import {computed, nextTick, onMounted, onUnmounted, ref, watch} from 'vue'
 import {Motion} from "motion-v"
 import {Icon} from '@iconify/vue'
 import {VueDraggable} from 'vue-draggable-plus'
+// Ant Design Vue 组件通过插件全局注册
+import dayjs, {type Dayjs} from 'dayjs'
 
 // 子页面不需要定义 layout 和 middleware，由父页面处理
 // 导入API函数和类型
@@ -40,6 +42,11 @@ const selectedCategoryId = ref<number | null>(null)
 const categoriesLoading = ref(false)
 const showCategoryDropdown = ref(false)
 
+// 日期相关数据
+const selectedDateRange = ref<[Dayjs, Dayjs] | null>(null)
+const showDateFilter = ref(false)
+const newTodoDateRange = ref<[Dayjs, Dayjs] | null>(null)
+
 // 计算属性
 const sortedTodos = computed(() => {
   // 根据选择的分组过滤任务
@@ -48,8 +55,24 @@ const sortedTodos = computed(() => {
     filteredByCategory = todos.value.filter(todo => todo.categoryId === selectedCategoryId.value)
   }
 
+  // 根据日期范围过滤任务
+  let filteredByDate = filteredByCategory
+  if (selectedDateRange.value) {
+    const [filterStart, filterEnd] = selectedDateRange.value
+    filteredByDate = filteredByCategory.filter(todo => {
+      // 如果任务没有设置日期，则显示
+      if (!todo.startDate && !todo.endDate) return true
+
+      // 检查日期范围重叠
+      const todoStart = todo.startDate ? dayjs(todo.startDate) : dayjs('1900-01-01')
+      const todoEnd = todo.endDate ? dayjs(todo.endDate) : dayjs('2100-12-31')
+
+      return todoStart.isSameOrBefore(filterEnd) && todoEnd.isSameOrAfter(filterStart)
+    })
+  }
+
   // 默认按sortOrder排序，如果没有sortOrder则按创建时间倒序
-  return [...filteredByCategory].sort((a, b) => {
+  return [...filteredByDate].sort((a, b) => {
     if (a.sortOrder !== undefined && b.sortOrder !== undefined) {
       return a.sortOrder - b.sortOrder
     }
@@ -122,10 +145,15 @@ const addTodo = async () => {
   if (!text) return
 
   try {
-    // 创建任务时传入选择的分组ID
+    // 创建任务时传入选择的分组ID和日期
     const requestData: any = { text }
     if (selectedCategoryId.value !== null) {
       requestData.categoryId = selectedCategoryId.value
+    }
+    if (newTodoDateRange.value) {
+      const [startDate, endDate] = newTodoDateRange.value
+      requestData.startDate = startDate.format('YYYY-MM-DD')
+      requestData.endDate = endDate.format('YYYY-MM-DD')
     }
 
     const response = await apiRequest(`${API_BASE_URL}/todos`, {
@@ -140,6 +168,7 @@ const addTodo = async () => {
     if (result.success && result.data) {
       todos.value.unshift(result.data)
       newTodoText.value = ''
+      newTodoDateRange.value = null
     }
   } catch (error) {
     console.error('添加任务失败:', error)
@@ -498,12 +527,43 @@ const selectedCategoryName = computed(() => {
   return category ? category.name : '未知分组'
 })
 
+// 日期过滤相关函数
+const clearDateFilter = () => {
+  selectedDateRange.value = null
+}
+
+const applyDateFilter = () => {
+  // 日期过滤会通过计算属性自动应用
+  showDateFilter.value = false
+}
+
+// 格式化日期显示
+const formatDate = (dateStr?: string) => {
+  if (!dateStr) return ''
+  return dayjs(dateStr).format('YYYY-MM-DD')
+}
+
+// 获取日期范围显示文本
+const dateRangeText = computed(() => {
+  if (!selectedDateRange.value) {
+    return '全部日期'
+  }
+  const [startDate, endDate] = selectedDateRange.value
+  return `${startDate.format('YYYY-MM-DD')} 至 ${endDate.format('YYYY-MM-DD')}`
+})
+
 // 点击外部关闭下拉框
 const handleClickOutside = (event: MouseEvent) => {
   const target = event.target as HTMLElement
-  const dropdown = document.querySelector('.category-dropdown')
-  if (dropdown && !dropdown.contains(target)) {
+  const categoryDropdown = document.querySelector('.category-dropdown')
+  const dateFilter = document.querySelector('.date-filter')
+
+  if (categoryDropdown && !categoryDropdown.contains(target)) {
     showCategoryDropdown.value = false
+  }
+
+  if (dateFilter && !dateFilter.contains(target)) {
+    showDateFilter.value = false
   }
 }
 
@@ -563,8 +623,46 @@ onUnmounted(() => {
           </div>
         </div>
 
-        <!-- 分组选择下拉框 -->
+        <!-- 分组选择下拉框和日期过滤 -->
         <div class="header-right">
+          <!-- 日期过滤器 -->
+          <div class="date-filter">
+            <div class="date-filter-trigger" @click="showDateFilter = !showDateFilter">
+              <Icon icon="mdi:calendar-range" class="date-icon" />
+              <span class="date-text">{{ dateRangeText }}</span>
+              <Icon
+                icon="mdi:chevron-down"
+                class="dropdown-arrow"
+                :class="{ 'rotated': showDateFilter }"
+              />
+            </div>
+
+            <Transition name="dropdown">
+              <div v-if="showDateFilter" class="date-filter-dropdown" @click.stop>
+                <div class="date-filter-content">
+                  <div class="date-input-group">
+                    <label class="date-label">选择日期范围</label>
+                    <a-range-picker
+                      v-model:value="selectedDateRange"
+                      class="ant-date-picker"
+                      :placeholder="['开始日期', '结束日期']"
+                      format="YYYY-MM-DD"
+                      :allowClear="true"
+                    />
+                  </div>
+                  <div class="date-filter-actions">
+                    <button @click="clearDateFilter" class="date-btn clear-btn">
+                      清除
+                    </button>
+                    <button @click="applyDateFilter" class="date-btn apply-btn">
+                      应用
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </Transition>
+          </div>
+
           <div class="category-selector">
             <div class="category-dropdown" @click.stop>
               <button
@@ -642,6 +740,14 @@ onUnmounted(() => {
               class="todo-input"
               maxlength="200"
           />
+          <a-range-picker
+            v-model:value="newTodoDateRange"
+            class="ant-date-picker-inline"
+            :placeholder="['开始日期', '结束日期']"
+            format="YYYY-MM-DD"
+            :allowClear="true"
+            size="small"
+          />
           <button
               @click="addTodo"
               :disabled="!newTodoText.trim()"
@@ -703,6 +809,14 @@ onUnmounted(() => {
                     <!-- 任务内容 -->
                     <div class="todo-content-area" @dblclick="startEdit(todo)">
                       <span class="todo-text">{{ todo.text }}</span>
+                      <div v-if="todo.startDate || todo.endDate" class="todo-dates">
+                        <Icon icon="mdi:calendar" class="date-icon" />
+                        <span class="date-range">
+                          <span v-if="todo.startDate">{{ formatDate(todo.startDate) }}</span>
+                          <span v-if="todo.startDate && todo.endDate"> - </span>
+                          <span v-if="todo.endDate">{{ formatDate(todo.endDate) }}</span>
+                        </span>
+                      </div>
                     </div>
 
                     <!-- 操作按钮 -->
@@ -782,6 +896,14 @@ onUnmounted(() => {
                     <!-- 任务内容 -->
                     <div class="todo-content-area" @dblclick="startEdit(todo)">
                       <span class="todo-text completed">{{ todo.text }}</span>
+                      <div v-if="todo.startDate || todo.endDate" class="todo-dates">
+                        <Icon icon="mdi:calendar" class="date-icon" />
+                        <span class="date-range">
+                          <span v-if="todo.startDate">{{ formatDate(todo.startDate) }}</span>
+                          <span v-if="todo.startDate && todo.endDate"> - </span>
+                          <span v-if="todo.endDate">{{ formatDate(todo.endDate) }}</span>
+                        </span>
+                      </div>
                     </div>
 
                     <!-- 操作按钮 -->
@@ -972,6 +1094,408 @@ onUnmounted(() => {
   font-weight: 500;
 }
 
+/* 日期过滤器样式 */
+.date-filter {
+  position: relative;
+  margin-right: 1rem;
+}
+
+.date-filter-trigger {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: transparent;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  min-width: 180px;
+}
+
+.date-filter-trigger:hover {
+  border-color: rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.08);
+  transform: translateY(-1px);
+}
+
+.date-icon {
+  width: 1.25rem;
+  height: 1.25rem;
+  color: rgba(59, 130, 246, 0.8);
+  flex-shrink: 0;
+}
+
+.date-text {
+  flex: 1;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.date-filter-dropdown {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  right: 0;
+  min-width: 280px;
+  background: rgba(30, 30, 30, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 0.75rem;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+  z-index: 1000;
+  padding: 1rem;
+}
+
+.date-filter-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.date-input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.date-label {
+  font-size: 0.875rem;
+  color: rgba(255, 255, 255, 0.8);
+  font-weight: 500;
+}
+
+/* Ant Design Vue DatePicker 样式覆盖 */
+:deep(.ant-date-picker) {
+  background: rgba(255, 255, 255, 0.05) !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  border-radius: 0.5rem !important;
+  color: rgba(255, 255, 255, 0.9) !important;
+  width: 280px !important;
+  max-width: 100% !important;
+}
+
+:deep(.ant-date-picker:hover) {
+  border-color: rgba(255, 255, 255, 0.3) !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+}
+
+:deep(.ant-date-picker-focused) {
+  border-color: rgba(59, 130, 246, 0.5) !important;
+  background: rgba(255, 255, 255, 0.1) !important;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1) !important;
+}
+
+:deep(.ant-date-picker .ant-date-picker-input) {
+  color: rgba(255, 255, 255, 0.9) !important;
+}
+
+:deep(.ant-date-picker .ant-date-picker-input > input) {
+  color: rgba(255, 255, 255, 0.9) !important;
+  background: transparent !important;
+  font-size: 0.875rem !important;
+}
+
+:deep(.ant-date-picker .ant-date-picker-input > input::placeholder) {
+  color: rgba(255, 255, 255, 0.4) !important;
+}
+
+:deep(.ant-date-picker .ant-date-picker-input > input::-webkit-input-placeholder) {
+  color: rgba(255, 255, 255, 0.4) !important;
+}
+
+:deep(.ant-date-picker .ant-date-picker-input > input::-moz-placeholder) {
+  color: rgba(255, 255, 255, 0.4) !important;
+}
+
+:deep(.ant-date-picker .ant-date-picker-separator) {
+  color: rgba(255, 255, 255, 0.6) !important;
+}
+
+:deep(.ant-date-picker .ant-date-picker-clear) {
+  color: rgba(255, 255, 255, 0.6) !important;
+}
+
+:deep(.ant-date-picker .ant-date-picker-clear:hover) {
+  color: rgba(255, 255, 255, 0.9) !important;
+}
+
+:deep(.ant-date-picker .ant-date-picker-suffix) {
+  color: rgba(255, 255, 255, 0.6) !important;
+}
+
+/* 修复选中后的文字颜色 */
+:deep(.ant-date-picker .ant-date-picker-input input[value]) {
+  color: rgba(255, 255, 255, 0.9) !important;
+}
+
+:deep(.ant-date-picker.ant-date-picker-focused .ant-date-picker-input > input) {
+  color: rgba(255, 255, 255, 0.9) !important;
+}
+
+/* 全局 Ant Design Vue 日期选择器面板样式 */
+:global(.ant-picker-dropdown) {
+  background: rgba(30, 30, 30, 0.98) !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  border-radius: 0.75rem !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5) !important;
+  backdrop-filter: blur(10px) !important;
+}
+
+:global(.ant-picker-panel) {
+  background: transparent !important;
+  border: none !important;
+  color: rgba(255, 255, 255, 0.9) !important;
+}
+
+:global(.ant-picker-header) {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.15) !important;
+  background: rgba(255, 255, 255, 0.05) !important;
+}
+
+:global(.ant-picker-header button) {
+  color: rgba(255, 255, 255, 0.9) !important;
+  border: none !important;
+  background: transparent !important;
+}
+
+:global(.ant-picker-header button:hover) {
+  color: rgba(255, 255, 255, 1) !important;
+  background: rgba(255, 255, 255, 0.15) !important;
+}
+
+:global(.ant-picker-header .ant-picker-header-view) {
+  color: rgba(255, 255, 255, 0.9) !important;
+}
+
+:global(.ant-picker-header .ant-picker-header-view button) {
+  color: rgba(255, 255, 255, 0.9) !important;
+}
+
+:global(.ant-picker-header .ant-picker-header-view button:hover) {
+  color: rgba(255, 255, 255, 1) !important;
+  background: rgba(255, 255, 255, 0.15) !important;
+}
+
+:global(.ant-picker-content) {
+  background: transparent !important;
+}
+
+:global(.ant-picker-content th) {
+  color: rgba(255, 255, 255, 0.7) !important;
+  background: rgba(255, 255, 255, 0.05) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+:global(.ant-picker-cell) {
+  color: rgba(255, 255, 255, 0.9) !important;
+}
+
+:global(.ant-picker-cell .ant-picker-cell-inner) {
+  color: rgba(255, 255, 255, 0.9) !important;
+  background: transparent !important;
+  border: 1px solid transparent !important;
+}
+
+:global(.ant-picker-cell:hover .ant-picker-cell-inner) {
+  background: rgba(59, 130, 246, 0.3) !important;
+  color: rgba(255, 255, 255, 1) !important;
+  border: 1px solid rgba(59, 130, 246, 0.5) !important;
+}
+
+:global(.ant-picker-cell-selected .ant-picker-cell-inner) {
+  background: rgba(59, 130, 246, 0.8) !important;
+  color: rgba(255, 255, 255, 1) !important;
+  border: 1px solid rgba(59, 130, 246, 1) !important;
+}
+
+:global(.ant-picker-cell-in-range .ant-picker-cell-inner) {
+  background: rgba(59, 130, 246, 0.25) !important;
+  color: rgba(255, 255, 255, 0.95) !important;
+}
+
+:global(.ant-picker-cell-range-start .ant-picker-cell-inner),
+:global(.ant-picker-cell-range-end .ant-picker-cell-inner) {
+  background: rgba(59, 130, 246, 0.8) !important;
+  color: rgba(255, 255, 255, 1) !important;
+  border: 1px solid rgba(59, 130, 246, 1) !important;
+}
+
+:global(.ant-picker-cell-range-hover-start .ant-picker-cell-inner),
+:global(.ant-picker-cell-range-hover-end .ant-picker-cell-inner),
+:global(.ant-picker-cell-range-hover .ant-picker-cell-inner) {
+  background: rgba(59, 130, 246, 0.2) !important;
+  color: rgba(255, 255, 255, 0.95) !important;
+}
+
+:global(.ant-picker-today .ant-picker-cell-inner) {
+  border: 1px solid rgba(59, 130, 246, 0.8) !important;
+  color: rgba(59, 130, 246, 1) !important;
+  font-weight: 600 !important;
+}
+
+:global(.ant-picker-cell-disabled .ant-picker-cell-inner) {
+  color: rgba(255, 255, 255, 0.3) !important;
+  background: transparent !important;
+}
+
+:global(.ant-picker-footer) {
+  border-top: 1px solid rgba(255, 255, 255, 0.15) !important;
+  background: rgba(255, 255, 255, 0.05) !important;
+}
+
+:global(.ant-picker-footer .ant-picker-now-btn) {
+  color: rgba(59, 130, 246, 0.9) !important;
+  border: none !important;
+  background: transparent !important;
+}
+
+:global(.ant-picker-footer .ant-picker-now-btn:hover) {
+  color: rgba(59, 130, 246, 1) !important;
+  background: rgba(59, 130, 246, 0.15) !important;
+}
+
+/* 年月选择面板样式 */
+:global(.ant-picker-year-panel),
+:global(.ant-picker-month-panel) {
+  background: rgba(30, 30, 30, 0.98) !important;
+}
+
+:global(.ant-picker-year-panel .ant-picker-cell .ant-picker-cell-inner),
+:global(.ant-picker-month-panel .ant-picker-cell .ant-picker-cell-inner) {
+  color: rgba(255, 255, 255, 0.9) !important;
+}
+
+/* 时间选择器样式 */
+:global(.ant-picker-time-panel) {
+  background: rgba(30, 30, 30, 0.98) !important;
+  border-left: 1px solid rgba(255, 255, 255, 0.15) !important;
+}
+
+:global(.ant-picker-time-panel .ant-picker-time-panel-column) {
+  color: rgba(255, 255, 255, 0.9) !important;
+}
+
+:global(.ant-picker-time-panel .ant-picker-time-panel-cell) {
+  color: rgba(255, 255, 255, 0.9) !important;
+}
+
+:global(.ant-picker-time-panel .ant-picker-time-panel-cell:hover) {
+  background: rgba(59, 130, 246, 0.2) !important;
+}
+
+/* 确保所有日期文字都可见 */
+:global(.ant-picker-dropdown *) {
+  color: rgba(255, 255, 255, 0.9) !important;
+}
+
+:global(.ant-picker-dropdown .ant-picker-cell-inner) {
+  color: rgba(255, 255, 255, 0.9) !important;
+  font-weight: 500 !important;
+}
+
+:global(.ant-picker-dropdown .ant-picker-header-view button) {
+  color: rgba(255, 255, 255, 0.9) !important;
+  font-weight: 600 !important;
+}
+
+/* 修复可能的透明度问题 */
+:global(.ant-picker-dropdown) {
+  opacity: 1 !important;
+}
+
+:global(.ant-picker-panel-container) {
+  background: rgba(30, 30, 30, 0.98) !important;
+}
+
+/* 强制设置日期数字的颜色 */
+:global(.ant-picker-cell-inner) {
+  color: rgba(255, 255, 255, 0.9) !important;
+  background: transparent !important;
+}
+
+/* 周标题 */
+:global(.ant-picker-content thead th) {
+  color: rgba(255, 255, 255, 0.8) !important;
+  font-weight: 600 !important;
+}
+
+/* 额外的输入框文字颜色修复 */
+:deep(.ant-picker) {
+  color: rgba(255, 255, 255, 0.9) !important;
+}
+
+:deep(.ant-picker input) {
+  color: rgba(255, 255, 255, 0.9) !important;
+  -webkit-text-fill-color: rgba(255, 255, 255, 0.9) !important;
+}
+
+:deep(.ant-picker-input) {
+  color: rgba(255, 255, 255, 0.9) !important;
+}
+
+:deep(.ant-picker-input input) {
+  color: rgba(255, 255, 255, 0.9) !important;
+  -webkit-text-fill-color: rgba(255, 255, 255, 0.9) !important;
+}
+
+/* 强制覆盖可能的自动填充样式 */
+:deep(.ant-picker input:-webkit-autofill) {
+  -webkit-text-fill-color: rgba(255, 255, 255, 0.9) !important;
+  -webkit-box-shadow: 0 0 0 1000px rgba(255, 255, 255, 0.05) inset !important;
+}
+
+:deep(.ant-picker input:-webkit-autofill:hover) {
+  -webkit-text-fill-color: rgba(255, 255, 255, 0.9) !important;
+  -webkit-box-shadow: 0 0 0 1000px rgba(255, 255, 255, 0.05) inset !important;
+}
+
+:deep(.ant-picker input:-webkit-autofill:focus) {
+  -webkit-text-fill-color: rgba(255, 255, 255, 0.9) !important;
+  -webkit-box-shadow: 0 0 0 1000px rgba(255, 255, 255, 0.05) inset !important;
+}
+
+.date-filter-actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+}
+
+.date-btn {
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.date-btn.clear-btn {
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.date-btn.clear-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.date-btn.apply-btn {
+  background: rgba(59, 130, 246, 0.15);
+  color: rgba(59, 130, 246, 0.9);
+  border-color: rgba(59, 130, 246, 0.3);
+}
+
+.date-btn.apply-btn:hover {
+  background: rgba(59, 130, 246, 0.25);
+  color: rgba(59, 130, 246, 1);
+  border-color: rgba(59, 130, 246, 0.5);
+}
+
 /* 分组选择器样式 */
 .category-selector {
   position: relative;
@@ -1118,6 +1642,24 @@ onUnmounted(() => {
 @keyframes spin {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
+}
+
+/* 下拉框过渡动画 */
+.dropdown-enter-active,
+.dropdown-leave-active {
+  transition: all 0.3s ease;
+}
+
+.dropdown-enter-from,
+.dropdown-leave-to {
+  opacity: 0;
+  transform: translateY(-10px) scale(0.95);
+}
+
+.dropdown-enter-to,
+.dropdown-leave-from {
+  opacity: 1;
+  transform: translateY(0) scale(1);
 }
 
 
@@ -1281,6 +1823,9 @@ onUnmounted(() => {
   color: rgba(255, 255, 255, 0.9);
   font-size: 0.875rem;
   transition: all 0.3s ease;
+  min-width: 0;
+  height: 42px;
+  box-sizing: border-box;
 }
 
 .todo-input::placeholder {
@@ -1294,9 +1839,146 @@ onUnmounted(() => {
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
+/* 内联日期选择器样式 */
+:deep(.ant-date-picker-inline) {
+  background: rgba(255, 255, 255, 0.05) !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  border-radius: 0.5rem !important;
+  color: rgba(255, 255, 255, 0.9) !important;
+  font-size: 0.875rem !important;
+  width: 320px !important;
+  height: 42px !important;
+  padding: 0.5rem 0.75rem !important;
+  flex-shrink: 0;
+}
+
+:deep(.ant-date-picker-inline:hover) {
+  border-color: rgba(255, 255, 255, 0.25) !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+}
+
+:deep(.ant-date-picker-inline.ant-date-picker-focused) {
+  border-color: rgba(59, 130, 246, 0.4) !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1) !important;
+}
+
+:deep(.ant-date-picker-inline .ant-date-picker-input) {
+  color: rgba(255, 255, 255, 0.9) !important;
+  height: 100% !important;
+  display: flex !important;
+  align-items: center !important;
+}
+
+:deep(.ant-date-picker-inline .ant-date-picker-input > input) {
+  color: rgba(255, 255, 255, 0.9) !important;
+  background: transparent !important;
+  font-size: 0.875rem !important;
+  -webkit-text-fill-color: rgba(255, 255, 255, 0.9) !important;
+  height: 100% !important;
+  line-height: 1.5 !important;
+  padding: 0 !important;
+}
+
+:deep(.ant-date-picker-inline .ant-date-picker-input > input::placeholder) {
+  color: rgba(255, 255, 255, 0.4) !important;
+  font-size: 0.875rem !important;
+}
+
+/* 确保日期选择器内容不会溢出 */
+:deep(.ant-date-picker-inline .ant-date-picker-input) {
+  overflow: hidden !important;
+}
+
+:deep(.ant-date-picker-inline .ant-date-picker-input > input) {
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+}
+
+:deep(.ant-date-picker-inline .ant-date-picker-separator) {
+  color: rgba(255, 255, 255, 0.6) !important;
+}
+
+:deep(.ant-date-picker-inline .ant-date-picker-suffix) {
+  color: rgba(255, 255, 255, 0.6) !important;
+}
+
+:deep(.ant-date-picker-inline .ant-date-picker-clear) {
+  color: rgba(255, 255, 255, 0.6) !important;
+}
+
+/* 小尺寸 DatePicker 样式 */
+:deep(.ant-date-picker-small) {
+  background: rgba(255, 255, 255, 0.05) !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  border-radius: 0.375rem !important;
+  color: rgba(255, 255, 255, 0.9) !important;
+  font-size: 0.8rem !important;
+  width: 240px !important;
+  max-width: 100% !important;
+}
+
+:deep(.ant-date-picker-small:hover) {
+  border-color: rgba(255, 255, 255, 0.25) !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+}
+
+:deep(.ant-date-picker-small.ant-date-picker-focused) {
+  border-color: rgba(59, 130, 246, 0.4) !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1) !important;
+}
+
+:deep(.ant-date-picker-small .ant-date-picker-input) {
+  color: rgba(255, 255, 255, 0.9) !important;
+}
+
+:deep(.ant-date-picker-small .ant-date-picker-input > input) {
+  color: rgba(255, 255, 255, 0.9) !important;
+  background: transparent !important;
+  font-size: 0.8rem !important;
+}
+
+:deep(.ant-date-picker-small .ant-date-picker-input > input::placeholder) {
+  color: rgba(255, 255, 255, 0.4) !important;
+  font-size: 0.8rem !important;
+}
+
+:deep(.ant-date-picker-small .ant-date-picker-input > input::-webkit-input-placeholder) {
+  color: rgba(255, 255, 255, 0.4) !important;
+}
+
+:deep(.ant-date-picker-small .ant-date-picker-input > input::-moz-placeholder) {
+  color: rgba(255, 255, 255, 0.4) !important;
+}
+
+/* 修复小尺寸选中后的文字颜色 */
+:deep(.ant-date-picker-small .ant-date-picker-input input[value]) {
+  color: rgba(255, 255, 255, 0.9) !important;
+}
+
+:deep(.ant-date-picker-small.ant-date-picker-focused .ant-date-picker-input > input) {
+  color: rgba(255, 255, 255, 0.9) !important;
+}
+
+:deep(.ant-date-picker-small .ant-date-picker-separator) {
+  color: rgba(255, 255, 255, 0.6) !important;
+}
+
+:deep(.ant-date-picker-small .ant-date-picker-suffix) {
+  color: rgba(255, 255, 255, 0.6) !important;
+}
+
+:deep(.ant-date-picker-small .ant-date-picker-clear) {
+  color: rgba(255, 255, 255, 0.6) !important;
+}
+
+
+
 .add-btn {
-  width: 2rem;
-  height: 2rem;
+  width: 42px;
+  height: 42px;
   border-radius: 0.5rem;
   display: flex;
   align-items: center;
@@ -1306,6 +1988,7 @@ onUnmounted(() => {
   transition: all 0.3s ease;
   background: rgba(59, 130, 246, 0.1);
   color: rgba(59, 130, 246, 0.9);
+  flex-shrink: 0;
 }
 
 .add-btn:hover:not(:disabled) {
@@ -1517,6 +2200,26 @@ onUnmounted(() => {
 .todo-text.completed {
   text-decoration: line-through;
   color: rgba(255, 255, 255, 0.5);
+}
+
+/* 任务日期显示 */
+.todo-dates {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  margin-top: 0.25rem;
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.todo-dates .date-icon {
+  width: 0.875rem;
+  height: 0.875rem;
+  color: rgba(59, 130, 246, 0.7);
+}
+
+.date-range {
+  font-weight: 500;
 }
 
 
@@ -1779,6 +2482,36 @@ onUnmounted(() => {
     left: 0;
     right: 0;
     min-width: auto;
+  }
+
+  .date-filter-trigger {
+    min-width: 150px;
+  }
+
+  .date-filter-dropdown {
+    left: 0;
+    right: 0;
+    min-width: auto;
+  }
+
+  .add-todo-form {
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  :deep(.ant-date-picker) {
+    width: 100% !important;
+    max-width: 280px !important;
+  }
+
+  :deep(.ant-date-picker-small) {
+    width: 100% !important;
+    max-width: 240px !important;
+  }
+
+  :deep(.ant-date-picker-inline) {
+    width: 100% !important;
+    max-width: 320px !important;
   }
 
   .golden-ratio-container {

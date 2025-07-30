@@ -113,6 +113,8 @@ CREATE TABLE IF NOT EXISTS panel_todos (
   completed BOOLEAN NOT NULL DEFAULT FALSE COMMENT '是否已完成',
   category_id INT COMMENT '所属分组ID，外键关联panel_categories表（type=todo）',
   sort_order INT NOT NULL DEFAULT 0 COMMENT '排序序号',
+  start_date VARCHAR(10) COMMENT '开始日期，格式：yyyy-MM-dd',
+  end_date VARCHAR(10) COMMENT '结束日期，格式：yyyy-MM-dd',
   created_at VARCHAR(19) COMMENT '创建时间，格式：yyyy-MM-dd HH:mm:ss',
   updated_at VARCHAR(19) COMMENT '更新时间，格式：yyyy-MM-dd HH:mm:ss',
   INDEX idx_sort_order (sort_order),

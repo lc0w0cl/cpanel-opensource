@@ -36,6 +36,11 @@ public class TodoServiceImpl extends ServiceImpl<TodoMapper, Todo> implements To
 
     @Override
     public Todo createTodo(String text, Integer categoryId) {
+        return createTodo(text, categoryId, null, null);
+    }
+
+    @Override
+    public Todo createTodo(String text, Integer categoryId, String startDate, String endDate) {
         try {
             // 获取下一个排序序号（按分组）
             Integer maxSortOrder;
@@ -51,19 +56,34 @@ public class TodoServiceImpl extends ServiceImpl<TodoMapper, Todo> implements To
             todo.setCompleted(false);
             todo.setCategoryId(categoryId);
             todo.setSortOrder(nextSortOrder);
+            todo.setStartDate(startDate);
+            todo.setEndDate(endDate);
 
             boolean success = save(todo);
             if (success) {
-                log.info("创建TODO任务成功: text={}, categoryId={}", text, categoryId);
+                log.info("创建TODO任务成功: text={}, categoryId={}, startDate={}, endDate={}",
+                        text, categoryId, startDate, endDate);
                 return todo;
             } else {
-                log.error("创建TODO任务失败: text={}, categoryId={}", text, categoryId);
+                log.error("创建TODO任务失败: text={}, categoryId={}, startDate={}, endDate={}",
+                        text, categoryId, startDate, endDate);
                 return null;
             }
         } catch (Exception e) {
-            log.error("创建TODO任务异常: text={}, categoryId={}", text, categoryId, e);
+            log.error("创建TODO任务异常: text={}, categoryId={}, startDate={}, endDate={}",
+                    text, categoryId, startDate, endDate, e);
             return null;
         }
+    }
+
+    @Override
+    public List<Todo> getTodosByDateRange(String startDate, String endDate) {
+        return baseMapper.getTodosByDateRange(startDate, endDate);
+    }
+
+    @Override
+    public List<Todo> getTodosByCategoryAndDateRange(Integer categoryId, String startDate, String endDate) {
+        return baseMapper.getTodosByCategoryAndDateRange(categoryId, startDate, endDate);
     }
 
     @Override
@@ -82,6 +102,27 @@ public class TodoServiceImpl extends ServiceImpl<TodoMapper, Todo> implements To
             return success;
         } catch (Exception e) {
             log.error("更新TODO任务内容异常: id={}, text={}", id, text, e);
+            return false;
+        }
+    }
+
+    @Override
+    public boolean updateTodoDates(Long id, String startDate, String endDate) {
+        try {
+            UpdateWrapper<Todo> updateWrapper = new UpdateWrapper<>();
+            updateWrapper.eq("id", id)
+                    .set("start_date", startDate)
+                    .set("end_date", endDate);
+
+            boolean success = update(updateWrapper);
+            if (success) {
+                log.info("更新TODO任务日期成功: id={}, startDate={}, endDate={}", id, startDate, endDate);
+            } else {
+                log.error("更新TODO任务日期失败: id={}, startDate={}, endDate={}", id, startDate, endDate);
+            }
+            return success;
+        } catch (Exception e) {
+            log.error("更新TODO任务日期异常: id={}, startDate={}, endDate={}", id, startDate, endDate, e);
             return false;
         }
     }

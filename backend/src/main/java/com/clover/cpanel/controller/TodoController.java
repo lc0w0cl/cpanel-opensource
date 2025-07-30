@@ -53,6 +53,44 @@ public class TodoController {
     }
 
     /**
+     * 根据日期范围获取任务列表
+     * @param startDate 开始日期
+     * @param endDate 结束日期
+     * @return 任务列表
+     */
+    @GetMapping("/date-range")
+    public ApiResponse<List<Todo>> getTodosByDateRange(@RequestParam String startDate, @RequestParam String endDate) {
+        try {
+            List<Todo> todos = todoService.getTodosByDateRange(startDate, endDate);
+            return ApiResponse.success(todos);
+        } catch (Exception e) {
+            log.error("根据日期范围获取TODO任务列表失败: startDate={}, endDate={}", startDate, endDate, e);
+            return ApiResponse.error("根据日期范围获取任务列表失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * 根据分组ID和日期范围获取任务列表
+     * @param categoryId 分组ID
+     * @param startDate 开始日期
+     * @param endDate 结束日期
+     * @return 任务列表
+     */
+    @GetMapping("/category/{categoryId}/date-range")
+    public ApiResponse<List<Todo>> getTodosByCategoryAndDateRange(@PathVariable Integer categoryId,
+                                                                  @RequestParam String startDate,
+                                                                  @RequestParam String endDate) {
+        try {
+            List<Todo> todos = todoService.getTodosByCategoryAndDateRange(categoryId, startDate, endDate);
+            return ApiResponse.success(todos);
+        } catch (Exception e) {
+            log.error("根据分组ID和日期范围获取TODO任务列表失败: categoryId={}, startDate={}, endDate={}",
+                    categoryId, startDate, endDate, e);
+            return ApiResponse.error("根据分组和日期范围获取任务列表失败：" + e.getMessage());
+        }
+    }
+
+    /**
      * 创建新任务
      * @param request 请求参数
      * @return 创建的任务
@@ -80,7 +118,11 @@ public class TodoController {
                 }
             }
 
-            Todo todo = todoService.createTodo(text.trim(), categoryId);
+            // 获取日期（可选）
+            String startDate = (String) request.get("startDate");
+            String endDate = (String) request.get("endDate");
+
+            Todo todo = todoService.createTodo(text.trim(), categoryId, startDate, endDate);
             if (todo != null) {
                 return ApiResponse.success(todo);
             } else {
@@ -115,6 +157,30 @@ public class TodoController {
         } catch (Exception e) {
             log.error("更新TODO任务内容失败: id={}", id, e);
             return ApiResponse.error("更新任务内容失败：" + e.getMessage());
+        }
+    }
+
+    /**
+     * 更新任务日期
+     * @param id 任务ID
+     * @param request 请求参数
+     * @return 操作结果
+     */
+    @PutMapping("/{id}/dates")
+    public ApiResponse<String> updateTodoDates(@PathVariable Long id, @RequestBody Map<String, String> request) {
+        try {
+            String startDate = request.get("startDate");
+            String endDate = request.get("endDate");
+
+            boolean success = todoService.updateTodoDates(id, startDate, endDate);
+            if (success) {
+                return ApiResponse.success("更新任务日期成功");
+            } else {
+                return ApiResponse.error("更新任务日期失败");
+            }
+        } catch (Exception e) {
+            log.error("更新TODO任务日期失败: id={}", id, e);
+            return ApiResponse.error("更新任务日期失败：" + e.getMessage());
         }
     }
 

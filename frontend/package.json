@@ -16,6 +16,8 @@
     "@vueuse/core": "^13.3.0",
     "@xterm/addon-fit": "^0.10.0",
     "@xterm/xterm": "^5.5.0",
+    "ant-design-vue": "^4.2.6",
+    "dayjs": "^1.11.13",
     "motion-v": "^1.2.1",
     "nuxt": "^3.17.5",
     "tailwindcss": "^4.1.10",

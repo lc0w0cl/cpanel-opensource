@@ -44,6 +44,18 @@ public class Todo {
     private Integer sortOrder;
 
     /**
+     * 开始日期，格式：yyyy-MM-dd
+     */
+    @TableField("start_date")
+    private String startDate;
+
+    /**
+     * 结束日期，格式：yyyy-MM-dd
+     */
+    @TableField("end_date")
+    private String endDate;
+
+    /**
      * 创建时间，格式：yyyy-MM-dd HH:mm:ss
      */
     @TableField(value = "created_at", fill = FieldFill.INSERT)

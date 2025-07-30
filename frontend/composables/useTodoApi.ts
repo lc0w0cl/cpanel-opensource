@@ -9,6 +9,8 @@ export interface Todo {
   completed: boolean
   categoryId?: number
   sortOrder?: number
+  startDate?: string
+  endDate?: string
   createdAt: string
   updatedAt: string
 }
@@ -227,7 +229,7 @@ export const useTodoApi = () => {
         method: 'DELETE'
       })
       const result = await response.json()
-      
+
       if (result.success) {
         return result.data.deletedCount || 0
       } else {
@@ -240,6 +242,72 @@ export const useTodoApi = () => {
     }
   }
 
+  /**
+   * 根据日期范围获取任务列表
+   */
+  const getTodosByDateRange = async (startDate: string, endDate: string): Promise<Todo[]> => {
+    try {
+      const response = await apiRequest(`${API_BASE_URL}/todos/date-range?startDate=${startDate}&endDate=${endDate}`)
+      const result = await response.json()
+
+      if (result.success) {
+        return result.data || []
+      } else {
+        console.error('根据日期范围获取任务列表失败:', result.message)
+        return []
+      }
+    } catch (error) {
+      console.error('根据日期范围获取任务列表异常:', error)
+      return []
+    }
+  }
+
+  /**
+   * 根据分组ID和日期范围获取任务列表
+   */
+  const getTodosByCategoryAndDateRange = async (categoryId: number, startDate: string, endDate: string): Promise<Todo[]> => {
+    try {
+      const response = await apiRequest(`${API_BASE_URL}/todos/category/${categoryId}/date-range?startDate=${startDate}&endDate=${endDate}`)
+      const result = await response.json()
+
+      if (result.success) {
+        return result.data || []
+      } else {
+        console.error('根据分组和日期范围获取任务列表失败:', result.message)
+        return []
+      }
+    } catch (error) {
+      console.error('根据分组和日期范围获取任务列表异常:', error)
+      return []
+    }
+  }
+
+  /**
+   * 更新任务日期
+   */
+  const updateTodoDates = async (id: number, startDate?: string, endDate?: string): Promise<boolean> => {
+    try {
+      const response = await apiRequest(`${API_BASE_URL}/todos/${id}/dates`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ startDate, endDate })
+      })
+      const result = await response.json()
+
+      if (result.success) {
+        return true
+      } else {
+        console.error('更新任务日期失败:', result.message)
+        return false
+      }
+    } catch (error) {
+      console.error('更新任务日期异常:', error)
+      return false
+    }
+  }
+
   return {
     getAllTodos,
     createTodo,
@@ -249,6 +317,9 @@ export const useTodoApi = () => {
     updateTodosSortOrder,
     setAllTodosCompleted,
     setTodosCompleted,
-    deleteCompletedTodos
+    deleteCompletedTodos,
+    getTodosByDateRange,
+    getTodosByCategoryAndDateRange,
+    updateTodoDates
   }
 }
