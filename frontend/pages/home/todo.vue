@@ -1305,6 +1305,7 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
+
 /* Todo应用样式 */
 .todo-dashboard {
   padding: 2rem;
@@ -2414,7 +2415,7 @@ onUnmounted(() => {
 .todo-column {
   display: flex;
   flex-direction: column;
-  height: 100%;
+  height: auto; /* 让内容决定高度 */
   border-radius: 0.75rem;
   border: 1px solid rgba(255, 255, 255, 0.1);
   background: transparent;
@@ -2535,7 +2536,39 @@ onUnmounted(() => {
   flex: 1;
   padding: 1rem;
   overflow-y: auto;
+  /* 先用一个固定值测试，你可以调整这个值 */
+  max-height: 70vh !important;
+  /* 自定义滚动条样式 */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
 }
+
+/* Webkit浏览器滚动条样式 */
+.column-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.column-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.column-content::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 3px;
+}
+
+.column-content::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* 不同分辨率下的高度适配 */
+@media  (min-height: 1200px) {
+  .column-content {
+    max-height: 77vh !important; /* 高分辨率屏幕使用更大比例 */
+  }
+}
+
+
 
 /* 添加任务表单 */
 .add-todo-form {
@@ -3255,118 +3288,6 @@ onUnmounted(() => {
   box-shadow: none;
 }
 
-/* 响应式样式 */
-@media (max-width: 768px) {
-  .dashboard-header {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 1.5rem;
-  }
-
-  .header-left {
-    flex-direction: column;
-    gap: 1rem;
-    align-items: stretch;
-  }
-
-  .header-right {
-    justify-content: center;
-  }
-
-  .stats-summary {
-    justify-content: center;
-    flex-wrap: wrap;
-  }
-
-  .category-dropdown-trigger {
-    min-width: 200px;
-  }
-
-  .category-dropdown-menu {
-    left: 0;
-    right: 0;
-    min-width: auto;
-  }
-
-  .date-filter-trigger {
-    min-width: 150px;
-  }
-
-  .date-filter-dropdown {
-    left: 0;
-    right: 0;
-    min-width: auto;
-  }
-
-  .add-todo-form {
-    flex-direction: column;
-    gap: 1rem;
-  }
-
-  :deep(.ant-date-picker) {
-    width: 100% !important;
-    max-width: 280px !important;
-  }
-
-  :deep(.ant-date-picker-small) {
-    width: 100% !important;
-    max-width: 240px !important;
-  }
-
-  :deep(.ant-date-picker-inline) {
-    width: 100% !important;
-    max-width: 320px !important;
-  }
-
-  .three-column-container {
-    grid-template-columns: 1fr;
-    gap: 1.5rem;
-  }
-
-  /* 移动端日历样式调整 */
-  .calendar-section {
-    padding: 1rem;
-  }
-
-  .calendar-header {
-    margin-bottom: 1rem;
-  }
-
-  .calendar-title {
-    font-size: 1.125rem;
-  }
-
-  :deep(.todo-calendar .ant-picker-calendar-header) {
-    padding: 0.5rem !important;
-    margin-bottom: 0.75rem !important;
-  }
-
-  :deep(.calendar-events .ant-badge-status) {
-    font-size: 10px !important;
-  }
-
-  :deep(.calendar-events .ant-badge-status-text) {
-    font-size: 10px !important;
-    margin-left: 6px !important;
-  }
-
-  .calendar-details {
-    padding: 0.75rem;
-  }
-
-  .details-title {
-    font-size: 0.875rem;
-  }
-
-  .today-todo-item {
-    padding: 0.5rem;
-  }
-
-  .todo-title {
-    font-size: 0.8rem;
-  }
-}
-
   /* 编辑模态框移动端适配 */
   .edit-modal-content {
     width: 95vw !important;
@@ -3399,5 +3320,6 @@ onUnmounted(() => {
   :deep(.edit-date-picker .ant-date-picker-input > input) {
     font-size: 0.875rem !important;
   }
+
 
 </style>
