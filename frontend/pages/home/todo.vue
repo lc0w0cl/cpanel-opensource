@@ -764,17 +764,29 @@ onMounted(async () => {
 
   // 添加点击外部关闭下拉框的事件监听
   document.addEventListener('click', handleClickOutside)
+
+  // 禁用父级容器的滚动，让todo页面自己管理滚动
+  const contentWrapper = document.querySelector('.content-wrapper')
+  if (contentWrapper) {
+    contentWrapper.style.overflow = 'hidden'
+  }
 })
 
 // 组件卸载时移除事件监听
 onUnmounted(() => {
   document.removeEventListener('click', handleClickOutside)
+
+  // 恢复父级容器的滚动
+  const contentWrapper = document.querySelector('.content-wrapper')
+  if (contentWrapper) {
+    contentWrapper.style.overflow = 'auto'
+  }
 })
 </script>
 
 <template>
   <NuxtLayout>
-    <div class="todo-dashboard">
+    <div class="todo-dashboard todo-page-container">
       <!-- 页面标题 -->
       <div class="dashboard-header">
         <div class="header-left">
@@ -1125,22 +1137,6 @@ onUnmounted(() => {
             class="calendar-column"
           >
             <div class="calendar-section">
-              <div class="calendar-header">
-                <div class="calendar-title-group">
-                  <Icon icon="mdi:calendar-month" class="calendar-icon" />
-                  <h3 class="calendar-title">通知事项日历</h3>
-                </div>
-                <button
-                  @click="toggleCalendar"
-                  class="calendar-toggle-btn"
-                  :title="showCalendar ? '隐藏日历' : '显示日历'"
-                >
-                  <Icon
-                    :icon="showCalendar ? 'mdi:calendar-minus' : 'mdi:calendar-plus'"
-                    class="toggle-icon"
-                  />
-                </button>
-              </div>
 
               <Transition name="calendar-slide">
                 <div v-if="showCalendar" class="calendar-content">
@@ -1311,6 +1307,26 @@ onUnmounted(() => {
   padding: 2rem;
   width: 100%;
   min-height: 100vh;
+}
+
+/* 覆盖dashboard布局的content-wrapper滚动设置 */
+:deep(.content-wrapper) {
+  overflow: hidden !important; /* 禁用页面级别的滚动 */
+}
+
+/* 更强力的覆盖，使用页面特定的类名 */
+.todo-page-container {
+  height: 100%;
+  overflow: hidden;
+}
+
+/* 确保父级容器也不会滚动 */
+:global(.content-glass-panel:has(.todo-page-container)) {
+  overflow: hidden !important;
+}
+
+:global(.content-wrapper:has(.todo-page-container)) {
+  overflow: hidden !important;
 }
 
 /* 页面标题区域 */
@@ -2082,12 +2098,7 @@ onUnmounted(() => {
   backdrop-filter: blur(10px);
 }
 
-.calendar-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 1.5rem;
-}
+
 
 .calendar-title-group {
   display: flex;
@@ -2102,7 +2113,7 @@ onUnmounted(() => {
 }
 
 .calendar-title {
-  font-size: 1.25rem;
+  font-size: 1.1rem;
   font-weight: 600;
   color: rgba(255, 255, 255, 0.9);
   margin: 0;
@@ -2146,21 +2157,7 @@ onUnmounted(() => {
   border: none !important;
 }
 
-:deep(.todo-calendar .ant-picker-calendar-header) {
-  background: rgba(255, 255, 255, 0.05) !important;
-  border-radius: 0.5rem !important;
-  padding: 0.75rem !important;
-  margin-bottom: 1rem !important;
-  border: 1px solid rgba(255, 255, 255, 0.1) !important;
-}
 
-:deep(.todo-calendar .ant-picker-calendar-header .ant-picker-calendar-year-select),
-:deep(.todo-calendar .ant-picker-calendar-header .ant-picker-calendar-month-select) {
-  color: rgba(255, 255, 255, 0.9) !important;
-  background: rgba(255, 255, 255, 0.05) !important;
-  border: 1px solid rgba(255, 255, 255, 0.2) !important;
-  border-radius: 0.375rem !important;
-}
 
 :deep(.todo-calendar .ant-picker-content) {
   background: transparent !important;
