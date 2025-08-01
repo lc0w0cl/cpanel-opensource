@@ -49,6 +49,10 @@ const selectedDateRange = ref<[Dayjs, Dayjs] | null>(null)
 const showDateFilter = ref(false)
 const newTodoDateRange = ref<[Dayjs, Dayjs] | null>(null)
 
+// 排序相关数据
+const sortType = ref<'custom' | 'startDate'>('custom')
+const showSortDropdown = ref(false)
+
 // Ant Design Vue 中文配置
 const locale = zhCN
 
@@ -80,14 +84,28 @@ const sortedTodos = computed(() => {
     })
   }
 
-  // 默认按sortOrder排序，如果没有sortOrder则按创建时间倒序
+  // 根据选择的排序方式进行排序
   return [...filteredByDate].sort((a, b) => {
-    if (a.sortOrder !== undefined && b.sortOrder !== undefined) {
-      return a.sortOrder - b.sortOrder
+    if (sortType.value === 'startDate') {
+      // 按开始时间排序
+      const aDate = a.startDate ? dayjs(a.startDate) : dayjs('2100-12-31')
+      const bDate = b.startDate ? dayjs(b.startDate) : dayjs('2100-12-31')
+
+      if (aDate.isSame(bDate)) {
+        // 如果开始时间相同，按创建时间排序
+        return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+      }
+
+      return aDate.isBefore(bDate) ? -1 : 1
+    } else {
+      // 自定义排序（默认）
+      if (a.sortOrder !== undefined && b.sortOrder !== undefined) {
+        return a.sortOrder - b.sortOrder
+      }
+      if (a.sortOrder !== undefined) return -1
+      if (b.sortOrder !== undefined) return 1
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     }
-    if (a.sortOrder !== undefined) return -1
-    if (b.sortOrder !== undefined) return 1
-    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
   })
 })
 
@@ -573,6 +591,40 @@ const selectedCategoryName = computed(() => {
   return category ? category.name : '未知分组'
 })
 
+// 排序相关函数
+const sortTypeName = computed(() => {
+  return sortType.value === 'custom' ? '自定义排序' : '按开始时间'
+})
+
+const selectSortType = (type: 'custom' | 'startDate') => {
+  sortType.value = type
+  showSortDropdown.value = false
+  // 保存排序选择到本地存储
+  saveSortType(type)
+}
+
+// 本地存储排序选择
+const SORT_TYPE_KEY = 'todo-sort-type'
+
+const loadSortType = () => {
+  try {
+    const saved = localStorage.getItem(SORT_TYPE_KEY)
+    if (saved && (saved === 'custom' || saved === 'startDate')) {
+      sortType.value = saved
+    }
+  } catch (error) {
+    console.warn('加载排序类型失败:', error)
+  }
+}
+
+const saveSortType = (type: 'custom' | 'startDate') => {
+  try {
+    localStorage.setItem(SORT_TYPE_KEY, type)
+  } catch (error) {
+    console.warn('保存排序类型失败:', error)
+  }
+}
+
 // 日期过滤相关函数
 const clearDateFilter = () => {
   selectedDateRange.value = null
@@ -732,6 +784,7 @@ const handleClickOutside = (event: MouseEvent) => {
   const target = event.target as HTMLElement
   const categoryDropdown = document.querySelector('.category-dropdown')
   const dateFilter = document.querySelector('.date-filter')
+  const sortDropdown = document.querySelector('.sort-dropdown')
 
   if (categoryDropdown && !categoryDropdown.contains(target)) {
     showCategoryDropdown.value = false
@@ -740,12 +793,17 @@ const handleClickOutside = (event: MouseEvent) => {
   if (dateFilter && !dateFilter.contains(target)) {
     showDateFilter.value = false
   }
+
+  if (sortDropdown && !sortDropdown.contains(target)) {
+    showSortDropdown.value = false
+  }
 }
 
 // 组件挂载时加载数据
 onMounted(async () => {
-  // 先加载保存的分组选择
+  // 先加载保存的分组选择和排序类型
   loadSelectedCategory()
+  loadSortType()
 
   await loadTodos()
   await fetchTodoCategories()
@@ -850,6 +908,50 @@ onUnmounted(() => {
                 </div>
               </div>
             </Transition>
+          </div>
+
+          <!-- 排序选择器 -->
+          <div class="sort-selector">
+            <div class="sort-dropdown" @click.stop>
+              <button
+                class="sort-dropdown-trigger"
+                @click="showSortDropdown = !showSortDropdown"
+              >
+                <Icon icon="mdi:sort" class="dropdown-icon" />
+                <span class="dropdown-text">{{ sortTypeName }}</span>
+                <Icon
+                  icon="mdi:chevron-down"
+                  class="dropdown-arrow"
+                  :class="{ 'rotated': showSortDropdown }"
+                />
+              </button>
+
+              <Transition name="dropdown">
+                <div v-if="showSortDropdown" class="sort-dropdown-menu">
+                  <div class="dropdown-item" @click="selectSortType('custom')">
+                    <Icon icon="mdi:drag" class="item-icon" />
+                    <span class="item-text">自定义排序</span>
+                    <Icon
+                      v-if="sortType === 'custom'"
+                      icon="mdi:check"
+                      class="check-icon"
+                    />
+                  </div>
+
+                  <div class="dropdown-divider"></div>
+
+                  <div class="dropdown-item" @click="selectSortType('startDate')">
+                    <Icon icon="mdi:calendar-clock" class="item-icon" />
+                    <span class="item-text">按开始时间</span>
+                    <Icon
+                      v-if="sortType === 'startDate'"
+                      icon="mdi:check"
+                      class="check-icon"
+                    />
+                  </div>
+                </div>
+              </Transition>
+            </div>
           </div>
 
           <div class="category-selector">
@@ -980,6 +1082,12 @@ onUnmounted(() => {
               </div>
 
               <div class="column-content">
+                <!-- 排序提示 -->
+                <div v-if="sortType === 'startDate'" class="sort-notice">
+                  <Icon icon="mdi:information" class="notice-icon" />
+                  <span class="notice-text">按开始时间排序，拖拽功能已禁用</span>
+                </div>
+
                 <!-- 待办任务列表 -->
                 <VueDraggable
                   v-model="activeTodos"
@@ -989,7 +1097,9 @@ onUnmounted(() => {
                   chosen-class="chosen-item"
                   drag-class="drag-item"
                   :animation="200"
+                  :disabled="sortType === 'startDate'"
                   class="todo-list active-list"
+                  :class="{ 'sort-disabled': sortType === 'startDate' }"
                 >
                   <div
                     v-for="todo in activeTodos"
@@ -1898,6 +2008,53 @@ onUnmounted(() => {
   background: rgba(59, 130, 246, 0.25);
   color: rgba(59, 130, 246, 1);
   border-color: rgba(59, 130, 246, 0.5);
+}
+
+/* 排序选择器样式 */
+.sort-selector {
+  position: relative;
+}
+
+.sort-dropdown {
+  position: relative;
+}
+
+.sort-dropdown-trigger {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: transparent;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  min-width: 140px;
+}
+
+.sort-dropdown-trigger:hover {
+  border-color: rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.08);
+  transform: translateY(-1px);
+}
+
+.sort-dropdown-menu {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  right: 0;
+  min-width: 180px;
+  max-height: 200px;
+  overflow-y: auto;
+  background: rgba(30, 30, 30, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 0.75rem;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+  z-index: 1000;
+  padding: 0.5rem;
+  backdrop-filter: blur(10px);
 }
 
 /* 分组选择器样式 */
@@ -2913,6 +3070,44 @@ onUnmounted(() => {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
+/* 禁用拖拽时的样式 */
+.sort-disabled .draggable-item {
+  cursor: default !important;
+}
+
+.sort-disabled .draggable-item:active {
+  cursor: default !important;
+}
+
+.sort-disabled .draggable-item:hover {
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+/* 排序提示样式 */
+.sort-notice {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
+  background: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  border-radius: 0.5rem;
+  color: rgba(59, 130, 246, 0.9);
+  font-size: 0.875rem;
+}
+
+.notice-icon {
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
+}
+
+.notice-text {
+  flex: 1;
+}
+
 /* 拖拽区域提示 */
 .todo-list {
   min-height: 100px;
@@ -3316,6 +3511,17 @@ onUnmounted(() => {
 
   :deep(.edit-date-picker .ant-date-picker-input > input) {
     font-size: 0.875rem !important;
+  }
+
+  /* 移动端排序选择器样式 */
+  .sort-dropdown-trigger {
+    min-width: 120px;
+  }
+
+  .sort-dropdown-menu {
+    left: 0;
+    right: 0;
+    min-width: auto;
   }
 
 
